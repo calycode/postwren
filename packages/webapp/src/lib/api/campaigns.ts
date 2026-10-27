@@ -114,3 +114,12 @@ export function audiencePreview(query: string): Promise<AudiencePreview> {
    const search = new URLSearchParams({ q: query });
    return apiFetch<AudiencePreview>(`/api/v1/audience/preview?${search.toString()}`);
 }
+
+export function preview(id: string): Promise<{
+   html: string;
+   text: string;
+   bytes: number;
+   warnings: unknown[];
+}> {
+   return apiFetch(`/api/v1/campaigns/${encodeURIComponent(id)}/preview`);
+}

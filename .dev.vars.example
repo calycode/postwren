@@ -1,0 +1,5 @@
+# Copy to `.dev.vars` for a production-like local Worker.
+# `wrangler dev` reads this file and overrides vars from wrangler.dev.jsonc.
+SESSION_SECRET=replace-with-32-plus-random-bytes
+TOKEN_SECRET=replace-with-32-plus-random-bytes
+OWNER_EMAIL=you@example.com

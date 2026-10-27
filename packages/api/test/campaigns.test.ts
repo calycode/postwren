@@ -179,3 +179,30 @@ describe('campaigns', () => {
       expect(response.status).toBe(201);
    });
 });
+
+describe('campaign preview', () => {
+   it('renders the campaign with sample merge data and the unsubscribe footer', async () => {
+      const owner = await seedOwner();
+      const { id } = await createCampaign(owner);
+
+      const response = await app.request(`/api/v1/campaigns/${id}/preview`, {
+         headers: { cookie: owner.cookie },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await json(response);
+      expect(body.data.bytes).toBeGreaterThan(0);
+      expect(body.data.html).not.toContain('{{');
+      expect(body.data.html).toContain('unsubscribe');
+      expect(Array.isArray(body.data.warnings)).toBe(true);
+   });
+
+   it('requires authentication', async () => {
+      const owner = await seedOwner();
+      const { id } = await createCampaign(owner);
+
+      const response = await app.request(`/api/v1/campaigns/${id}/preview`);
+
+      expect(response.status).toBe(401);
+   });
+});

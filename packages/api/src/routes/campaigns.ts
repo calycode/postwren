@@ -358,6 +358,24 @@ campaignRoutes.get('/:id/recipients', async (c) => {
    });
 });
 
+campaignRoutes.get('/:id/preview', async (c) => {
+   const campaign = await findCampaign(c.env.DB, c.req.param('id'));
+   const snapshot =
+      campaign.ir_snapshot ?? (await requireTemplate(c.env.DB, campaign.template_id)).ir_json;
+
+   const base = parseDocument(JSON.parse(snapshot));
+   const document = applyMergeTags(
+      base,
+      sampleMergeContext({
+         subject: campaign.subject,
+         utm_campaign: campaign.utm_campaign,
+      }),
+   );
+   const result = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
+
+   return ok(result, { requestId: c.get('requestId') });
+});
+
 campaignRoutes.get('/:id/stats', async (c) => {
    const id = c.req.param('id');
    const campaign = await findCampaign(c.env.DB, id);

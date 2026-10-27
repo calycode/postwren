@@ -169,7 +169,11 @@ describe('subscribers', () => {
       });
       const rows = (await json(list)).data;
       expect(rows).toHaveLength(1);
-      expect(rows[0].tags.map((tag: { name: string }) => tag.name).sort()).toEqual(['imported', 'news', 'vip']);
+      expect(rows[0].tags.map((tag: { name: string }) => tag.name).sort()).toEqual([
+         'imported',
+         'news',
+         'vip',
+      ]);
    });
 
    it('exports subscribers as CSV', async () => {

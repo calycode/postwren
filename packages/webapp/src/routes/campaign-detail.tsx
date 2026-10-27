@@ -29,6 +29,7 @@ import { CampaignFields } from '@/components/campaigns/campaign-fields';
 import { defaultSender, useSenders } from '@/components/campaigns/use-senders';
 import { CampaignRecipients } from '@/components/campaigns/campaign-recipients';
 import { CampaignStats } from '@/components/campaigns/campaign-stats';
+import { EmailPreviewDialog } from '@/components/editor/preview-dialog';
 import {
    formatUtcDateTime,
    parseLocalDateTime,
@@ -55,6 +56,7 @@ import {
    cancel as cancelCampaign,
    get as getCampaign,
    pause as pauseCampaign,
+   preview as previewCampaign,
    schedule as scheduleCampaign,
    sendNow,
    stats as loadStats,
@@ -118,6 +120,9 @@ export function CampaignDetail() {
    const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
    const [saving, setSaving] = useState(false);
    const [actionError, setActionError] = useState<string | null>(null);
+   const [previewOpen, setPreviewOpen] = useState(false);
+   const [previewLoading, setPreviewLoading] = useState(false);
+   const [previewData, setPreviewData] = useState<{ html: string; text: string } | null>(null);
    const [notice, setNotice] = useState<string | null>(null);
 
    const [stats, setStats] = useState<CampaignStatsView | null>(null);
@@ -262,6 +267,22 @@ export function CampaignDetail() {
       const nextForm = formFromCampaign(next);
       setForm(nextForm);
       setSavedForm(nextForm);
+   }
+
+   async function openPreview(): Promise<void> {
+      if (campaign === null) return;
+
+      setPreviewLoading(true);
+      setActionError(null);
+      try {
+         const result = await previewCampaign(campaign.id);
+         setPreviewData({ html: result.html, text: result.text });
+         setPreviewOpen(true);
+      } catch (cause) {
+         setActionError(errorMessage(cause, 'Could not render the campaign preview'));
+      } finally {
+         setPreviewLoading(false);
+      }
    }
 
    async function save(): Promise<void> {
@@ -463,6 +484,14 @@ export function CampaignDetail() {
                      <Badge variant={campaignStatusVariant(campaign.status)}>
                         {titleCase(campaign.status)}
                      </Badge>
+                     <Button
+                        variant="outline"
+                        disabled={previewLoading}
+                        onClick={() => void openPreview()}
+                     >
+                        <MailCheck aria-hidden="true" />
+                        {previewLoading ? 'Rendering…' : 'Preview'}
+                     </Button>
                      {actions?.save === true && (
                         <Button
                            disabled={!dirty || saving}
@@ -847,6 +876,14 @@ export function CampaignDetail() {
             loading={cancelBusy}
             error={cancelError}
             onConfirm={confirmCancel}
+         />
+
+         <EmailPreviewDialog
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+            name={campaign?.name ?? 'Campaign'}
+            html={previewData?.html ?? ''}
+            text={previewData?.text ?? ''}
          />
 
          <div className="flex flex-wrap gap-2">

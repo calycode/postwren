@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { fail } from '@mailer/worker-kit/envelope';
+import { fail, ok } from '@mailer/worker-kit/envelope';
 import type { AppEnv, Env } from './env';
 import { requestContext } from './middleware/context';
 import { onErrorHandler } from './middleware/error';
@@ -33,6 +33,19 @@ export function createApp(env: Env): Hono<AppEnv> {
    );
 
    app.onError(onErrorHandler);
+
+   app.get('/api/health', async (c) => {
+      try {
+         await c.env.DB.prepare('SELECT 1').first();
+      } catch {
+         return fail(503, 'unavailable', 'Database unavailable', undefined, c.get('requestId'));
+      }
+
+      return ok(
+         { status: 'ok', time: Math.floor(Date.now() / 1000) },
+         { requestId: c.get('requestId') },
+      );
+   });
 
    app.use('/api/auth/session', requireAuth);
    app.use('/api/auth/logout', requireCsrf);

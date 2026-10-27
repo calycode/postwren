@@ -1,0 +1,38 @@
+name: CI
+
+on:
+   push:
+      branches: [main]
+   pull_request:
+
+concurrency:
+   group: ci-${{ github.ref }}
+   cancel-in-progress: true
+
+jobs:
+   verify:
+      runs-on: ubuntu-latest
+      timeout-minutes: 20
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: pnpm/action-setup@v4
+           with:
+              version: 11
+
+         - uses: actions/setup-node@v4
+           with:
+              node-version: 22
+              cache: pnpm
+
+         - run: pnpm install --frozen-lockfile
+
+         - run: pnpm format:check
+         - run: pnpm lint
+         - run: pnpm check-types
+         - run: pnpm test
+         - run: pnpm build:all
+
+         - run: pnpm exec wrangler deploy --dry-run --config wrangler.jsonc --outdir .wrangler/dry
+           env:
+              CLOUDFLARE_API_TOKEN: unused-for-dry-run

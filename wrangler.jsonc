@@ -35,7 +35,7 @@
          },
       ],
    },
-   "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": [] }],
+   "send_email": [{ "name": "EMAIL" }],
    "triggers": {
       "crons": ["* * * * *"],
    },
