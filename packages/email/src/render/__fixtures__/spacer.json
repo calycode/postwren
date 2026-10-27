@@ -1,0 +1,18 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "spacer-1",
+         "type": "spacer",
+         "height": 32
+      }
+   ]
+}

@@ -1,0 +1,26 @@
+{
+   "name": "@mailer/api",
+   "version": "0.1.0",
+   "private": true,
+   "type": "module",
+   "main": "src/index.ts",
+   "scripts": {
+      "test": "vitest run",
+      "check-types": "tsc --noEmit",
+      "lint": "eslint src"
+   },
+   "dependencies": {
+      "@mailer/email": "workspace:*",
+      "@mailer/shared": "workspace:*",
+      "@mailer/worker-kit": "workspace:*",
+      "hono": "^4.13.14",
+      "zod": "^3.25.76"
+   },
+   "devDependencies": {
+      "@cloudflare/vitest-pool-workers": "^0.23.0",
+      "@cloudflare/workers-types": "^4.0.0",
+      "typescript": "^6.0.3",
+      "vitest": "^4.1.12",
+      "wrangler": "^4.153.0"
+   }
+}

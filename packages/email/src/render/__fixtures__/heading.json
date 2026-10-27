@@ -1,0 +1,24 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "preheader": "A short preview line",
+   "children": [
+      {
+         "id": "heading-1",
+         "type": "heading",
+         "level": 2,
+         "text": "Hello **bold** world",
+         "align": "left",
+         "fontSize": 28,
+         "lineHeight": 36,
+         "padding": { "top": 24, "right": 24, "bottom": 8, "left": 24 }
+      }
+   ]
+}

@@ -1,0 +1,21 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "divider-1",
+         "type": "divider",
+         "color": "#e4e4e7",
+         "thickness": 1,
+         "widthPercent": 80,
+         "padding": { "top": 16, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

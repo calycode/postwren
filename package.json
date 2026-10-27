@@ -1,0 +1,38 @@
+{
+   "name": "mailer-cloudflare",
+   "private": true,
+   "type": "module",
+   "packageManager": "pnpm@11.22.0",
+   "engines": {
+      "node": ">=22"
+   },
+   "scripts": {
+      "dev": "run-p dev:web dev:worker",
+      "dev:web": "pnpm --filter @mailer/webapp dev",
+      "dev:worker": "wrangler dev --config wrangler.dev.jsonc --port 8787",
+      "build": "turbo run build --filter=@mailer/webapp",
+      "build:all": "turbo run build",
+      "build:worker": "wrangler deploy --dry-run --config wrangler.jsonc --outdir dist",
+      "deploy": "pnpm build:all && wrangler deploy --config wrangler.jsonc",
+      "test": "turbo run test",
+      "check-types": "turbo run check-types",
+      "lint": "turbo run lint",
+      "format": "prettier --write .",
+      "format:check": "prettier --check .",
+      "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.dev.jsonc",
+      "db:migrate:remote": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
+      "db:migrate:check": "wrangler d1 migrations list DB --local --config wrangler.dev.jsonc"
+   },
+   "devDependencies": {
+      "@eslint/js": "^9.39.5",
+      "@types/node": "^26.6.5",
+      "eslint": "^9.39.4",
+      "npm-run-all2": "^8.0.4",
+      "prettier": "^3.9.10",
+      "turbo": "^2.11.10",
+      "typescript": "^6.0.3",
+      "typescript-eslint": "^8.72.1",
+      "vitest": "^4.1.12",
+      "wrangler": "^4.153.0"
+   }
+}

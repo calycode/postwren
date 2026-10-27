@@ -1,0 +1,302 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderEmail > golden output for button > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 24px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left"><tbody><tr><td align="center" bgcolor="#0f766e" style="border-radius:6px;background-color:#0f766e;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:19px;color:#ffffff;mso-line-height-rule:exactly;">
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://example.com/read?from=email" style="height:43px;v-text-anchor:middle;width:134px;" arcsize="14%">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;font-weight:bold;">Read more</center>
+</v:roundrect>
+<![endif]-->
+<a href="https://example.com/read?from=email" style="display:inline-block;padding:12px 24px;background-color:#0f766e;color:#ffffff;border-radius:6px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:19px;font-weight:bold;text-decoration:none;mso-hide:all;">Read more</a>
+</td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for columns > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 8px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="stack" width="50%" valign="top" style="width:50%;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 8px 0px 0px;text-align:left;">Left side</td></tr></tbody></table>
+</td><td class="stack" width="50%" valign="top" style="width:50%;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 0px 0px 8px;text-align:left;">Right side</td></tr></tbody></table>
+</td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for composed > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>A composed message</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+<span style="display:none!important;font-size:1px;line-height:1px;max-height:0;overflow:hidden;mso-hide:all;color:transparent;">Everything in one message&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</span>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:32px;line-height:40px;color:#18181b;padding:24px 24px 8px 24px;text-align:center;"><h1 style="margin:0;font-family:Georgia, 'Times New Roman', Times, serif;font-size:32px;line-height:40px;color:#18181b;text-align:center;">A <strong>composed</strong> message</h1></td></tr><tr><td class="px" align="left" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 24px 16px 24px;text-align:left;">Read <em>more</em> in <a href="https://example.com/notes" style="color:#0f766e;text-decoration:underline;">our notes</a>.</td></tr><tr><td class="px" align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 16px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tbody><tr><td align="center" bgcolor="#18181b" style="border-radius:24px;background-color:#18181b;font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:19px;color:#ffffff;mso-line-height-rule:exactly;">
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://example.com/open" style="height:47px;v-text-anchor:middle;width:190px;" arcsize="50%">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;font-weight:bold;">Open the notes</center>
+</v:roundrect>
+<![endif]-->
+<a href="https://example.com/open" style="display:inline-block;padding:14px 28px;background-color:#18181b;color:#ffffff;border-radius:24px;font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:19px;font-weight:bold;text-decoration:none;mso-hide:all;">Open the notes</a>
+</td></tr></tbody></table>
+</td></tr><tr><td class="px" align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 24px 16px 24px;"><img src="https://example.com/cover.jpg" alt="Cover" width="552" border="0" style="display:block;width:552px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;margin:0 auto;"></td></tr><tr><td class="px" align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 8px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" style="width:100%;"><tbody><tr><td height="2" bgcolor="#d4d4d8" style="background-color:#d4d4d8;height:2px;font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr></tbody></table>
+</td></tr><tr><td class="px" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 8px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="stack" width="50%" valign="top" style="width:50%;font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="px" align="left" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:14px;line-height:22px;color:#18181b;padding:0px 8px 0px 0px;text-align:left;">First column</td></tr></tbody></table>
+</td><td class="stack" width="50%" valign="top" style="width:50%;font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="px" align="left" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:14px;line-height:22px;color:#18181b;padding:0px 0px 0px 8px;text-align:left;">Second column</td></tr></tbody></table>
+</td></tr></tbody></table>
+</td></tr><tr><td height="16" style="font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr><tr><td class="px" align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 24px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tbody><tr><td align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:20px;line-height:24px;color:#0f766e;padding:0 8px;"><a href="https://x.com/example" style="color:#0f766e;font-family:Georgia, 'Times New Roman', Times, serif;font-size:20px;line-height:24px;font-weight:bold;text-decoration:none;">X</a></td><td align="center" style="font-family:Georgia, 'Times New Roman', Times, serif;font-size:20px;line-height:24px;color:#0f766e;padding:0 8px;"><a href="https://linkedin.com/company/example" style="color:#0f766e;font-family:Georgia, 'Times New Roman', Times, serif;font-size:20px;line-height:24px;font-weight:bold;text-decoration:none;">LinkedIn</a></td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for divider > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:16px 24px 16px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="80%" align="center" style="width:80%;"><tbody><tr><td height="1" bgcolor="#e4e4e7" style="background-color:#e4e4e7;height:1px;font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for heading > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Hello bold world</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+<span style="display:none!important;font-size:1px;line-height:1px;max-height:0;overflow:hidden;mso-hide:all;color:transparent;">A short preview line&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</span>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:28px;line-height:36px;color:#18181b;padding:24px 24px 8px 24px;text-align:left;"><h2 style="margin:0;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:28px;line-height:36px;color:#18181b;text-align:left;">Hello <strong>bold</strong> world</h2></td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for image > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 8px 24px;"><a href="https://example.com/about" style="text-decoration:none;"><img src="https://example.com/team.png" alt="The team" width="480" border="0" style="display:block;width:480px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;margin:0 auto;"></a></td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for social > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 24px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:24px;line-height:28px;color:#0f766e;padding:0 8px;"><a href="https://x.com/example" style="color:#0f766e;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:24px;line-height:28px;font-weight:bold;text-decoration:none;">X</a></td><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:24px;line-height:28px;color:#0f766e;padding:0 8px;"><a href="https://github.com/example" style="color:#0f766e;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:24px;line-height:28px;font-weight:bold;text-decoration:none;">GitHub</a></td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for spacer > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td height="32" style="font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for text > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 24px 16px 24px;text-align:left;">Hello <em>friend</em>,<br>read <a href="https://example.com/guide" style="color:#0f766e;text-decoration:underline;">the guide</a> today.</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;

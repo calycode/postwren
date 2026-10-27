@@ -1,0 +1,51 @@
+{
+   "$schema": "node_modules/wrangler/config-schema.json",
+   "name": "mailer-cloudflare",
+   "main": "packages/api/src/index.ts",
+   "compatibility_date": "2026-09-01",
+   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+   "assets": {
+      "directory": "packages/webapp/dist/client",
+      "binding": "ASSETS",
+      "not_found_handling": "single-page-application",
+      "run_worker_first": ["/api/*", "/t/*", "/u/*", "/media/*"],
+   },
+   "d1_databases": [
+      {
+         "binding": "DB",
+         "database_name": "mailer-cloudflare",
+         "migrations_dir": "migrations",
+      },
+   ],
+   "r2_buckets": [
+      {
+         "binding": "MEDIA",
+         "bucket_name": "mailer-cloudflare-media",
+      },
+   ],
+   "queues": {
+      "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "mailer-campaigns" }],
+      "consumers": [
+         {
+            "queue": "mailer-campaigns",
+            "max_batch_size": 100,
+            "max_batch_timeout": 10,
+            "max_retries": 5,
+            "dead_letter_queue": "mailer-campaigns-dlq",
+         },
+      ],
+   },
+   "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": [] }],
+   "triggers": {
+      "crons": ["* * * * *"],
+   },
+   "observability": {
+      "enabled": true,
+   },
+   "vars": {
+      "APP_URL": "https://mailer.example.com",
+      "ENVIRONMENT": "production",
+      "EMAIL_FROM": "noreply@mailer.example.com",
+      "OWNER_EMAIL": "",
+   },
+}

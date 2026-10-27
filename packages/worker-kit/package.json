@@ -1,0 +1,22 @@
+{
+   "name": "@mailer/worker-kit",
+   "version": "0.1.0",
+   "private": true,
+   "type": "module",
+   "exports": {
+      "./envelope": "./src/envelope.ts",
+      "./errors": "./src/errors.ts",
+      "./request": "./src/request.ts",
+      "./ids": "./src/ids.ts",
+      "./http": "./src/http.ts"
+   },
+   "scripts": {
+      "test": "vitest run",
+      "check-types": "tsc --noEmit",
+      "lint": "eslint src"
+   },
+   "devDependencies": {
+      "typescript": "^6.0.3",
+      "vitest": "^4.1.12"
+   }
+}

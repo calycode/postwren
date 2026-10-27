@@ -1,0 +1,116 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "GEORGIA"
+   },
+   "preheader": "Everything in one message",
+   "children": [
+      {
+         "id": "composed-heading",
+         "type": "heading",
+         "level": 1,
+         "text": "A **composed** message",
+         "align": "center",
+         "fontSize": 32,
+         "lineHeight": 40,
+         "padding": { "top": 24, "right": 24, "bottom": 8, "left": 24 }
+      },
+      {
+         "id": "composed-text",
+         "type": "text",
+         "text": "Read *more* in [our notes](https://example.com/notes).",
+         "align": "left",
+         "fontSize": 16,
+         "lineHeight": 24,
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      },
+      {
+         "id": "composed-button",
+         "type": "button",
+         "text": "Open the notes",
+         "href": "https://example.com/open",
+         "align": "center",
+         "backgroundColor": "#18181b",
+         "textColor": "#ffffff",
+         "borderRadius": 24,
+         "fontSize": 16,
+         "fontWeight": "bold",
+         "padding": { "top": 8, "right": 24, "bottom": 16, "left": 24 },
+         "innerPaddingX": 28,
+         "innerPaddingY": 14
+      },
+      {
+         "id": "composed-image",
+         "type": "image",
+         "src": "https://example.com/cover.jpg",
+         "alt": "Cover",
+         "width": 552,
+         "align": "center",
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      },
+      {
+         "id": "composed-divider",
+         "type": "divider",
+         "color": "#d4d4d8",
+         "thickness": 2,
+         "widthPercent": 100,
+         "padding": { "top": 8, "right": 24, "bottom": 8, "left": 24 }
+      },
+      {
+         "id": "composed-columns",
+         "type": "columns",
+         "columns": [
+            {
+               "widthPercent": 50,
+               "blocks": [
+                  {
+                     "id": "composed-columns-a",
+                     "type": "text",
+                     "text": "First column",
+                     "align": "left",
+                     "fontSize": 14,
+                     "lineHeight": 22,
+                     "padding": { "top": 0, "right": 8, "bottom": 0, "left": 0 }
+                  }
+               ]
+            },
+            {
+               "widthPercent": 50,
+               "blocks": [
+                  {
+                     "id": "composed-columns-b",
+                     "type": "text",
+                     "text": "Second column",
+                     "align": "left",
+                     "fontSize": 14,
+                     "lineHeight": 22,
+                     "padding": { "top": 0, "right": 0, "bottom": 0, "left": 8 }
+                  }
+               ]
+            }
+         ],
+         "padding": { "top": 8, "right": 24, "bottom": 8, "left": 24 }
+      },
+      {
+         "id": "composed-spacer",
+         "type": "spacer",
+         "height": 16
+      },
+      {
+         "id": "composed-social",
+         "type": "social",
+         "links": [
+            { "network": "x", "href": "https://x.com/example" },
+            { "network": "linkedin", "href": "https://linkedin.com/company/example" }
+         ],
+         "align": "center",
+         "iconSize": 20,
+         "padding": { "top": 8, "right": 24, "bottom": 24, "left": 24 }
+      }
+   ]
+}

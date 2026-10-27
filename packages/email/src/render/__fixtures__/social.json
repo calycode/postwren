@@ -1,0 +1,24 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "social-1",
+         "type": "social",
+         "links": [
+            { "network": "x", "href": "https://x.com/example" },
+            { "network": "github", "href": "https://github.com/example" }
+         ],
+         "align": "center",
+         "iconSize": 24,
+         "padding": { "top": 8, "right": 24, "bottom": 24, "left": 24 }
+      }
+   ]
+}

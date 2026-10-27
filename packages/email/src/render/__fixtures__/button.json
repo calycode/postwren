@@ -1,0 +1,28 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "button-1",
+         "type": "button",
+         "text": "Read more",
+         "href": "https://example.com/read?from=email",
+         "align": "left",
+         "backgroundColor": "#0f766e",
+         "textColor": "#ffffff",
+         "borderRadius": 6,
+         "fontSize": 16,
+         "fontWeight": "bold",
+         "padding": { "top": 8, "right": 24, "bottom": 24, "left": 24 },
+         "innerPaddingX": 24,
+         "innerPaddingY": 12
+      }
+   ]
+}

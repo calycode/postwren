@@ -1,0 +1,62 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { fail } from '@mailer/worker-kit/envelope';
+import type { AppEnv, Env } from './env';
+import { requestContext } from './middleware/context';
+import { onErrorHandler } from './middleware/error';
+import { requireAuth, requireCsrf } from './middleware/auth';
+import { authRoutes } from './routes/auth';
+import { subscriberRoutes } from './routes/subscribers';
+import { tagRoutes } from './routes/tags';
+import { templateRoutes } from './routes/templates';
+import { campaignRoutes } from './routes/campaigns';
+import { audienceRoutes } from './routes/audience';
+import { settingsRoutes } from './routes/settings';
+import { trackingRoutes } from './routes/tracking';
+import { mediaUploadRoutes, mediaServeRoutes } from './routes/media';
+
+const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
+
+export function createApp(env: Env): Hono<AppEnv> {
+   const app = new Hono<AppEnv>();
+
+   app.use('*', requestContext);
+   app.use(
+      '*',
+      cors({
+         origin: (origin) => (ALLOWED_ORIGINS.has(origin) ? origin : undefined),
+         credentials: true,
+         allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+         allowHeaders: ['content-type', 'x-csrf-token'],
+         maxAge: 600,
+      }),
+   );
+
+   app.onError(onErrorHandler);
+
+   app.use('/api/auth/session', requireAuth);
+   app.use('/api/auth/logout', requireCsrf);
+   app.route('/api/auth', authRoutes);
+
+   app.use('/api/v1/*', requireAuth);
+   app.use('/api/v1/*', requireCsrf);
+   app.route('/api/v1/subscribers', subscriberRoutes);
+   app.route('/api/v1/tags', tagRoutes);
+   app.route('/api/v1/templates', templateRoutes);
+   app.route('/api/v1/campaigns', campaignRoutes);
+   app.route('/api/v1/audience', audienceRoutes);
+   app.route('/api/v1/settings', settingsRoutes);
+   app.route('/api/v1/media', mediaUploadRoutes);
+
+   app.route('/', trackingRoutes);
+   app.route('/', mediaServeRoutes);
+
+   app.notFound((c) => {
+      if (c.req.path.startsWith('/api')) {
+         return fail(404, 'not_found', 'Not found', undefined, c.get('requestId'));
+      }
+      return env.ASSETS.fetch(c.req.raw);
+   });
+
+   return app;
+}

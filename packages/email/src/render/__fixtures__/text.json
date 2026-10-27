@@ -1,0 +1,22 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "text-1",
+         "type": "text",
+         "text": "Hello *friend*,\nread [the guide](https://example.com/guide) today.",
+         "align": "left",
+         "fontSize": 16,
+         "lineHeight": 24,
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

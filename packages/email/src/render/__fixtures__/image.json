@@ -1,0 +1,23 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "image-1",
+         "type": "image",
+         "src": "https://example.com/team.png",
+         "alt": "The team",
+         "href": "https://example.com/about",
+         "width": 480,
+         "align": "center",
+         "padding": { "top": 8, "right": 24, "bottom": 8, "left": 24 }
+      }
+   ]
+}

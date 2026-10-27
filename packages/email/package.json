@@ -1,0 +1,43 @@
+{
+   "name": "@mailer/email",
+   "version": "0.1.0",
+   "description": "Table-safe email intermediate representation and renderer for legacy clients",
+   "license": "MIT",
+   "type": "module",
+   "files": [
+      "dist"
+   ],
+   "exports": {
+      ".": {
+         "types": "./dist/index.d.ts",
+         "import": "./dist/index.js"
+      },
+      "./ir": {
+         "types": "./src/ir/index.ts",
+         "import": "./src/ir/index.ts"
+      },
+      "./render": {
+         "types": "./src/render/index.ts",
+         "import": "./src/render/index.ts"
+      },
+      "./template": {
+         "types": "./src/template/index.ts",
+         "import": "./src/template/index.ts"
+      },
+      "./package.json": "./package.json"
+   },
+   "scripts": {
+      "test": "vitest run",
+      "check-types": "tsc --noEmit",
+      "build": "tsup",
+      "lint": "eslint src"
+   },
+   "dependencies": {
+      "zod": "^3.25.76"
+   },
+   "devDependencies": {
+      "tsup": "^9.0.0",
+      "typescript": "^6.0.3",
+      "vitest": "^4.1.12"
+   }
+}
