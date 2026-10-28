@@ -50,6 +50,7 @@ const ALLOWED = new Set([
    'h1',
    'h2',
    'h3',
+   'code',
    'html',
    'head',
    'body',
@@ -101,6 +102,8 @@ function collectBlockIds(blocks: Block[]): string[] {
          for (const column of block.columns) {
             ids.push(...collectBlockIds(column.blocks));
          }
+      } else if (block.type === 'section') {
+         ids.push(...collectBlockIds(block.children));
       }
    }
    return ids;
@@ -180,10 +183,14 @@ describe('renderEmail', () => {
             expect(attributeValue(tag, 'width')).toBeDefined();
             expect(attributeValue(tag, 'border')).toBe('0');
             const style = attributeValue(tag, 'style') ?? '';
+            const height = attributeValue(tag, 'height');
             expect(style).toContain('display:block');
-            expect(style).toContain('height:auto');
+            if (height === undefined) {
+               expect(style).toContain('height:auto');
+            } else {
+               expect(style).toContain(`height:${height}px`);
+            }
             expect(style).toContain('-ms-interpolation-mode:bicubic');
-            expect(attributeValue(tag, 'height')).toBeUndefined();
          }
       });
 
@@ -233,6 +240,10 @@ describe('renderEmail', () => {
       'spacer',
       'columns',
       'social',
+      'avatar',
+      'gallery',
+      'table',
+      'section',
       'composed',
    ])('golden output for %s', (name) => {
       it('matches the snapshot', () => {
@@ -537,5 +548,137 @@ describe('extended blocks', () => {
 
       expect(html).toContain('@media (max-width:599px)');
       expect(html).toContain('.stack{display:block!important;width:100%!important;}');
+   });
+});
+
+describe('new blocks', () => {
+   it('renders a section as a bordered nested table with annotated children', () => {
+      const doc = fixture('section');
+      const html = renderEmail(doc, { annotateBlocks: true }).html;
+
+      expect(html).toContain('bgcolor="#f9fafb"');
+      expect(html).toContain('border:2px solid #e4e4e7');
+      expect(html).toContain('data-block-id="section-1-text"');
+      expect(html).toContain('data-block-id="section-1"');
+   });
+
+   it('omits the section border declaration when the width is zero', () => {
+      const doc = fixture('section');
+      const section = doc.children[0];
+      if (section?.type !== 'section') throw new Error('unexpected fixture shape');
+
+      const html = renderEmail({
+         ...doc,
+         children: [{ ...section, borderWidth: 0 }],
+      }).html;
+
+      expect(html).not.toContain('border:0px');
+      expect(html).not.toContain('border:2px solid');
+   });
+
+   it('rounds the avatar radius per shape and keeps square dimensions', () => {
+      const doc = fixture('avatar');
+      const avatar = doc.children[0];
+      if (avatar?.type !== 'avatar') throw new Error('unexpected fixture shape');
+
+      const circle = renderEmail(doc).html;
+      expect(circle).toContain('width="64"');
+      expect(circle).toContain('height="64"');
+      expect(circle).toContain('border-radius:50%');
+
+      const rounded = renderEmail({
+         ...doc,
+         children: [{ ...avatar, shape: 'rounded' }],
+      }).html;
+      expect(rounded).toContain('border-radius:8px');
+      expect(rounded).not.toContain('border-radius:50%');
+   });
+
+   it('renders one gallery cell per image with even widths and trailing gaps', () => {
+      const html = renderEmail(fixture('gallery')).html;
+      const cells = html.match(/<td class="stack"[^>]*>/g) ?? [];
+
+      expect(cells).toHaveLength(2);
+      expect(cells[0]).toContain('width="50%"');
+      expect(cells[1]).toContain('width="50%"');
+      expect(cells[0]).toContain('padding-right:8px');
+      expect(cells[1]).not.toContain('padding-right');
+      expect(html).toContain('https://example.com/gallery/second');
+   });
+
+   it('parses table headers and trims cells around pipes', () => {
+      const doc = fixture('table');
+      const table = doc.children[0];
+      if (table?.type !== 'table') throw new Error('unexpected fixture shape');
+
+      const html = renderEmail({
+         ...doc,
+         children: [
+            {
+               ...table,
+               rows: '  Starter  |  $9  | 1\n\n Pro | $29 | 5 ',
+            },
+         ],
+      }).html;
+
+      expect(html).toContain('>Plan</td>');
+      expect(html).toContain('>Starter</td>');
+      expect(html).toContain('>$9</td>');
+      expect(html).toContain('>Pro</td>');
+      expect(html).toContain('font-weight:bold');
+   });
+
+   it('keeps inline links inside table cells and routes them through resolveLink', () => {
+      const doc = fixture('table');
+      const table = doc.children[0];
+      if (table?.type !== 'table') throw new Error('unexpected fixture shape');
+
+      const calls: Array<[string, string]> = [];
+      const html = renderEmail(
+         {
+            ...doc,
+            children: [{ ...table, header: '', rows: 'Docs | [Guide](https://example.com/guide)' }],
+         },
+         {
+            resolveLink: (href, id) => {
+               calls.push([href, id]);
+               return `https://track.test/${id}`;
+            },
+         },
+      ).html;
+
+      expect(calls).toEqual([['https://example.com/guide', 'table-1']]);
+      expect(html).toContain('https://track.test/table-1');
+   });
+
+   it('renders inline code in a text block and strips backticks from plain text', () => {
+      const doc = fixture('text');
+      const block = doc.children[0];
+      if (block?.type !== 'text') throw new Error('unexpected fixture shape');
+
+      const result = renderEmail({
+         ...doc,
+         children: [{ ...block, text: 'Run `pnpm test` first.' }],
+      });
+
+      expect(result.html).toContain('<code style=');
+      expect(result.html).toContain('>pnpm test</code>');
+      expect(result.text).toContain('Run pnpm test first.');
+      expect(result.text).not.toContain('`');
+   });
+
+   it('leaves an unmatched backtick as literal text', () => {
+      const doc = fixture('text');
+      const block = doc.children[0];
+      if (block?.type !== 'text') throw new Error('unexpected fixture shape');
+
+      const result = renderEmail({
+         ...doc,
+         children: [{ ...block, text: 'A stray `tick stays' }],
+      });
+
+      expect(result.html).toContain('A stray `tick stays');
+      expect(result.html).not.toContain('<code');
+      expect(result.text).toContain('A stray `tick stays');
    });
 });

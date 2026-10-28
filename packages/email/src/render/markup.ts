@@ -23,9 +23,11 @@ export type InlineToken =
    | { type: 'text'; text: string }
    | { type: 'strong'; text: string }
    | { type: 'em'; text: string }
+   | { type: 'code'; text: string }
    | { type: 'link'; text: string; href: string };
 
-const INLINE = /\*\*([\s\S]+?)\*\*|\*([^*\n]+?)\*|\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g;
+const INLINE =
+   /`([^`\n]+?)`|\*\*([\s\S]+?)\*\*|\*([^*\n]+?)\*|\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g;
 
 export function parseInline(text: string): InlineToken[] {
    const tokens: InlineToken[] = [];
@@ -37,11 +39,13 @@ export function parseInline(text: string): InlineToken[] {
          tokens.push({ type: 'text', text: text.slice(cursor, index) });
       }
       if (match[1] !== undefined) {
-         tokens.push({ type: 'strong', text: match[1] });
+         tokens.push({ type: 'code', text: match[1] });
       } else if (match[2] !== undefined) {
-         tokens.push({ type: 'em', text: match[2] });
+         tokens.push({ type: 'strong', text: match[2] });
+      } else if (match[3] !== undefined) {
+         tokens.push({ type: 'em', text: match[3] });
       } else {
-         tokens.push({ type: 'link', text: match[3] ?? '', href: match[4] ?? '' });
+         tokens.push({ type: 'link', text: match[4] ?? '', href: match[5] ?? '' });
       }
       cursor = index + match[0].length;
    }
@@ -73,6 +77,11 @@ export function inlineToHtml(
          }
          if (token.type === 'em') {
             return `<em>${escapeHtml(token.text).replace(/\n/g, '<br>')}</em>`;
+         }
+         if (token.type === 'code') {
+            return `<code style="font-family:'Courier New',Courier,monospace;font-size:0.95em;background-color:#f4f4f5;padding:1px 4px;border-radius:3px;">${escapeHtml(
+               token.text,
+            )}</code>`;
          }
          if (token.type === 'link') {
             return `<a href="${escapeHtml(style.resolve(token.href))}" style="${style.link}">${escapeHtml(

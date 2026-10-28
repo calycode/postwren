@@ -1,6 +1,29 @@
 import { z } from 'zod';
 import { DEFAULT_SETTINGS, FONT_STACKS, IR_VERSION } from './types';
-import type { Block, BlockType, Document, DocumentSettings, FontKey, Spacing } from './types';
+import type {
+   AvatarBlock,
+   Block,
+   BlockType,
+   ButtonBlock,
+   CodeBlock,
+   ColumnsBlock,
+   DividerBlock,
+   Document,
+   DocumentSettings,
+   FontKey,
+   GalleryBlock,
+   HeadingBlock,
+   ImageBlock,
+   LinkBlock,
+   ListBlock,
+   QuoteBlock,
+   SectionBlock,
+   SocialBlock,
+   SpacerBlock,
+   Spacing,
+   TableBlock,
+   TextBlock,
+} from './types';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -240,6 +263,74 @@ export const linkBlockSchema = z
    })
    .strict();
 
+export const avatarBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('avatar'),
+      src: httpsUrlSchema,
+      alt: z.string().max(500),
+      size: z.number().int().min(24).max(96),
+      shape: z.enum(['circle', 'rounded']),
+      name: z.string().max(200).optional(),
+      caption: z.string().max(300).optional(),
+      href: hrefSchema.optional(),
+      align: alignSchema,
+      padding: spacingSchema,
+   })
+   .strict();
+
+export const galleryImageSchema = z
+   .object({
+      src: httpsUrlSchema,
+      alt: z.string().max(500),
+      href: hrefSchema.optional(),
+   })
+   .strict();
+
+export const galleryBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('gallery'),
+      images: z.array(galleryImageSchema).min(2).max(4),
+      gap: z.number().int().min(0).max(24),
+      padding: spacingSchema,
+   })
+   .strict();
+
+function tableCells(value: string): string[] {
+   return value
+      .split('|')
+      .map((cell) => cell.trim())
+      .filter((cell) => cell.length > 0);
+}
+
+export const tableBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('table'),
+      header: z
+         .string()
+         .max(2000)
+         .refine((value) => tableCells(value).length <= 20, {
+            message: 'Header may have at most 20 cells',
+         }),
+      rows: z
+         .string()
+         .max(20_000)
+         .refine(
+            (value) => value.split('\n').filter((line) => line.trim().length > 0).length <= 50,
+            { message: 'Table may have at most 50 rows' },
+         ),
+      headerBackgroundColor: hexSchema,
+      borderColor: hexSchema,
+      textColor: hexSchema,
+      fontSize: z.number().int().min(8).max(72),
+      lineHeight: z.number().int().min(8).max(120),
+      cellPadding: z.number().int().min(4).max(24),
+      padding: spacingSchema,
+   })
+   .strict();
+
 export const leafBlockSchema = z.discriminatedUnion('type', [
    headingBlockSchema,
    textBlockSchema,
@@ -252,6 +343,9 @@ export const leafBlockSchema = z.discriminatedUnion('type', [
    quoteBlockSchema,
    codeBlockSchema,
    linkBlockSchema,
+   avatarBlockSchema,
+   galleryBlockSchema,
+   tableBlockSchema,
 ]);
 
 export const columnSchema = z
@@ -278,7 +372,27 @@ export const columnsBlockSchema = z
    })
    .strict();
 
-export const blockSchema = z.union([columnsBlockSchema, leafBlockSchema]);
+export const sectionBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('section'),
+      backgroundColor: hexSchema,
+      borderColor: hexSchema,
+      borderWidth: z.number().int().min(0).max(4),
+      borderRadius: z.union([
+         z.literal(0),
+         z.literal(4),
+         z.literal(6),
+         z.literal(8),
+         z.literal(12),
+      ]),
+      padding: spacingSchema,
+      innerPadding: spacingSchema,
+      children: z.array(leafBlockSchema).max(20),
+   })
+   .strict();
+
+export const blockSchema = z.union([columnsBlockSchema, sectionBlockSchema, leafBlockSchema]);
 
 function blockIds(block: z.infer<typeof blockSchema>): string[] {
    const ids = [block.id];
@@ -287,6 +401,10 @@ function blockIds(block: z.infer<typeof blockSchema>): string[] {
          for (const child of column.blocks) {
             ids.push(...blockIds(child));
          }
+      }
+   } else if (block.type === 'section') {
+      for (const child of block.children) {
+         ids.push(...blockIds(child));
       }
    }
    return ids;
@@ -324,7 +442,7 @@ function randomId(type: BlockType): string {
 
 const defaultPadding = (): Spacing => ({ top: 0, right: 24, bottom: 16, left: 24 });
 
-export function createHeadingBlock(): Block {
+export function createHeadingBlock(): HeadingBlock {
    return {
       id: randomId('heading'),
       type: 'heading',
@@ -337,7 +455,7 @@ export function createHeadingBlock(): Block {
    };
 }
 
-export function createTextBlock(text = 'Write something…'): Block {
+export function createTextBlock(text = 'Write something…'): TextBlock {
    return {
       id: randomId('text'),
       type: 'text',
@@ -349,7 +467,7 @@ export function createTextBlock(text = 'Write something…'): Block {
    };
 }
 
-export function createButtonBlock(): Block {
+export function createButtonBlock(): ButtonBlock {
    return {
       id: randomId('button'),
       type: 'button',
@@ -367,7 +485,7 @@ export function createButtonBlock(): Block {
    };
 }
 
-export function createImageBlock(): Block {
+export function createImageBlock(): ImageBlock {
    return {
       id: randomId('image'),
       type: 'image',
@@ -379,7 +497,7 @@ export function createImageBlock(): Block {
    };
 }
 
-export function createDividerBlock(): Block {
+export function createDividerBlock(): DividerBlock {
    return {
       id: randomId('divider'),
       type: 'divider',
@@ -390,7 +508,7 @@ export function createDividerBlock(): Block {
    };
 }
 
-export function createSpacerBlock(): Block {
+export function createSpacerBlock(): SpacerBlock {
    return {
       id: randomId('spacer'),
       type: 'spacer',
@@ -398,7 +516,7 @@ export function createSpacerBlock(): Block {
    };
 }
 
-export function createColumnsBlock(): Block {
+export function createColumnsBlock(): ColumnsBlock {
    return {
       id: randomId('columns'),
       type: 'columns',
@@ -410,7 +528,7 @@ export function createColumnsBlock(): Block {
    };
 }
 
-export function createSocialBlock(): Block {
+export function createSocialBlock(): SocialBlock {
    return {
       id: randomId('social'),
       type: 'social',
@@ -421,7 +539,7 @@ export function createSocialBlock(): Block {
    };
 }
 
-export function createListBlock(): Block {
+export function createListBlock(): ListBlock {
    return {
       id: randomId('list'),
       type: 'list',
@@ -434,7 +552,7 @@ export function createListBlock(): Block {
    };
 }
 
-export function createQuoteBlock(): Block {
+export function createQuoteBlock(): QuoteBlock {
    return {
       id: randomId('quote'),
       type: 'quote',
@@ -446,7 +564,7 @@ export function createQuoteBlock(): Block {
    };
 }
 
-export function createCodeBlock(): Block {
+export function createCodeBlock(): CodeBlock {
    return {
       id: randomId('code'),
       type: 'code',
@@ -460,7 +578,7 @@ export function createCodeBlock(): Block {
    };
 }
 
-export function createLinkBlock(): Block {
+export function createLinkBlock(): LinkBlock {
    return {
       id: randomId('link'),
       type: 'link',
@@ -471,6 +589,64 @@ export function createLinkBlock(): Block {
       lineHeight: 24,
       underline: true,
       padding: defaultPadding(),
+   };
+}
+
+export function createAvatarBlock(): AvatarBlock {
+   return {
+      id: randomId('avatar'),
+      type: 'avatar',
+      src: 'https://example.com/avatar.png',
+      alt: 'Avatar',
+      size: 48,
+      shape: 'circle',
+      name: 'Ada Lovelace',
+      caption: 'Customer',
+      align: 'center',
+      padding: defaultPadding(),
+   };
+}
+
+export function createGalleryBlock(): GalleryBlock {
+   return {
+      id: randomId('gallery'),
+      type: 'gallery',
+      images: [
+         { src: 'https://example.com/gallery-1.png', alt: 'Gallery image 1' },
+         { src: 'https://example.com/gallery-2.png', alt: 'Gallery image 2' },
+      ],
+      gap: 8,
+      padding: defaultPadding(),
+   };
+}
+
+export function createTableBlock(): TableBlock {
+   return {
+      id: randomId('table'),
+      type: 'table',
+      header: 'Plan | Price | Seats',
+      rows: 'Starter | $9 | 1\nPro | $29 | 5\nTeam | $79 | 20',
+      headerBackgroundColor: '#f4f4f5',
+      borderColor: '#e4e4e7',
+      textColor: '#18181b',
+      fontSize: 14,
+      lineHeight: 20,
+      cellPadding: 8,
+      padding: defaultPadding(),
+   };
+}
+
+export function createSectionBlock(): SectionBlock {
+   return {
+      id: randomId('section'),
+      type: 'section',
+      backgroundColor: '#f9fafb',
+      borderColor: '#e4e4e7',
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: defaultPadding(),
+      innerPadding: { top: 16, right: 16, bottom: 16, left: 16 },
+      children: [createTextBlock('Add content to this section.')],
    };
 }
 
@@ -500,6 +676,14 @@ export function createBlock(type: BlockType): Block {
          return createCodeBlock();
       case 'link':
          return createLinkBlock();
+      case 'avatar':
+         return createAvatarBlock();
+      case 'gallery':
+         return createGalleryBlock();
+      case 'table':
+         return createTableBlock();
+      case 'section':
+         return createSectionBlock();
    }
 }
 

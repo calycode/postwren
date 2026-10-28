@@ -227,6 +227,24 @@ function applyToBlock(block: Block, ctx: MergeContext): void {
          block.text = substituteText(block.text, ctx);
          block.href = substituteHref(block.href, ctx);
          return;
+      case 'avatar':
+         if (block.name !== undefined) block.name = substituteText(block.name, ctx);
+         if (block.caption !== undefined) block.caption = substituteText(block.caption, ctx);
+         if (block.href !== undefined) block.href = substituteHref(block.href, ctx);
+         return;
+      case 'gallery':
+         for (const image of block.images) {
+            image.alt = substituteText(image.alt, ctx);
+            if (image.href !== undefined) image.href = substituteHref(image.href, ctx);
+         }
+         return;
+      case 'table':
+         block.header = substituteText(block.header, ctx);
+         block.rows = substituteText(block.rows, ctx);
+         return;
+      case 'section':
+         for (const child of block.children) applyToBlock(child, ctx);
+         return;
       default:
          return;
    }

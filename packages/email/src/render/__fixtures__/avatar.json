@@ -1,0 +1,26 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "avatar-1",
+         "type": "avatar",
+         "src": "https://example.com/ada.png",
+         "alt": "Ada Lovelace",
+         "size": 64,
+         "shape": "circle",
+         "name": "Ada Lovelace",
+         "caption": "Head of Marketing",
+         "href": "https://example.com/team/ada",
+         "align": "center",
+         "padding": { "top": 8, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

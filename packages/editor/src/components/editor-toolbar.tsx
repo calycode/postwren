@@ -9,6 +9,7 @@ import {
    Separator,
 } from '@mailer/ui';
 import { FileText, Monitor, Settings2, Smartphone, TriangleAlert } from 'lucide-react';
+import type { BlockPattern } from '../lib/patterns';
 import type { Viewport } from '../lib/viewport';
 import { AddBlockMenu } from './add-block-menu';
 
@@ -18,6 +19,7 @@ type EditorToolbarProps = {
    warnings: readonly RenderWarning[];
    bytes: number;
    onAddBlock: (type: BlockType) => void;
+   onAddPattern: (pattern: BlockPattern) => void;
    onOpenDocument: () => void;
    onOpenPlainText: () => void;
 };
@@ -28,13 +30,17 @@ export function EditorToolbar({
    warnings,
    bytes,
    onAddBlock,
+   onAddPattern,
    onOpenDocument,
    onOpenPlainText,
 }: EditorToolbarProps) {
    return (
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card/40 px-3 py-2">
          <div className="flex flex-wrap items-center gap-2">
-            <AddBlockMenu onAdd={onAddBlock} />
+            <AddBlockMenu
+               onAdd={onAddBlock}
+               onAddPattern={onAddPattern}
+            />
 
             <Button
                size="sm"

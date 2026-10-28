@@ -4,6 +4,7 @@ import {
    Columns2,
    Heading1,
    Image as ImageIcon,
+   Images,
    Link as LinkIcon,
    List,
    MousePointerClick,
@@ -11,7 +12,10 @@ import {
    RectangleHorizontal,
    SeparatorHorizontal,
    Share2,
+   Square,
+   Table,
    Type,
+   UserRound,
 } from 'lucide-react';
 
 export function BlockIcon({ type, className }: { type: BlockType; className?: string }) {
@@ -96,6 +100,34 @@ export function BlockIcon({ type, className }: { type: BlockType; className?: st
       case 'link':
          return (
             <LinkIcon
+               className={className}
+               aria-hidden="true"
+            />
+         );
+      case 'avatar':
+         return (
+            <UserRound
+               className={className}
+               aria-hidden="true"
+            />
+         );
+      case 'gallery':
+         return (
+            <Images
+               className={className}
+               aria-hidden="true"
+            />
+         );
+      case 'table':
+         return (
+            <Table
+               className={className}
+               aria-hidden="true"
+            />
+         );
+      case 'section':
+         return (
+            <Square
                className={className}
                aria-hidden="true"
             />

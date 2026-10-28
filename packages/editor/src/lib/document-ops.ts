@@ -1,4 +1,11 @@
-import type { Block, Column, Document, DocumentSettings } from '@mailer/email/ir';
+import type {
+   Block,
+   Column,
+   Document,
+   DocumentSettings,
+   LeafBlock,
+   SectionChild,
+} from '@mailer/email/ir';
 
 export type BlockPatch = Partial<Block>;
 
@@ -15,6 +22,8 @@ function flattenList(blocks: Block[]): Block[] {
          for (const column of block.columns) {
             flat.push(...flattenList(column.blocks));
          }
+      } else if (block.type === 'section') {
+         flat.push(...flattenList(block.children));
       }
    }
    return flat;
@@ -43,11 +52,19 @@ function updateInList(blocks: Block[], id: string, patch: BlockPatch): ListResul
             const result = updateInList(column.blocks, id, patch);
             if (!result.changed) return column;
             columnChanged = true;
-            return { ...column, blocks: result.blocks };
+            return { ...column, blocks: result.blocks as LeafBlock[] };
          });
          if (columnChanged) {
             changed = true;
             return { ...block, columns };
+         }
+      }
+
+      if (block.type === 'section') {
+         const result = updateInList(block.children, id, patch);
+         if (result.changed) {
+            changed = true;
+            return { ...block, children: result.blocks as SectionChild[] };
          }
       }
 
@@ -73,11 +90,20 @@ function removeFromList(blocks: Block[], id: string): ListResult {
             const result = removeFromList(column.blocks, id);
             if (!result.changed) return column;
             columnChanged = true;
-            return { ...column, blocks: result.blocks };
+            return { ...column, blocks: result.blocks as LeafBlock[] };
          });
          if (columnChanged) {
             changed = true;
             next.push({ ...block, columns });
+            continue;
+         }
+      }
+
+      if (block.type === 'section') {
+         const result = removeFromList(block.children, id);
+         if (result.changed) {
+            changed = true;
+            next.push({ ...block, children: result.blocks as SectionChild[] });
             continue;
          }
       }
@@ -103,19 +129,28 @@ function moveInList(blocks: Block[], id: string, delta: -1 | 1): ListResult {
 
    let changed = false;
    const next = blocks.map((block) => {
-      if (block.type !== 'columns') return block;
+      if (block.type === 'columns') {
+         let columnChanged = false;
+         const columns = block.columns.map((column) => {
+            const result = moveInList(column.blocks, id, delta);
+            if (!result.changed) return column;
+            columnChanged = true;
+            return { ...column, blocks: result.blocks as LeafBlock[] };
+         });
 
-      let columnChanged = false;
-      const columns = block.columns.map((column) => {
-         const result = moveInList(column.blocks, id, delta);
-         if (!result.changed) return column;
-         columnChanged = true;
-         return { ...column, blocks: result.blocks };
-      });
+         if (!columnChanged) return block;
+         changed = true;
+         return { ...block, columns };
+      }
 
-      if (!columnChanged) return block;
-      changed = true;
-      return { ...block, columns };
+      if (block.type === 'section') {
+         const result = moveInList(block.children, id, delta);
+         if (!result.changed) return block;
+         changed = true;
+         return { ...block, children: result.blocks as SectionChild[] };
+      }
+
+      return block;
    });
 
    return changed ? { blocks: next, changed } : { blocks, changed };
@@ -142,19 +177,28 @@ function insertAfterInList(blocks: Block[], id: string, block: Block): ListResul
 
    let changed = false;
    const next = blocks.map((candidate) => {
-      if (candidate.type !== 'columns') return candidate;
+      if (candidate.type === 'columns') {
+         let columnChanged = false;
+         const columns = candidate.columns.map((column) => {
+            const result = insertAfterInList(column.blocks, id, block);
+            if (!result.changed) return column;
+            columnChanged = true;
+            return { ...column, blocks: result.blocks as LeafBlock[] };
+         });
 
-      let columnChanged = false;
-      const columns = candidate.columns.map((column) => {
-         const result = insertAfterInList(column.blocks, id, block);
-         if (!result.changed) return column;
-         columnChanged = true;
-         return { ...column, blocks: result.blocks };
-      });
+         if (!columnChanged) return candidate;
+         changed = true;
+         return { ...candidate, columns };
+      }
 
-      if (!columnChanged) return candidate;
-      changed = true;
-      return { ...candidate, columns };
+      if (candidate.type === 'section') {
+         const result = insertAfterInList(candidate.children, id, block);
+         if (!result.changed) return candidate;
+         changed = true;
+         return { ...candidate, children: result.blocks as SectionChild[] };
+      }
+
+      return candidate;
    });
 
    return changed ? { blocks: next, changed } : { blocks, changed };
@@ -172,8 +216,16 @@ function cloneWithNewIds(block: Block): Block {
          id: `${block.type}-${crypto.randomUUID()}`,
          columns: block.columns.map((column) => ({
             ...column,
-            blocks: column.blocks.map(cloneWithNewIds),
+            blocks: column.blocks.map(cloneWithNewIds) as LeafBlock[],
          })),
+      };
+   }
+
+   if (block.type === 'section') {
+      return {
+         ...block,
+         id: `${block.type}-${crypto.randomUUID()}`,
+         children: block.children.map(cloneWithNewIds) as SectionChild[],
       };
    }
 
@@ -198,19 +250,28 @@ function duplicateInList(blocks: Block[], id: string, newId?: string): ListResul
 
    let changed = false;
    const next = blocks.map((candidate) => {
-      if (candidate.type !== 'columns') return candidate;
+      if (candidate.type === 'columns') {
+         let columnChanged = false;
+         const columns = candidate.columns.map((column) => {
+            const result = duplicateInList(column.blocks, id, newId);
+            if (!result.changed) return column;
+            columnChanged = true;
+            return { ...column, blocks: result.blocks as LeafBlock[] };
+         });
 
-      let columnChanged = false;
-      const columns = candidate.columns.map((column) => {
-         const result = duplicateInList(column.blocks, id, newId);
-         if (!result.changed) return column;
-         columnChanged = true;
-         return { ...column, blocks: result.blocks };
-      });
+         if (!columnChanged) return candidate;
+         changed = true;
+         return { ...candidate, columns };
+      }
 
-      if (!columnChanged) return candidate;
-      changed = true;
-      return { ...candidate, columns };
+      if (candidate.type === 'section') {
+         const result = duplicateInList(candidate.children, id, newId);
+         if (!result.changed) return candidate;
+         changed = true;
+         return { ...candidate, children: result.blocks as SectionChild[] };
+      }
+
+      return candidate;
    });
 
    return changed ? { blocks: next, changed } : { blocks, changed };
@@ -219,6 +280,21 @@ function duplicateInList(blocks: Block[], id: string, newId?: string): ListResul
 export function duplicateBlock(doc: Document, id: string, newId?: string): Document {
    const result = duplicateInList(doc.children, id, newId);
    return result.changed ? { ...doc, children: result.blocks } : doc;
+}
+
+export function insertIntoSection(doc: Document, sectionId: string, block: LeafBlock): Document {
+   const section = findBlock(doc, sectionId);
+   if (section?.type !== 'section') return doc;
+   return updateBlock(doc, sectionId, { children: [...section.children, block] });
+}
+
+export function removeFromSection(doc: Document, sectionId: string, childId: string): Document {
+   const section = findBlock(doc, sectionId);
+   if (section?.type !== 'section') return doc;
+
+   const children = section.children.filter((child) => child.id !== childId);
+   if (children.length === section.children.length) return doc;
+   return updateBlock(doc, sectionId, { children });
 }
 
 export function removeBlock(doc: Document, id: string): Document {
@@ -315,5 +391,13 @@ export function blockLabel(block: Block): string {
          return 'Code';
       case 'link':
          return 'Link';
+      case 'avatar':
+         return 'Avatar';
+      case 'gallery':
+         return `Gallery (${block.images.length})`;
+      case 'table':
+         return 'Table';
+      case 'section':
+         return `Section (${block.children.length})`;
    }
 }

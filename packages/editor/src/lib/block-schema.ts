@@ -37,6 +37,10 @@ export const BLOCK_TYPE_OPTIONS: readonly { type: BlockType; label: string }[] =
    { type: 'quote', label: 'Quote' },
    { type: 'code', label: 'Code' },
    { type: 'link', label: 'Link' },
+   { type: 'avatar', label: 'Avatar' },
+   { type: 'gallery', label: 'Gallery' },
+   { type: 'table', label: 'Table' },
+   { type: 'section', label: 'Section' },
 ];
 
 export const ALIGN_OPTIONS: readonly FieldOption[] = [
@@ -72,6 +76,11 @@ export const CODE_RADIUS_OPTIONS: readonly FieldOption[] = [
 export const FONT_WEIGHT_OPTIONS: readonly FieldOption[] = [
    { value: 'normal', label: 'Normal' },
    { value: 'bold', label: 'Bold' },
+];
+
+export const AVATAR_SHAPE_OPTIONS: readonly FieldOption[] = [
+   { value: 'circle', label: 'Circle' },
+   { value: 'rounded', label: 'Rounded square' },
 ];
 
 export const FONT_FAMILY_OPTIONS: readonly FieldOption[] = [
@@ -116,7 +125,7 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
          key: 'text',
          label: 'Text',
          kind: 'textarea',
-         hint: 'Supports **bold**, *italic* and [label](url).',
+         hint: 'Supports **bold**, *italic*, `code` and [label](url).',
       },
       { key: 'align', label: 'Alignment', kind: 'align' },
       { key: 'color', label: 'Colour', kind: 'hex', optional: true },
@@ -182,7 +191,7 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
          key: 'items',
          label: 'Items',
          kind: 'textarea',
-         hint: 'One item per line. Supports **bold**, *italic* and [label](url).',
+         hint: 'One item per line. Supports **bold**, *italic*, code and [label](url).',
       },
       { key: 'ordered', label: 'Numbered list', kind: 'boolean' },
       { key: 'color', label: 'Text colour', kind: 'hex', optional: true },
@@ -197,7 +206,7 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
          key: 'text',
          label: 'Quote',
          kind: 'textarea',
-         hint: 'Supports **bold**, *italic* and [label](url).',
+         hint: 'Supports **bold**, *italic*, code and [label](url).',
       },
       { key: 'attribution', label: 'Attribution', kind: 'text', optional: true },
       { key: 'borderColor', label: 'Bar colour', kind: 'hex' },
@@ -237,6 +246,61 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
       { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
       { key: 'underline', label: 'Underline', kind: 'boolean' },
       paddingField,
+   ],
+   avatar: [
+      {
+         key: 'src',
+         label: 'Image URL',
+         kind: 'text',
+         validate: 'https',
+         placeholder: 'https://example.com/avatar.png',
+      },
+      { key: 'alt', label: 'Alt text', kind: 'text', required: true },
+      { key: 'size', label: 'Size', kind: 'number', min: 24, max: 96 },
+      { key: 'shape', label: 'Shape', kind: 'select', options: AVATAR_SHAPE_OPTIONS },
+      { key: 'name', label: 'Name', kind: 'text', optional: true },
+      { key: 'caption', label: 'Caption', kind: 'text', optional: true },
+      { key: 'href', label: 'Link (optional)', kind: 'text', validate: 'href' },
+      { key: 'align', label: 'Alignment', kind: 'align' },
+      paddingField,
+   ],
+   gallery: [{ key: 'gap', label: 'Gap', kind: 'number', min: 0, max: 24 }, paddingField],
+   table: [
+      {
+         key: 'header',
+         label: 'Header',
+         kind: 'textarea',
+         hint: 'Pipe-separated cells. Leave empty for no header row.',
+         placeholder: 'Plan | Price | Seats',
+      },
+      {
+         key: 'rows',
+         label: 'Rows',
+         kind: 'textarea',
+         hint: 'One row per line, cells separated by |. Supports [label](url).',
+         placeholder: 'Starter | $9 | 1',
+      },
+      { key: 'headerBackgroundColor', label: 'Header background', kind: 'hex' },
+      { key: 'borderColor', label: 'Border colour', kind: 'hex' },
+      { key: 'textColor', label: 'Text colour', kind: 'hex' },
+      { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
+      { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
+      { key: 'cellPadding', label: 'Cell padding', kind: 'number', min: 4, max: 24 },
+      paddingField,
+   ],
+   section: [
+      { key: 'backgroundColor', label: 'Background', kind: 'hex' },
+      { key: 'borderColor', label: 'Border colour', kind: 'hex' },
+      { key: 'borderWidth', label: 'Border width', kind: 'number', min: 0, max: 4 },
+      {
+         key: 'borderRadius',
+         label: 'Corner radius',
+         kind: 'select',
+         options: CODE_RADIUS_OPTIONS,
+         numeric: true,
+      },
+      paddingField,
+      { key: 'innerPadding', label: 'Inner padding', kind: 'spacing' },
    ],
 };
 

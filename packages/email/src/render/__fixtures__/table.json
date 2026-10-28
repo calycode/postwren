@@ -1,0 +1,26 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "table-1",
+         "type": "table",
+         "header": "Plan | Price | Seats",
+         "rows": "Starter | $9 | 1\nPro | $29 | 5\nTeam | $79 | 20",
+         "headerBackgroundColor": "#f4f4f5",
+         "borderColor": "#e4e4e7",
+         "textColor": "#18181b",
+         "fontSize": 14,
+         "lineHeight": 20,
+         "cellPadding": 8,
+         "padding": { "top": 8, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

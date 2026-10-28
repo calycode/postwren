@@ -7,6 +7,9 @@ import type {
    ColumnsBlock,
    Document,
    DocumentSettings,
+   GalleryBlock,
+   GalleryImage,
+   SectionBlock,
    SocialBlock,
    SocialLink,
    SocialNetwork,
@@ -46,8 +49,10 @@ import {
 import {
    blockLabel,
    findBlock,
+   insertIntoSection,
    normaliseColumns,
    removeBlock,
+   removeFromSection,
    updateBlock,
 } from '../lib/document-ops';
 import { HexInput, NumberInput, OptionSelect, SpacingEditor } from './field-controls';
@@ -65,6 +70,8 @@ const MERGEABLE_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
    quote: ['text', 'attribution'],
    code: ['text'],
    link: ['text', 'href'],
+   avatar: ['name', 'caption', 'href'],
+   table: ['header', 'rows'],
 };
 
 type PropertyPanelProps = {
@@ -200,6 +207,23 @@ function BlockProperties({
                doc={doc}
                block={block}
                onChange={onChange}
+            />
+         )}
+
+         {block.type === 'gallery' && (
+            <GalleryEditor
+               doc={doc}
+               block={block}
+               onChange={onChange}
+            />
+         )}
+
+         {block.type === 'section' && (
+            <SectionEditor
+               doc={doc}
+               block={block}
+               onChange={onChange}
+               onSelect={onSelect}
             />
          )}
       </div>
@@ -544,16 +568,18 @@ function OptionalColourField({
    );
 }
 
-function ColumnBlockMenu({ onAdd }: { onAdd: (type: Exclude<BlockType, 'columns'>) => void }) {
+type LeafBlockType = Exclude<BlockType, 'columns' | 'section'>;
+
+function LeafBlockMenu({ label, onAdd }: { label: string; onAdd: (type: LeafBlockType) => void }) {
    const options = BLOCK_TYPE_OPTIONS.filter(
-      (option): option is { type: Exclude<BlockType, 'columns'>; label: string } =>
-         option.type !== 'columns',
+      (option): option is { type: LeafBlockType; label: string } =>
+         option.type !== 'columns' && option.type !== 'section',
    );
 
    return (
       <DropdownMenu className="w-full">
          <DropdownMenuTrigger className="w-full justify-center text-xs">
-            + Add block
+            {label}
          </DropdownMenuTrigger>
          <DropdownMenuContent className="w-44">
             {options.map((option) => (
@@ -599,12 +625,13 @@ function ColumnsEditor({
       updateColumns(normaliseColumns(distributeColumnWidths(block.columns, index, widthPercent)));
    };
 
-   const addBlock = (columnIndex: number, type: Exclude<BlockType, 'columns'>) => {
+   const addBlock = (columnIndex: number, type: LeafBlockType) => {
+      const child = createBlock(type);
+      if (child.type === 'section' || child.type === 'columns') return;
+
       updateColumns(
          block.columns.map((column, index) =>
-            index === columnIndex
-               ? { ...column, blocks: [...column.blocks, createBlock(type)] }
-               : column,
+            index === columnIndex ? { ...column, blocks: [...column.blocks, child] } : column,
          ),
       );
    };
@@ -716,7 +743,10 @@ function ColumnsEditor({
                   )}
                </div>
 
-               <ColumnBlockMenu onAdd={(type) => addBlock(index, type)} />
+               <LeafBlockMenu
+                  label="+ Add block"
+                  onAdd={(type) => addBlock(index, type)}
+               />
             </div>
          ))}
       </div>
@@ -830,6 +860,240 @@ function SocialEditor({
                </div>
             );
          })}
+      </div>
+   );
+}
+
+function GalleryEditor({
+   doc,
+   block,
+   onChange,
+}: {
+   doc: Document;
+   block: GalleryBlock;
+   onChange: (next: Document) => void;
+}) {
+   const updateImages = (images: GalleryImage[]) => {
+      onChange(updateBlock(doc, block.id, { images }));
+   };
+
+   const updateImage = (index: number, patch: Partial<GalleryImage>) => {
+      updateImages(
+         block.images.map((image, imageIndex) =>
+            imageIndex === index ? { ...image, ...patch } : image,
+         ),
+      );
+   };
+
+   return (
+      <div className="grid gap-3 rounded-md border border-border p-3">
+         <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Gallery images</span>
+            <Button
+               size="sm"
+               variant="outline"
+               className="h-7 px-2 text-xs"
+               disabled={block.images.length >= 4}
+               onClick={() =>
+                  updateImages([
+                     ...block.images,
+                     { src: 'https://example.com/image.png', alt: 'Gallery image' },
+                  ])
+               }
+            >
+               <Plus className="size-3.5" />
+               Add
+            </Button>
+         </div>
+
+         {block.images.map((image, index) => {
+            const srcIssue = imageSrcIssue(image.src);
+            const hrefIssueValue =
+               image.href === undefined || image.href.trim().length === 0
+                  ? undefined
+                  : hrefIssue(image.href);
+
+            return (
+               <div
+                  key={index}
+                  className="grid gap-2 rounded-md border border-border/70 p-2"
+               >
+                  <div className="flex items-center justify-between gap-2">
+                     <span className="text-xs font-medium">Image {index + 1}</span>
+                     <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-6 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove image ${index + 1}`}
+                        disabled={block.images.length <= 2}
+                        onClick={() =>
+                           updateImages(
+                              block.images.filter((_, imageIndex) => imageIndex !== index),
+                           )
+                        }
+                     >
+                        <Trash className="size-3" />
+                     </Button>
+                  </div>
+
+                  <div className="grid gap-1">
+                     <Label
+                        htmlFor={`gallery-src-${block.id}-${index}`}
+                        className="text-xs text-muted-foreground"
+                     >
+                        Image URL
+                     </Label>
+                     <Input
+                        id={`gallery-src-${block.id}-${index}`}
+                        value={image.src}
+                        aria-invalid={srcIssue ? true : undefined}
+                        onInput={(event) => updateImage(index, { src: event.currentTarget.value })}
+                     />
+                     {srcIssue && (
+                        <p className="text-xs font-medium text-destructive">{srcIssue}</p>
+                     )}
+                  </div>
+
+                  <div className="grid gap-1">
+                     <Label
+                        htmlFor={`gallery-alt-${block.id}-${index}`}
+                        className="text-xs text-muted-foreground"
+                     >
+                        Alt text
+                     </Label>
+                     <Input
+                        id={`gallery-alt-${block.id}-${index}`}
+                        value={image.alt}
+                        onInput={(event) => updateImage(index, { alt: event.currentTarget.value })}
+                     />
+                  </div>
+
+                  <div className="grid gap-1">
+                     <Label
+                        htmlFor={`gallery-href-${block.id}-${index}`}
+                        className="text-xs text-muted-foreground"
+                     >
+                        Link (optional)
+                     </Label>
+                     <div className="flex items-center gap-1">
+                        <Input
+                           id={`gallery-href-${block.id}-${index}`}
+                           value={image.href ?? ''}
+                           aria-invalid={hrefIssueValue ? true : undefined}
+                           onInput={(event) =>
+                              updateImage(index, {
+                                 href:
+                                    event.currentTarget.value.trim().length === 0
+                                       ? undefined
+                                       : event.currentTarget.value,
+                              })
+                           }
+                        />
+                        <MergeTagMenu
+                           kind="href"
+                           ariaLabel={`Insert merge tag into image ${index + 1} link`}
+                           onInsert={(snippet) =>
+                              updateImage(index, { href: `${image.href ?? ''}${snippet}` })
+                           }
+                        />
+                     </div>
+                     {hrefIssueValue && (
+                        <p className="text-xs font-medium text-destructive">{hrefIssueValue}</p>
+                     )}
+                  </div>
+               </div>
+            );
+         })}
+      </div>
+   );
+}
+
+function SectionEditor({
+   doc,
+   block,
+   onChange,
+   onSelect,
+}: {
+   doc: Document;
+   block: SectionBlock;
+   onChange: (next: Document) => void;
+   onSelect: (id: string) => void;
+}) {
+   const [confirmingChildId, setConfirmingChildId] = useState<string | null>(null);
+
+   const addChild = (type: LeafBlockType) => {
+      const child = createBlock(type);
+      if (child.type === 'section' || child.type === 'columns') return;
+      onChange(insertIntoSection(doc, block.id, child));
+      onSelect(child.id);
+   };
+
+   return (
+      <div className="grid gap-3 rounded-md border border-border p-3">
+         <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Section content</span>
+            <span className="text-xs text-muted-foreground">{block.children.length}/20</span>
+         </div>
+
+         <div className="grid gap-1">
+            {block.children.length === 0 ? (
+               <p className="text-xs text-muted-foreground">No content in this section.</p>
+            ) : (
+               block.children.map((child) => (
+                  <div
+                     key={child.id}
+                     className="flex items-center gap-1 rounded border border-border/70 px-2 py-1"
+                  >
+                     <button
+                        type="button"
+                        className="min-w-0 flex-1 truncate rounded text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => onSelect(child.id)}
+                     >
+                        {blockLabel(child)}
+                     </button>
+                     {confirmingChildId === child.id ? (
+                        <div className="flex items-center gap-1">
+                           <span className="text-[10px] font-medium text-destructive">Delete?</span>
+                           <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-6 px-1.5 text-[10px]"
+                              onClick={() => {
+                                 onChange(removeFromSection(doc, block.id, child.id));
+                                 setConfirmingChildId(null);
+                              }}
+                           >
+                              Delete
+                           </Button>
+                           <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-1.5 text-[10px]"
+                              onClick={() => setConfirmingChildId(null)}
+                           >
+                              Cancel
+                           </Button>
+                        </div>
+                     ) : (
+                        <Button
+                           size="icon"
+                           variant="ghost"
+                           className="size-6 text-muted-foreground hover:text-destructive"
+                           aria-label={`Remove ${blockLabel(child)}`}
+                           onClick={() => setConfirmingChildId(child.id)}
+                        >
+                           <Trash className="size-3" />
+                        </Button>
+                     )}
+                  </div>
+               ))
+            )}
+         </div>
+
+         <LeafBlockMenu
+            label="+ Add content"
+            onAdd={addChild}
+         />
       </div>
    );
 }

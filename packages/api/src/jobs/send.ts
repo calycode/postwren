@@ -60,6 +60,25 @@ function collectLinks(document: Document): LinkTarget[] {
             return;
          case 'code':
             return;
+         case 'avatar':
+            if (block.href !== undefined) targets.push({ href: block.href, linkId: block.id });
+            return;
+         case 'gallery':
+            for (const image of block.images) {
+               if (image.href !== undefined) targets.push({ href: image.href, linkId: block.id });
+            }
+            return;
+         case 'table':
+            for (const value of [block.header, block.rows]) {
+               for (const match of value.matchAll(INLINE_LINK)) {
+                  const href = match[1];
+                  if (href !== undefined) targets.push({ href, linkId: block.id });
+               }
+            }
+            return;
+         case 'section':
+            for (const child of block.children) visit(child);
+            return;
          case 'columns':
             for (const column of block.columns) {
                for (const child of column.blocks) visit(child);

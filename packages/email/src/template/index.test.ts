@@ -317,3 +317,104 @@ describe('merge tags in extended blocks', () => {
       expect(link?.type === 'link' ? link.href : '').toBe('https://example.com/u?token=abc&x=1');
    });
 });
+
+describe('merge tags in new blocks', () => {
+   it('substitutes section children, avatar fields, gallery alt and table cells', () => {
+      const doc = parseDocument({
+         version: 1,
+         settings: {
+            width: 600,
+            backgroundColor: '#f4f4f5',
+            contentColor: '#ffffff',
+            textColor: '#18181b',
+            linkColor: '#0f766e',
+            fontFamily: 'HELVETICA',
+         },
+         children: [
+            {
+               id: 'section-merge',
+               type: 'section',
+               backgroundColor: '#ffffff',
+               borderColor: '#e4e4e7',
+               borderWidth: 1,
+               borderRadius: 8,
+               padding,
+               innerPadding: padding,
+               children: [
+                  {
+                     id: 'section-text',
+                     type: 'text',
+                     text: 'Hi {{ subscriber.first_name }}',
+                     align: 'left',
+                     fontSize: 16,
+                     lineHeight: 24,
+                     padding,
+                  },
+               ],
+            },
+            {
+               id: 'avatar-merge',
+               type: 'avatar',
+               src: 'https://example.com/avatar.png',
+               alt: 'Avatar',
+               size: 48,
+               shape: 'circle',
+               name: '{{ subscriber.email }}',
+               caption: '{{ campaign.subject }}',
+               href: '{{ links.unsubscribe }}',
+               align: 'center',
+               padding,
+            },
+            {
+               id: 'gallery-merge',
+               type: 'gallery',
+               images: [
+                  { src: 'https://example.com/one.png', alt: '{{ campaign.subject }}' },
+                  {
+                     src: 'https://example.com/two.png',
+                     alt: 'Second',
+                     href: '{{ links.unsubscribe }}',
+                  },
+               ],
+               gap: 8,
+               padding,
+            },
+            {
+               id: 'table-merge',
+               type: 'table',
+               header: '{{ campaign.subject }} | Seats',
+               rows: '{{ subscriber.email }} | 3',
+               headerBackgroundColor: '#f4f4f5',
+               borderColor: '#e4e4e7',
+               textColor: '#18181b',
+               fontSize: 14,
+               lineHeight: 20,
+               cellPadding: 8,
+               padding,
+            },
+         ],
+      });
+
+      const merged = applyMergeTags(doc, context);
+      const [section, avatar, gallery, table] = merged.children;
+
+      const sectionText = section?.type === 'section' ? section.children[0] : undefined;
+      expect(sectionText?.type === 'text' ? sectionText.text : '').toBe(
+         'Hi &lt;script&gt;Ada&lt;/script&gt;',
+      );
+
+      expect(avatar?.type === 'avatar' ? avatar.name : '').toBe('ada@example.com');
+      expect(avatar?.type === 'avatar' ? avatar.caption : '').toBe('Spring news');
+      expect(avatar?.type === 'avatar' ? avatar.href : '').toBe(
+         'https://example.com/u?token=abc&x=1',
+      );
+
+      expect(gallery?.type === 'gallery' ? gallery.images[0]?.alt : '').toBe('Spring news');
+      expect(gallery?.type === 'gallery' ? gallery.images[1]?.href : '').toBe(
+         'https://example.com/u?token=abc&x=1',
+      );
+
+      expect(table?.type === 'table' ? table.header : '').toBe('Spring news | Seats');
+      expect(table?.type === 'table' ? table.rows : '').toBe('ada@example.com | 3');
+   });
+});

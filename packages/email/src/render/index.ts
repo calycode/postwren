@@ -1,5 +1,15 @@
 import { FONT_STACKS } from '../ir/types';
-import type { Block, ButtonBlock, Document, SocialNetwork, Spacing } from '../ir/types';
+import type {
+   AvatarBlock,
+   Block,
+   ButtonBlock,
+   Document,
+   GalleryBlock,
+   SectionBlock,
+   SocialNetwork,
+   Spacing,
+   TableBlock,
+} from '../ir/types';
 import { escapeHtml, inlineToHtml, inlineToText, parseInline } from './markup';
 
 export type ResolveLink = (href: string, linkId: string) => string;
@@ -388,6 +398,166 @@ function renderCode(context: Context, block: Extract<Block, { type: 'code' }>): 
 </td></tr>`;
 }
 
+function renderAvatar(context: Context, block: AvatarBlock): string {
+   if (block.alt.trim().length === 0) {
+      context.warnings.push({
+         code: 'image_missing_alt',
+         message: 'Avatar has no alt text',
+         blockId: block.id,
+      });
+   }
+
+   const radius = block.shape === 'circle' ? '50%' : '8px';
+   const margin =
+      block.align === 'center'
+         ? 'margin:0 auto;'
+         : block.align === 'right'
+           ? 'margin-left:auto;'
+           : 'margin:0;';
+   const image = `<img src="${escapeHtml(block.src)}" alt="${escapeHtml(
+      block.alt,
+   )}" width="${block.size}" height="${block.size}" border="0" style="display:block;width:${
+      block.size
+   }px;height:${block.size}px;border-radius:${radius};border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;${margin}">`;
+   const linked = block.href
+      ? `<a href="${escapeHtml(resolve(context, block.href, block.id))}" style="text-decoration:none;">${image}</a>`
+      : image;
+
+   const name = block.name?.trim();
+   const nameHtml =
+      name === undefined || name.length === 0
+         ? ''
+         : `<br><span style="font-family:${context.font};font-size:14px;line-height:20px;color:${
+              context.textColor
+           };font-weight:bold;">${escapeHtml(name)}</span>`;
+   const caption = block.caption?.trim();
+   const captionHtml =
+      caption === undefined || caption.length === 0
+         ? ''
+         : `<br><span style="font-family:${context.font};font-size:13px;line-height:18px;color:#71717a;">${escapeHtml(
+              caption,
+           )}</span>`;
+
+   return `<tr><td class="px" align="${block.align}" style="${fontStyle(
+      context,
+   )}${paddingStyle(block.padding)}text-align:${block.align};">
+<table ${TABLE_ATTRS} align="${block.align}"><tbody><tr><td align="center" style="${fontStyle(
+      context,
+   )}text-align:center;">${linked}${nameHtml}${captionHtml}</td></tr></tbody></table>
+</td></tr>`;
+}
+
+function renderGallery(context: Context, block: GalleryBlock): string {
+   if (block.images.length === 0) return '';
+   const width = Number((100 / block.images.length).toFixed(4));
+
+   const cells = block.images
+      .map((image, index) => {
+         if (image.alt.trim().length === 0) {
+            context.warnings.push({
+               code: 'image_missing_alt',
+               message: 'Gallery image has no alt text',
+               blockId: block.id,
+            });
+         }
+
+         const img = `<img src="${escapeHtml(image.src)}" alt="${escapeHtml(
+            image.alt,
+         )}" width="100%" border="0" style="display:block;width:100%;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">`;
+         const content =
+            image.href === undefined
+               ? img
+               : `<a href="${escapeHtml(resolve(context, image.href, block.id))}" style="text-decoration:none;">${img}</a>`;
+         const gap = index === block.images.length - 1 ? '' : `padding-right:${block.gap}px;`;
+
+         return `<td class="stack" width="${width}%" valign="top" style="width:${width}%;${fontStyle(
+            context,
+         )}vertical-align:top;${gap}">${content}</td>`;
+      })
+      .join('');
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody><tr>${cells}</tr></tbody></table>
+</td></tr>`;
+}
+
+function splitTableCells(line: string): string[] {
+   return line
+      .split('|')
+      .map((cell) => cell.trim())
+      .filter((cell) => cell.length > 0);
+}
+
+function parseTableRows(value: string): string[][] {
+   return value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map(splitTableCells)
+      .filter((cells) => cells.length > 0);
+}
+
+function renderTable(context: Context, block: TableBlock): string {
+   const header = splitTableCells(block.header);
+   const rows = parseTableRows(block.rows);
+   if (header.length === 0 && rows.length === 0) return '';
+
+   const cellStyle = (options: { bold?: boolean; background?: string }): string => {
+      const background =
+         options.background === undefined ? '' : `background-color:${options.background};`;
+      return `${background}border-bottom:1px solid ${
+         block.borderColor
+      };padding:${block.cellPadding}px;${fontStyle(
+         context,
+         block.fontSize,
+         block.lineHeight,
+         block.textColor,
+      )}${options.bold === true ? 'font-weight:bold;' : ''}`;
+   };
+
+   const renderRow = (cells: string[], options: { bold?: boolean; background?: string }) => {
+      const backgroundAttr =
+         options.background === undefined ? '' : ` bgcolor="${options.background}"`;
+      const cellsHtml = cells
+         .map((cell) => {
+            warnInlineLinkContrast(context, cell, block.id);
+            const inner = inlineToHtml(cell, {
+               link: linkStyle(context),
+               resolve: (href) => resolve(context, href, block.id),
+            });
+            return `<td${backgroundAttr} style="${cellStyle(options)}">${inner}</td>`;
+         })
+         .join('');
+      return `<tr>${cellsHtml}</tr>`;
+   };
+
+   const headerRow =
+      header.length === 0
+         ? ''
+         : renderRow(header, { bold: true, background: block.headerBackgroundColor });
+   const bodyRows = rows.map((cells) => renderRow(cells, {})).join('');
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;border-collapse:collapse;"><tbody>${headerRow}${bodyRows}</tbody></table>
+</td></tr>`;
+}
+
+function renderSection(context: Context, block: SectionBlock): string {
+   const border =
+      block.borderWidth > 0 ? `border:${block.borderWidth}px solid ${block.borderColor};` : '';
+   const children = block.children.map((child) => renderBlock(context, child)).join('');
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" bgcolor="${block.backgroundColor}" style="width:100%;background-color:${
+      block.backgroundColor
+   };border-radius:${block.borderRadius}px;${border}"><tbody>
+<tr><td style="${fontStyle(context)}${paddingStyle(block.innerPadding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody>${children}</tbody></table>
+</td></tr>
+</tbody></table>
+</td></tr>`;
+}
+
 function renderLink(context: Context, block: Extract<Block, { type: 'link' }>): string {
    const color = block.color ?? context.linkColor;
    warnLowContrast(context, color, context.contentColor, block.id);
@@ -437,6 +607,14 @@ function renderBlockMarkup(context: Context, block: Block): string {
          return renderCode(context, block);
       case 'link':
          return renderLink(context, block);
+      case 'avatar':
+         return renderAvatar(context, block);
+      case 'gallery':
+         return renderGallery(context, block);
+      case 'table':
+         return renderTable(context, block);
+      case 'section':
+         return renderSection(context, block);
    }
 }
 
@@ -492,6 +670,26 @@ function plainTextBlock(block: Block): string[] {
          return [block.text];
       case 'link':
          return [`${block.text}: ${block.href}`];
+      case 'avatar': {
+         const name = block.name?.trim();
+         const caption = block.caption?.trim();
+         return [
+            `[image: ${block.alt}]`,
+            ...(name === undefined || name.length === 0 ? [] : [name]),
+            ...(caption === undefined || caption.length === 0 ? [] : [caption]),
+         ];
+      }
+      case 'gallery':
+         return block.images.map((image) => `[image: ${image.alt}]`);
+      case 'table': {
+         const header = splitTableCells(block.header);
+         const rows = parseTableRows(block.rows);
+         return [...(header.length === 0 ? [] : [header]), ...rows].map((cells) =>
+            cells.map((cell) => inlineToText(cell)).join(' | '),
+         );
+      }
+      case 'section':
+         return block.children.flatMap(plainTextBlock);
    }
 }
 

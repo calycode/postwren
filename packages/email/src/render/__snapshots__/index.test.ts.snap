@@ -1,5 +1,36 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`renderEmail > golden output for avatar > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 16px 24px;text-align:center;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;text-align:center;"><a href="https://example.com/team/ada" style="text-decoration:none;"><img src="https://example.com/ada.png" alt="Ada Lovelace" width="64" height="64" border="0" style="display:block;width:64px;height:64px;border-radius:50%;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;margin:0 auto;"></a><br><span style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;font-weight:bold;">Ada Lovelace</span><br><span style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:13px;line-height:18px;color:#71717a;">Head of Marketing</span></td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
 exports[`renderEmail > golden output for button > matches the snapshot 1`] = `
 "<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -154,6 +185,37 @@ exports[`renderEmail > golden output for divider > matches the snapshot 1`] = `
 </html>"
 `;
 
+exports[`renderEmail > golden output for gallery > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 16px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="stack" width="50%" valign="top" style="width:50%;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;vertical-align:top;padding-right:8px;"><img src="https://example.com/gallery-1.png" alt="First photo" width="100%" border="0" style="display:block;width:100%;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;"></td><td class="stack" width="50%" valign="top" style="width:50%;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;vertical-align:top;"><a href="https://example.com/gallery/second" style="text-decoration:none;"><img src="https://example.com/gallery-2.png" alt="Second photo" width="100%" border="0" style="display:block;width:100%;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;"></a></td></tr></tbody></table>
+</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
 exports[`renderEmail > golden output for heading > matches the snapshot 1`] = `
 "<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -204,6 +266,51 @@ exports[`renderEmail > golden output for image > matches the snapshot 1`] = `
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
 <![endif]-->
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 8px 24px;"><a href="https://example.com/about" style="text-decoration:none;"><img src="https://example.com/team.png" alt="The team" width="480" border="0" style="display:block;width:480px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;margin:0 auto;"></a></td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for section > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 8px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f9fafb" style="width:100%;background-color:#f9fafb;border-radius:8px;border:2px solid #e4e4e7;"><tbody>
+<tr><td style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:16px 16px 16px 16px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;"><tbody><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:24px;line-height:32px;color:#18181b;padding:0px 0px 8px 0px;text-align:left;"><h2 style="margin:0;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:24px;line-height:32px;color:#18181b;text-align:left;">Inside the section</h2></td></tr><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 0px 12px 0px;text-align:left;">Section children render as normal rows.</td></tr><tr><td class="px" align="left" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0px 0px 0px 0px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left"><tbody><tr><td align="center" bgcolor="#0f766e" style="border-radius:6px;background-color:#0f766e;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:19px;color:#ffffff;mso-line-height-rule:exactly;">
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://example.com/act" style="height:39px;v-text-anchor:middle;width:146px;" arcsize="15%">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;font-weight:bold;">Take action</center>
+</v:roundrect>
+<![endif]-->
+<a href="https://example.com/act" style="display:inline-block;padding:10px 20px;background-color:#0f766e;color:#ffffff;border-radius:6px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:19px;font-weight:bold;text-decoration:none;mso-hide:all;">Take action</a>
+</td></tr></tbody></table>
+</td></tr></tbody></table>
+</td></tr>
+</tbody></table>
+</td></tr></tbody></table>
 <!--[if mso]>
 </td></tr></tbody></table>
 <![endif]-->
@@ -264,6 +371,37 @@ exports[`renderEmail > golden output for spacer > matches the snapshot 1`] = `
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
 <![endif]-->
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td height="32" style="font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr></tbody></table>
+<!--[if mso]>
+</td></tr></tbody></table>
+<![endif]-->
+</td></tr></tbody></table>
+</body>
+</html>"
+`;
+
+exports[`renderEmail > golden output for table > matches the snapshot 1`] = `
+"<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Email</title>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5;border-collapse:collapse;"><tbody><tr><td align="center" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:0;">
+<!--[if mso]>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tbody><tr><td>
+<![endif]-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" align="center" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-collapse:collapse;"><tbody><tr><td class="px" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:16px;line-height:24px;color:#18181b;padding:8px 24px 16px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;"><tbody><tr><td bgcolor="#f4f4f5" style="background-color:#f4f4f5;border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;font-weight:bold;">Plan</td><td bgcolor="#f4f4f5" style="background-color:#f4f4f5;border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;font-weight:bold;">Price</td><td bgcolor="#f4f4f5" style="background-color:#f4f4f5;border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;font-weight:bold;">Seats</td></tr><tr><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">Starter</td><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">$9</td><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">1</td></tr><tr><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">Pro</td><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">$29</td><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">5</td></tr><tr><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">Team</td><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">$79</td><td style="border-bottom:1px solid #e4e4e7;padding:8px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#18181b;">20</td></tr></tbody></table>
+</td></tr></tbody></table>
 <!--[if mso]>
 </td></tr></tbody></table>
 <![endif]-->

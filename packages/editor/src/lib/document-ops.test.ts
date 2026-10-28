@@ -5,6 +5,7 @@ import type {
    ColumnsBlock,
    Document,
    HeadingBlock,
+   SectionBlock,
    TextBlock,
 } from '@mailer/email/ir';
 import { defaultSettings } from '@mailer/email/ir';
@@ -15,9 +16,11 @@ import {
    flattenBlocks,
    insertAfter,
    insertBlock,
+   insertIntoSection,
    moveBlock,
    normaliseColumns,
    removeBlock,
+   removeFromSection,
    updateBlock,
    updateSettings,
 } from './document-ops';
@@ -434,5 +437,96 @@ describe('normaliseColumns', () => {
       ]);
 
       expect(result[0]?.blocks).toBe(blocks);
+   });
+});
+
+describe('section operations', () => {
+   function sectionBlock(id: string, children: SectionBlock['children']): SectionBlock {
+      return {
+         id,
+         type: 'section',
+         backgroundColor: '#ffffff',
+         borderColor: '#e4e4e7',
+         borderWidth: 1,
+         borderRadius: 8,
+         padding,
+         innerPadding: padding,
+         children,
+      };
+   }
+
+   function sectionDoc(): Document {
+      return documentOf([
+         textBlock('top'),
+         sectionBlock('section', [textBlock('a'), textBlock('b')]),
+      ]);
+   }
+
+   it('updates a section child without touching its siblings', () => {
+      const doc = sectionDoc();
+      const result = updateBlock(doc, 'a', { text: 'Changed' });
+      const section = result.children[1];
+
+      expect(section?.type).toBe('section');
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['a', 'b']);
+         const first = section.children[0];
+         expect(first?.type === 'text' ? first.text : '').toBe('Changed');
+      }
+      expect(doc.children[1]).not.toBe(result.children[1]);
+   });
+
+   it('moves a section child within the section', () => {
+      const doc = sectionDoc();
+      const result = moveBlock(doc, 'b', -1);
+      const section = result.children[1];
+
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['b', 'a']);
+      }
+      expect(moveBlock(doc, 'a', -1)).toBe(doc);
+   });
+
+   it('removes a section child by id', () => {
+      const doc = sectionDoc();
+      const result = removeBlock(doc, 'a');
+      const section = result.children[1];
+
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['b']);
+      }
+      expect(removeBlock(doc, 'missing')).toBe(doc);
+   });
+
+   it('inserts a leaf into a section and refuses an unknown section', () => {
+      const doc = sectionDoc();
+      const result = insertIntoSection(doc, 'section', textBlock('c'));
+      const section = result.children[1];
+
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['a', 'b', 'c']);
+      }
+      expect(insertIntoSection(doc, 'missing', textBlock('c'))).toBe(doc);
+   });
+
+   it('removes a section child through the dedicated operation', () => {
+      const doc = sectionDoc();
+      const result = removeFromSection(doc, 'section', 'b');
+      const section = result.children[1];
+
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['a']);
+      }
+      expect(removeFromSection(doc, 'section', 'missing')).toBe(doc);
+   });
+
+   it('finds and flattens section children in visual order', () => {
+      const doc = sectionDoc();
+      expect(findBlock(doc, 'a')?.id).toBe('a');
+      expect(flattenBlocks(doc).map((block) => block.id)).toEqual(['top', 'section', 'a', 'b']);
+   });
+
+   it('labels a section with its child count', () => {
+      expect(blockLabel(sectionBlock('section', [textBlock('a')]))).toBe('Section (1)');
    });
 });

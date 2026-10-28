@@ -272,6 +272,10 @@ describe('ir', () => {
          'spacer',
          'columns',
          'social',
+         'avatar',
+         'gallery',
+         'table',
+         'section',
       ] as const;
       const blocks: Block[] = types.map((type) => createBlock(type));
       const ids = blocks.map((block) => block.id);
@@ -283,5 +287,136 @@ describe('ir', () => {
       expect(columns?.type).toBe('columns');
       const nestedIds = JSON.stringify(columns).match(/"id":"[^"]+"/g) ?? [];
       expect(new Set(nestedIds).size).toBe(nestedIds.length);
+   });
+});
+
+describe('new block schemas', () => {
+   const section = (children: unknown[], overrides: Record<string, unknown> = {}) => ({
+      id: 'section-1',
+      type: 'section',
+      backgroundColor: '#ffffff',
+      borderColor: '#e4e4e7',
+      borderWidth: 1,
+      borderRadius: 8,
+      padding,
+      innerPadding: padding,
+      children,
+      ...overrides,
+   });
+
+   const avatar = (size: number) => ({
+      id: 'avatar-1',
+      type: 'avatar',
+      src: 'https://example.com/avatar.png',
+      alt: 'Avatar',
+      size,
+      shape: 'circle',
+      align: 'center',
+      padding,
+   });
+
+   const gallery = (count: number) => ({
+      id: 'gallery-1',
+      type: 'gallery',
+      images: Array.from({ length: count }, (_, index) => ({
+         src: `https://example.com/${index}.png`,
+         alt: `Image ${index}`,
+      })),
+      gap: 8,
+      padding,
+   });
+
+   const table = (header: string, rows: string, overrides: Record<string, unknown> = {}) => ({
+      id: 'table-1',
+      type: 'table',
+      header,
+      rows,
+      headerBackgroundColor: '#f4f4f5',
+      borderColor: '#e4e4e7',
+      textColor: '#18181b',
+      fontSize: 14,
+      lineHeight: 20,
+      cellPadding: 8,
+      padding,
+      ...overrides,
+   });
+
+   it('accepts leaf children and rejects nested sections or columns', () => {
+      expect(() => parseDocument(documentOf([section([textBlock()])]))).not.toThrow();
+      expect(() =>
+         parseDocument(documentOf([section([section([textBlock({ id: 'inner' })])])])),
+      ).toThrow(DocumentError);
+      expect(() =>
+         parseDocument(
+            documentOf([
+               section([
+                  {
+                     id: 'columns-2',
+                     type: 'columns',
+                     columns: [
+                        { widthPercent: 50, blocks: [textBlock({ id: 'a' })] },
+                        { widthPercent: 50, blocks: [textBlock({ id: 'b' })] },
+                     ],
+                     padding,
+                  },
+               ]),
+            ]),
+         ),
+      ).toThrow(DocumentError);
+      expect(() =>
+         parseDocument(
+            documentOf([
+               section(
+                  Array.from({ length: 21 }, (_, index) => textBlock({ id: `child-${index}` })),
+               ),
+            ]),
+         ),
+      ).toThrow(DocumentError);
+   });
+
+   it('counts section children when detecting duplicate ids', () => {
+      expect(() =>
+         parseDocument(documentOf([section([textBlock({ id: 'same' })], { id: 'same' })])),
+      ).toThrow(DocumentError);
+   });
+
+   it('bounds the avatar size to 24..96', () => {
+      expect(() => parseDocument(documentOf([avatar(24)]))).not.toThrow();
+      expect(() => parseDocument(documentOf([avatar(96)]))).not.toThrow();
+      expect(() => parseDocument(documentOf([avatar(23)]))).toThrow(DocumentError);
+      expect(() => parseDocument(documentOf([avatar(97)]))).toThrow(DocumentError);
+   });
+
+   it('requires two to four gallery images', () => {
+      expect(() => parseDocument(documentOf([gallery(1)]))).toThrow(DocumentError);
+      expect(() => parseDocument(documentOf([gallery(2)]))).not.toThrow();
+      expect(() => parseDocument(documentOf([gallery(4)]))).not.toThrow();
+      expect(() => parseDocument(documentOf([gallery(5)]))).toThrow(DocumentError);
+   });
+
+   it('caps the table at 50 rows and 20 header cells', () => {
+      expect(() => parseDocument(documentOf([table('', 'a | b')]))).not.toThrow();
+      expect(() => parseDocument(documentOf([table('A | B', 'a | b')]))).not.toThrow();
+
+      const twentyCells = Array.from({ length: 20 }, () => 'a').join(' | ');
+      const twentyOneCells = Array.from({ length: 21 }, () => 'a').join(' | ');
+      expect(() => parseDocument(documentOf([table(twentyCells, 'a')]))).not.toThrow();
+      expect(() => parseDocument(documentOf([table(twentyOneCells, 'a')]))).toThrow(DocumentError);
+
+      const fiftyRows = Array.from({ length: 50 }, () => 'a | b').join('\n');
+      const fiftyOneRows = Array.from({ length: 51 }, () => 'a | b').join('\n');
+      expect(() => parseDocument(documentOf([table('', fiftyRows)]))).not.toThrow();
+      expect(() => parseDocument(documentOf([table('', fiftyOneRows)]))).toThrow(DocumentError);
+   });
+
+   it('bounds table cell padding', () => {
+      expect(() => parseDocument(documentOf([table('', 'a', { cellPadding: 4 })]))).not.toThrow();
+      expect(() => parseDocument(documentOf([table('', 'a', { cellPadding: 24 })]))).not.toThrow();
+      expect(() => parseDocument(documentOf([table('', 'a', { cellPadding: 3 })]))).toThrow(
+         DocumentError,
+      );
+      expect(() => parseDocument(documentOf([table('', 'a', { cellPadding: 25 })]))).toThrow(
+         DocumentError,
+      );
    });
 });

@@ -20,6 +20,7 @@ import {
    moveBlock,
    removeBlock,
 } from './lib/document-ops';
+import type { BlockPattern } from './lib/patterns';
 import type { Viewport } from './lib/viewport';
 
 export type EmailEditorProps = {
@@ -36,6 +37,22 @@ export type EmailEditorProps = {
 };
 
 const PREVIEW_UNSUBSCRIBE_URL = 'https://example.com/u/preview';
+
+function topLevelAnchor(doc: Document, id: string): string | null {
+   for (const child of doc.children) {
+      if (child.id === id) return id;
+      if (
+         child.type === 'columns' &&
+         child.columns.some((column) => column.blocks.some((block) => block.id === id))
+      ) {
+         return child.id;
+      }
+      if (child.type === 'section' && child.children.some((block) => block.id === id)) {
+         return child.id;
+      }
+   }
+   return null;
+}
 
 const PREVIEW_MERGE_CONTEXT: MergeContext = {
    subscriber: {
@@ -106,6 +123,28 @@ export function EmailEditor({ value, onChange, onRender, className }: EmailEdito
       setConfirmingId(null);
    };
 
+   const appendPattern = (pattern: BlockPattern) => {
+      const blocks = pattern.build();
+      const first = blocks[0];
+      if (first === undefined) return;
+
+      const anchorId = selectedId !== null ? topLevelAnchor(value, selectedId) : null;
+      let next = value;
+      let anchor = anchorId;
+
+      for (const block of blocks) {
+         next =
+            anchor !== null
+               ? insertAfter(next, anchor, block)
+               : insertBlock(next, block, next.children.length);
+         anchor = block.id;
+      }
+
+      applyChange(next);
+      setSelectedId(first.id);
+      setConfirmingId(null);
+   };
+
    const move = (id: string, delta: -1 | 1) => {
       const next = moveBlock(value, id, delta);
       if (next !== value) applyChange(next);
@@ -151,6 +190,7 @@ export function EmailEditor({ value, onChange, onRender, className }: EmailEdito
             warnings={preview.result.warnings}
             bytes={preview.result.bytes}
             onAddBlock={appendBlock}
+            onAddPattern={appendPattern}
             onOpenDocument={() => setDocumentOpen(true)}
             onOpenPlainText={() => setPlainTextOpen(true)}
          />

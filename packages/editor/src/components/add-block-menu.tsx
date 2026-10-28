@@ -5,7 +5,9 @@ import {
    DropdownMenuItem,
    DropdownMenuTrigger,
 } from '@mailer/ui';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
+import { BLOCK_PATTERNS } from '../lib/patterns';
+import type { BlockPattern } from '../lib/patterns';
 import { BlockIcon } from './block-icon';
 
 const GROUPS: readonly {
@@ -31,13 +33,19 @@ const GROUPS: readonly {
       label: 'Media',
       types: [
          { type: 'image', label: 'Image' },
+         { type: 'avatar', label: 'Avatar' },
+         { type: 'gallery', label: 'Gallery' },
          { type: 'divider', label: 'Divider' },
          { type: 'spacer', label: 'Spacer' },
       ],
    },
    {
       label: 'Layout',
-      types: [{ type: 'columns', label: 'Columns' }],
+      types: [
+         { type: 'section', label: 'Section' },
+         { type: 'columns', label: 'Columns' },
+         { type: 'table', label: 'Table' },
+      ],
    },
    {
       label: 'Social',
@@ -47,9 +55,11 @@ const GROUPS: readonly {
 
 export function AddBlockMenu({
    onAdd,
+   onAddPattern,
    className,
 }: {
    onAdd: (type: BlockType) => void;
+   onAddPattern: (pattern: BlockPattern) => void;
    className?: string;
 }) {
    return (
@@ -84,6 +94,24 @@ export function AddBlockMenu({
                   ))}
                </div>
             ))}
+            <div>
+               <p className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Patterns
+               </p>
+               {BLOCK_PATTERNS.map((pattern) => (
+                  <DropdownMenuItem
+                     key={pattern.id}
+                     title={pattern.description}
+                     onSelect={() => onAddPattern(pattern)}
+                  >
+                     <Sparkles
+                        className="size-4 text-muted-foreground"
+                        aria-hidden="true"
+                     />
+                     {pattern.label}
+                  </DropdownMenuItem>
+               ))}
+            </div>
          </DropdownMenuContent>
       </DropdownMenu>
    );

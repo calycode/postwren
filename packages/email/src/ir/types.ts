@@ -85,7 +85,7 @@ export type SpacerBlock = BlockBase & {
 
 export type Column = {
    widthPercent: number;
-   blocks: Block[];
+   blocks: LeafBlock[];
 };
 
 export type ColumnsBlock = BlockBase & {
@@ -156,19 +156,75 @@ export type LinkBlock = BlockBase & {
    padding: Spacing;
 };
 
-export type Block =
+export type AvatarBlock = BlockBase & {
+   type: 'avatar';
+   src: string;
+   alt: string;
+   size: number;
+   shape: 'circle' | 'rounded';
+   name?: string;
+   caption?: string;
+   href?: string;
+   align: Align;
+   padding: Spacing;
+};
+
+export type GalleryImage = {
+   src: string;
+   alt: string;
+   href?: string;
+};
+
+export type GalleryBlock = BlockBase & {
+   type: 'gallery';
+   images: GalleryImage[];
+   gap: number;
+   padding: Spacing;
+};
+
+export type TableBlock = BlockBase & {
+   type: 'table';
+   header: string;
+   rows: string;
+   headerBackgroundColor: Hex;
+   borderColor: Hex;
+   textColor: Hex;
+   fontSize: number;
+   lineHeight: number;
+   cellPadding: number;
+   padding: Spacing;
+};
+
+export type LeafBlock =
    | HeadingBlock
    | TextBlock
    | ButtonBlock
    | ImageBlock
    | DividerBlock
    | SpacerBlock
-   | ColumnsBlock
    | SocialBlock
    | ListBlock
    | QuoteBlock
    | CodeBlock
-   | LinkBlock;
+   | LinkBlock
+   | AvatarBlock
+   | GalleryBlock
+   | TableBlock;
+
+export type SectionChild = LeafBlock;
+
+export type SectionBlock = BlockBase & {
+   type: 'section';
+   backgroundColor: Hex;
+   borderColor: Hex;
+   borderWidth: number;
+   borderRadius: 0 | 4 | 6 | 8 | 12;
+   padding: Spacing;
+   innerPadding: Spacing;
+   children: SectionChild[];
+};
+
+export type Block = LeafBlock | ColumnsBlock | SectionBlock;
 
 export type BlockType = Block['type'];
 

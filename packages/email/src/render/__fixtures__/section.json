@@ -1,0 +1,59 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "section-1",
+         "type": "section",
+         "backgroundColor": "#f9fafb",
+         "borderColor": "#e4e4e7",
+         "borderWidth": 2,
+         "borderRadius": 8,
+         "padding": { "top": 8, "right": 24, "bottom": 8, "left": 24 },
+         "innerPadding": { "top": 16, "right": 16, "bottom": 16, "left": 16 },
+         "children": [
+            {
+               "id": "section-1-heading",
+               "type": "heading",
+               "level": 2,
+               "text": "Inside the section",
+               "align": "left",
+               "fontSize": 24,
+               "lineHeight": 32,
+               "padding": { "top": 0, "right": 0, "bottom": 8, "left": 0 }
+            },
+            {
+               "id": "section-1-text",
+               "type": "text",
+               "text": "Section children render as normal rows.",
+               "align": "left",
+               "fontSize": 16,
+               "lineHeight": 24,
+               "padding": { "top": 0, "right": 0, "bottom": 12, "left": 0 }
+            },
+            {
+               "id": "section-1-button",
+               "type": "button",
+               "text": "Take action",
+               "href": "https://example.com/act",
+               "align": "left",
+               "backgroundColor": "#0f766e",
+               "textColor": "#ffffff",
+               "borderRadius": 6,
+               "fontSize": 16,
+               "fontWeight": "bold",
+               "padding": { "top": 0, "right": 0, "bottom": 0, "left": 0 },
+               "innerPaddingX": 20,
+               "innerPaddingY": 10
+            }
+         ]
+      }
+   ]
+}

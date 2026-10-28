@@ -1,0 +1,27 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "gallery-1",
+         "type": "gallery",
+         "images": [
+            { "src": "https://example.com/gallery-1.png", "alt": "First photo" },
+            {
+               "src": "https://example.com/gallery-2.png",
+               "alt": "Second photo",
+               "href": "https://example.com/gallery/second"
+            }
+         ],
+         "gap": 8,
+         "padding": { "top": 8, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}
