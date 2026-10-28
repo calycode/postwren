@@ -305,6 +305,106 @@ function renderSocial(context: Context, block: Extract<Block, { type: 'social' }
 </td></tr>`;
 }
 
+function renderList(context: Context, block: Extract<Block, { type: 'list' }>): string {
+   const color = block.color ?? context.textColor;
+   const markerColor = block.markerColor ?? color;
+   warnLowContrast(context, color, context.contentColor, block.id);
+
+   const items = block.items
+      .split('\n')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+   if (items.length === 0) return '';
+
+   const rows = items
+      .map((item, index) => {
+         warnInlineLinkContrast(context, item, block.id);
+         const marker = block.ordered ? `${index + 1}.` : '•';
+         const bottom = index === items.length - 1 ? 0 : block.gap;
+         const inner = inlineToHtml(item, {
+            link: linkStyle(context),
+            resolve: (href) => resolve(context, href, block.id),
+         });
+
+         return `<tr><td width="24" valign="top" style="width:24px;${fontStyle(
+            context,
+            block.fontSize,
+            block.lineHeight,
+            markerColor,
+         )}padding-bottom:${bottom}px;">${marker}</td><td valign="top" style="${fontStyle(
+            context,
+            block.fontSize,
+            block.lineHeight,
+            color,
+         )}padding-bottom:${bottom}px;">${inner}</td></tr>`;
+      })
+      .join('');
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody>${rows}</tbody></table>
+</td></tr>`;
+}
+
+function renderQuote(context: Context, block: Extract<Block, { type: 'quote' }>): string {
+   const color = block.color ?? context.textColor;
+   warnLowContrast(context, color, context.contentColor, block.id);
+   warnInlineLinkContrast(context, block.text, block.id);
+
+   const inner = inlineToHtml(block.text, {
+      link: linkStyle(context),
+      resolve: (href) => resolve(context, href, block.id),
+   });
+   const attribution = block.attribution?.trim();
+   const attributionHtml =
+      attribution === undefined || attribution.length === 0
+         ? ''
+         : `<br><span style="color:${color};font-family:${context.font};font-size:13px;line-height:20px;opacity:0.75;">— ${escapeHtml(
+              attribution,
+           )}</span>`;
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody><tr>
+<td width="3" bgcolor="${block.borderColor}" style="width:3px;background-color:${
+      block.borderColor
+   };font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td>
+<td style="${fontStyle(context, block.fontSize, block.lineHeight, color)}padding-left:16px;">${inner}${attributionHtml}</td>
+</tr></tbody></table>
+</td></tr>`;
+}
+
+function renderCode(context: Context, block: Extract<Block, { type: 'code' }>): string {
+   warnLowContrast(context, block.textColor, block.backgroundColor, block.id);
+   const inner = escapeHtml(block.text).replace(/\n/g, '<br>');
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody><tr>
+<td bgcolor="${block.backgroundColor}" style="background-color:${
+      block.backgroundColor
+   };border-radius:${block.borderRadius}px;font-family:'Courier New',Courier,monospace;font-size:${
+      block.fontSize
+   }px;line-height:${block.lineHeight}px;color:${block.textColor};mso-line-height-rule:exactly;padding:16px;">${inner}</td>
+</tr></tbody></table>
+</td></tr>`;
+}
+
+function renderLink(context: Context, block: Extract<Block, { type: 'link' }>): string {
+   const color = block.color ?? context.linkColor;
+   warnLowContrast(context, color, context.contentColor, block.id);
+   const href = escapeHtml(resolve(context, block.href, block.id));
+
+   return `<tr><td class="px" align="${block.align}" style="${fontStyle(
+      context,
+      block.fontSize,
+      block.lineHeight,
+      color,
+   )}${paddingStyle(block.padding)}text-align:${block.align};"><a href="${href}" style="color:${color};font-family:${
+      context.font
+   };font-size:${block.fontSize}px;line-height:${block.lineHeight}px;text-decoration:${
+      block.underline ? 'underline' : 'none'
+   };">${escapeHtml(block.text)}</a></td></tr>`;
+}
+
 function renderBlock(context: Context, block: Block): string {
    const html = renderBlockMarkup(context, block);
    if (!context.opts.annotateBlocks || html.length === 0) return html;
@@ -329,6 +429,14 @@ function renderBlockMarkup(context: Context, block: Block): string {
          return renderColumns(context, block);
       case 'social':
          return renderSocial(context, block);
+      case 'list':
+         return renderList(context, block);
+      case 'quote':
+         return renderQuote(context, block);
+      case 'code':
+         return renderCode(context, block);
+      case 'link':
+         return renderLink(context, block);
    }
 }
 
@@ -367,6 +475,23 @@ function plainTextBlock(block: Block): string[] {
          return block.columns.flatMap((column) => column.blocks.flatMap(plainTextBlock));
       case 'social':
          return block.links.map((link) => `${link.network}: ${link.href}`);
+      case 'list':
+         return block.items
+            .split('\n')
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0)
+            .map((item, index) => `${block.ordered ? `${index + 1}.` : '-'} ${inlineToText(item)}`);
+      case 'quote': {
+         const attribution = block.attribution?.trim();
+         return [
+            `> ${inlineToText(block.text)}`,
+            ...(attribution === undefined || attribution.length === 0 ? [] : [`— ${attribution}`]),
+         ];
+      }
+      case 'code':
+         return [block.text];
+      case 'link':
+         return [`${block.text}: ${block.href}`];
    }
 }
 
@@ -405,7 +530,7 @@ export function renderEmail(doc: Document, opts: RenderOptions = {}): RenderResu
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>${escapeHtml(titleOf(doc))}</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:${doc.settings.backgroundColor};">
 ${preheader}

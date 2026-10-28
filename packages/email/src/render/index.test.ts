@@ -218,7 +218,7 @@ describe('renderEmail', () => {
          expect(html.match(/<style>/g)).toHaveLength(1);
          expect(html).toContain('mso-table-lspace');
          expect(html).toContain('mso-table-rspace');
-         expect(html).toContain('@media (max-width:600px)');
+         expect(html).toContain('@media (max-width:599px)');
          expect(html).toContain('.stack');
          expect(html).toContain('.px');
       });
@@ -473,5 +473,69 @@ describe('renderEmail', () => {
       const document = fixture('heading');
       document.children = [];
       expect(codes(renderEmail(document))).toContain('empty_document');
+   });
+});
+
+describe('extended blocks', () => {
+   it('renders an unordered list with a marker per item and keeps inline links', () => {
+      const html = renderEmail(fixture('list')).html;
+
+      expect(html.match(/•/g)).toHaveLength(3);
+      expect(html).toContain('https://example.com/story');
+   });
+
+   it('numbers an ordered list', () => {
+      const doc = fixture('list');
+      const list = doc.children[0];
+      if (list?.type !== 'list') throw new Error('unexpected fixture shape');
+
+      const html = renderEmail({ ...doc, children: [{ ...list, ordered: true }] }).html;
+
+      expect(html).toContain('>1.<');
+      expect(html).toContain('>3.<');
+   });
+
+   it('renders a quote bar and attribution', () => {
+      const html = renderEmail(fixture('quote')).html;
+
+      expect(html).toContain('width="3"');
+      expect(html).toContain('— Someone Wise');
+   });
+
+   it('renders code in a monospace stack, keeps line breaks and escapes markup', () => {
+      const doc = fixture('code');
+      const block = doc.children[0];
+      if (block?.type !== 'code') throw new Error('unexpected fixture shape');
+
+      const html = renderEmail({
+         ...doc,
+         children: [{ ...block, text: '<script>alert(1)</script>' }],
+      }).html;
+
+      expect(html).toContain("'Courier New'");
+      expect(html).toContain('&lt;script&gt;');
+      expect(html).not.toContain('<script>');
+      expect(renderEmail(fixture('code')).html).toContain('OTP-4821<br>Expires in 10 minutes');
+   });
+
+   it('routes a link block through resolveLink with the block id', () => {
+      const calls: Array<[string, string]> = [];
+
+      const html = renderEmail(fixture('link'), {
+         resolveLink: (href, id) => {
+            calls.push([href, id]);
+            return `https://track.test/${id}`;
+         },
+      }).html;
+
+      expect(calls).toEqual([['https://example.com/more', 'link-1']]);
+      expect(html).toContain('https://track.test/link-1');
+   });
+
+   it('stacks columns only below the content width', () => {
+      const html = renderEmail(fixture('columns')).html;
+
+      expect(html).toContain('@media (max-width:599px)');
+      expect(html).toContain('.stack{display:block!important;width:100%!important;}');
    });
 });

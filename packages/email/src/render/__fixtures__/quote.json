@@ -1,0 +1,23 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "quote-1",
+         "type": "quote",
+         "text": "The best time to send is when your reader is ready to read.",
+         "attribution": "Someone Wise",
+         "borderColor": "#0f766e",
+         "fontSize": 18,
+         "lineHeight": 28,
+         "padding": { "top": 8, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

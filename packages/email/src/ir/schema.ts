@@ -176,6 +176,70 @@ export const socialBlockSchema = z
    })
    .strict();
 
+export const listBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('list'),
+      items: z.string().max(5000),
+      ordered: z.boolean(),
+      markerColor: hexSchema.optional(),
+      color: hexSchema.optional(),
+      fontSize: z.number().int().min(8).max(72),
+      lineHeight: z.number().int().min(8).max(120),
+      gap: z.number().int().min(0).max(32),
+      padding: spacingSchema,
+   })
+   .strict();
+
+export const quoteBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('quote'),
+      text: z.string().min(1).max(5000),
+      attribution: z.string().max(200).optional(),
+      borderColor: hexSchema,
+      color: hexSchema.optional(),
+      fontSize: z.number().int().min(8).max(72),
+      lineHeight: z.number().int().min(8).max(120),
+      padding: spacingSchema,
+   })
+   .strict();
+
+export const codeBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('code'),
+      text: z.string().min(1).max(5000),
+      backgroundColor: hexSchema,
+      textColor: hexSchema,
+      fontSize: z.number().int().min(8).max(72),
+      lineHeight: z.number().int().min(8).max(120),
+      borderRadius: z.union([
+         z.literal(0),
+         z.literal(4),
+         z.literal(6),
+         z.literal(8),
+         z.literal(12),
+      ]),
+      padding: spacingSchema,
+   })
+   .strict();
+
+export const linkBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('link'),
+      text: z.string().min(1).max(500),
+      href: hrefSchema,
+      align: alignSchema,
+      color: hexSchema.optional(),
+      fontSize: z.number().int().min(8).max(72),
+      lineHeight: z.number().int().min(8).max(120),
+      underline: z.boolean(),
+      padding: spacingSchema,
+   })
+   .strict();
+
 export const leafBlockSchema = z.discriminatedUnion('type', [
    headingBlockSchema,
    textBlockSchema,
@@ -184,6 +248,10 @@ export const leafBlockSchema = z.discriminatedUnion('type', [
    dividerBlockSchema,
    spacerBlockSchema,
    socialBlockSchema,
+   listBlockSchema,
+   quoteBlockSchema,
+   codeBlockSchema,
+   linkBlockSchema,
 ]);
 
 export const columnSchema = z
@@ -353,6 +421,59 @@ export function createSocialBlock(): Block {
    };
 }
 
+export function createListBlock(): Block {
+   return {
+      id: randomId('list'),
+      type: 'list',
+      items: 'First item\nSecond item\nThird item',
+      ordered: false,
+      fontSize: 16,
+      lineHeight: 24,
+      gap: 8,
+      padding: defaultPadding(),
+   };
+}
+
+export function createQuoteBlock(): Block {
+   return {
+      id: randomId('quote'),
+      type: 'quote',
+      text: 'The best time to send is when your reader is ready to read.',
+      borderColor: '#0f766e',
+      fontSize: 18,
+      lineHeight: 28,
+      padding: { top: 8, right: 24, bottom: 16, left: 24 },
+   };
+}
+
+export function createCodeBlock(): Block {
+   return {
+      id: randomId('code'),
+      type: 'code',
+      text: '123456',
+      backgroundColor: '#f4f4f5',
+      textColor: '#18181b',
+      fontSize: 16,
+      lineHeight: 24,
+      borderRadius: 6,
+      padding: defaultPadding(),
+   };
+}
+
+export function createLinkBlock(): Block {
+   return {
+      id: randomId('link'),
+      type: 'link',
+      text: 'Read more',
+      href: 'https://example.com',
+      align: 'left',
+      fontSize: 16,
+      lineHeight: 24,
+      underline: true,
+      padding: defaultPadding(),
+   };
+}
+
 export function createBlock(type: BlockType): Block {
    switch (type) {
       case 'heading':
@@ -371,6 +492,14 @@ export function createBlock(type: BlockType): Block {
          return createColumnsBlock();
       case 'social':
          return createSocialBlock();
+      case 'list':
+         return createListBlock();
+      case 'quote':
+         return createQuoteBlock();
+      case 'code':
+         return createCodeBlock();
+      case 'link':
+         return createLinkBlock();
    }
 }
 

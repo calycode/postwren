@@ -211,6 +211,22 @@ function applyToBlock(block: Block, ctx: MergeContext): void {
             for (const child of column.blocks) applyToBlock(child, ctx);
          }
          return;
+      case 'list':
+         block.items = substituteText(block.items, ctx);
+         return;
+      case 'quote':
+         block.text = substituteText(block.text, ctx);
+         if (block.attribution !== undefined) {
+            block.attribution = substituteText(block.attribution, ctx);
+         }
+         return;
+      case 'code':
+         block.text = substituteText(block.text, ctx);
+         return;
+      case 'link':
+         block.text = substituteText(block.text, ctx);
+         block.href = substituteHref(block.href, ctx);
+         return;
       default:
          return;
    }

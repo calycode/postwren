@@ -1,7 +1,7 @@
 import type { BlockType } from '@mailer/email/ir';
 
 export type FieldKind =
-   'text' | 'textarea' | 'number' | 'range' | 'hex' | 'select' | 'align' | 'spacing';
+   'text' | 'textarea' | 'number' | 'range' | 'hex' | 'select' | 'align' | 'spacing' | 'boolean';
 
 export type FieldOption = {
    value: string;
@@ -33,6 +33,10 @@ export const BLOCK_TYPE_OPTIONS: readonly { type: BlockType; label: string }[] =
    { type: 'spacer', label: 'Spacer' },
    { type: 'columns', label: 'Columns' },
    { type: 'social', label: 'Social' },
+   { type: 'list', label: 'List' },
+   { type: 'quote', label: 'Quote' },
+   { type: 'code', label: 'Code' },
+   { type: 'link', label: 'Link' },
 ];
 
 export const ALIGN_OPTIONS: readonly FieldOption[] = [
@@ -55,6 +59,14 @@ export const BORDER_RADIUS_OPTIONS: readonly FieldOption[] = [
    { value: '12', label: '12px' },
    { value: '24', label: '24px' },
    { value: '999', label: 'Pill (999px)' },
+];
+
+export const CODE_RADIUS_OPTIONS: readonly FieldOption[] = [
+   { value: '0', label: 'None (0px)' },
+   { value: '4', label: '4px' },
+   { value: '6', label: '6px' },
+   { value: '8', label: '8px' },
+   { value: '12', label: '12px' },
 ];
 
 export const FONT_WEIGHT_OPTIONS: readonly FieldOption[] = [
@@ -163,6 +175,67 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
    social: [
       { key: 'align', label: 'Alignment', kind: 'align' },
       { key: 'iconSize', label: 'Icon size', kind: 'number', min: 12, max: 48 },
+      paddingField,
+   ],
+   list: [
+      {
+         key: 'items',
+         label: 'Items',
+         kind: 'textarea',
+         hint: 'One item per line. Supports **bold**, *italic* and [label](url).',
+      },
+      { key: 'ordered', label: 'Numbered list', kind: 'boolean' },
+      { key: 'color', label: 'Text colour', kind: 'hex', optional: true },
+      { key: 'markerColor', label: 'Marker colour', kind: 'hex', optional: true },
+      { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
+      { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
+      { key: 'gap', label: 'Item spacing', kind: 'number', min: 0, max: 32 },
+      paddingField,
+   ],
+   quote: [
+      {
+         key: 'text',
+         label: 'Quote',
+         kind: 'textarea',
+         hint: 'Supports **bold**, *italic* and [label](url).',
+      },
+      { key: 'attribution', label: 'Attribution', kind: 'text', optional: true },
+      { key: 'borderColor', label: 'Bar colour', kind: 'hex' },
+      { key: 'color', label: 'Text colour', kind: 'hex', optional: true },
+      { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
+      { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
+      paddingField,
+   ],
+   code: [
+      { key: 'text', label: 'Code', kind: 'textarea', hint: 'Rendered in a monospace font.' },
+      { key: 'backgroundColor', label: 'Background', kind: 'hex' },
+      { key: 'textColor', label: 'Text colour', kind: 'hex' },
+      { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
+      { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
+      {
+         key: 'borderRadius',
+         label: 'Corner radius',
+         kind: 'select',
+         options: CODE_RADIUS_OPTIONS,
+         numeric: true,
+      },
+      paddingField,
+   ],
+   link: [
+      { key: 'text', label: 'Label', kind: 'text' },
+      {
+         key: 'href',
+         label: 'Link',
+         kind: 'text',
+         validate: 'href',
+         required: true,
+         placeholder: 'https://example.com',
+      },
+      { key: 'align', label: 'Alignment', kind: 'align' },
+      { key: 'color', label: 'Colour', kind: 'hex', optional: true },
+      { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
+      { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
+      { key: 'underline', label: 'Underline', kind: 'boolean' },
       paddingField,
    ],
 };

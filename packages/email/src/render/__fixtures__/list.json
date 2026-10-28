@@ -1,0 +1,23 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "list-1",
+         "type": "list",
+         "items": "First item\nSecond item with a [link](https://example.com/story)\nThird item",
+         "ordered": false,
+         "fontSize": 16,
+         "lineHeight": 24,
+         "gap": 8,
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

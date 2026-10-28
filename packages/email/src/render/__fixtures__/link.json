@@ -1,0 +1,24 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "link-1",
+         "type": "link",
+         "text": "Read the full story",
+         "href": "https://example.com/more",
+         "align": "left",
+         "fontSize": 16,
+         "lineHeight": 24,
+         "underline": true,
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

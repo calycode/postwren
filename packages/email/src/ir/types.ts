@@ -110,6 +110,52 @@ export type SocialBlock = BlockBase & {
    padding: Spacing;
 };
 
+export type ListBlock = BlockBase & {
+   type: 'list';
+   items: string;
+   ordered: boolean;
+   markerColor?: Hex;
+   color?: Hex;
+   fontSize: number;
+   lineHeight: number;
+   gap: number;
+   padding: Spacing;
+};
+
+export type QuoteBlock = BlockBase & {
+   type: 'quote';
+   text: string;
+   attribution?: string;
+   borderColor: Hex;
+   color?: Hex;
+   fontSize: number;
+   lineHeight: number;
+   padding: Spacing;
+};
+
+export type CodeBlock = BlockBase & {
+   type: 'code';
+   text: string;
+   backgroundColor: Hex;
+   textColor: Hex;
+   fontSize: number;
+   lineHeight: number;
+   borderRadius: 0 | 4 | 6 | 8 | 12;
+   padding: Spacing;
+};
+
+export type LinkBlock = BlockBase & {
+   type: 'link';
+   text: string;
+   href: string;
+   align: Align;
+   color?: Hex;
+   fontSize: number;
+   lineHeight: number;
+   underline: boolean;
+   padding: Spacing;
+};
+
 export type Block =
    | HeadingBlock
    | TextBlock
@@ -118,7 +164,11 @@ export type Block =
    | DividerBlock
    | SpacerBlock
    | ColumnsBlock
-   | SocialBlock;
+   | SocialBlock
+   | ListBlock
+   | QuoteBlock
+   | CodeBlock
+   | LinkBlock;
 
 export type BlockType = Block['type'];
 

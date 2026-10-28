@@ -247,3 +247,73 @@ describe('findMergeTags', () => {
       expect(findMergeTags('no tags here')).toEqual([]);
    });
 });
+
+describe('merge tags in extended blocks', () => {
+   it('substitutes list items, quote text, attribution, code and link fields', () => {
+      const doc = parseDocument({
+         version: 1,
+         settings: {
+            width: 600,
+            backgroundColor: '#f4f4f5',
+            contentColor: '#ffffff',
+            textColor: '#18181b',
+            linkColor: '#0f766e',
+            fontFamily: 'HELVETICA',
+         },
+         children: [
+            {
+               id: 'list-merge',
+               type: 'list',
+               items: 'Hi {{ subscriber.first_name | trim }}\nYour subject: {{ campaign.subject }}',
+               ordered: false,
+               fontSize: 16,
+               lineHeight: 24,
+               gap: 8,
+               padding: { top: 0, right: 24, bottom: 16, left: 24 },
+            },
+            {
+               id: 'quote-merge',
+               type: 'quote',
+               text: 'Sent to {{ subscriber.email }}',
+               attribution: '{{ campaign.subject }}',
+               borderColor: '#0f766e',
+               fontSize: 18,
+               lineHeight: 28,
+               padding: { top: 8, right: 24, bottom: 16, left: 24 },
+            },
+            {
+               id: 'code-merge',
+               type: 'code',
+               text: 'TOKEN-{{ subscriber.id }}',
+               backgroundColor: '#f4f4f5',
+               textColor: '#18181b',
+               fontSize: 16,
+               lineHeight: 24,
+               borderRadius: 6,
+               padding: { top: 0, right: 24, bottom: 16, left: 24 },
+            },
+            {
+               id: 'link-merge',
+               type: 'link',
+               text: 'Unsubscribe',
+               href: '{{ links.unsubscribe }}',
+               align: 'center',
+               fontSize: 16,
+               lineHeight: 24,
+               underline: true,
+               padding: { top: 0, right: 24, bottom: 16, left: 24 },
+            },
+         ],
+      });
+
+      const merged = applyMergeTags(doc, context);
+      const [list, quote, code, link] = merged.children;
+
+      expect(list?.type === 'list' ? list.items : '').toContain('Ada');
+      expect(list?.type === 'list' ? list.items : '').toContain('Spring news');
+      expect(quote?.type === 'quote' ? quote.text : '').toContain('ada@example.com');
+      expect(quote?.type === 'quote' ? quote.attribution : '').toBe('Spring news');
+      expect(code?.type === 'code' ? code.text : '').toBe('TOKEN-sub-1');
+      expect(link?.type === 'link' ? link.href : '').toBe('https://example.com/u?token=abc&x=1');
+   });
+});

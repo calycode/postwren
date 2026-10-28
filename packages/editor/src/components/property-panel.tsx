@@ -61,6 +61,10 @@ const MERGEABLE_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
    text: ['text'],
    button: ['text', 'href'],
    image: ['alt', 'href'],
+   list: ['items'],
+   quote: ['text', 'attribution'],
+   code: ['text'],
+   link: ['text', 'href'],
 };
 
 type PropertyPanelProps = {
@@ -304,6 +308,17 @@ function SchemaField({ spec, block, settings, patch, textareaRef }: SchemaFieldP
          ariaLabel={`Insert merge tag into ${spec.label}`}
       />
    ) : null;
+
+   if (spec.kind === 'boolean') {
+      return (
+         <Checkbox
+            id={id}
+            checked={raw === true}
+            label={spec.label}
+            onChange={(event) => setKey(patch, spec.key, event.currentTarget.checked)}
+         />
+      );
+   }
 
    if (spec.kind === 'spacing') {
       const spacing = raw as Spacing;

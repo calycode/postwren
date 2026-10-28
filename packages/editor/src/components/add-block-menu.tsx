@@ -17,8 +17,15 @@ const GROUPS: readonly {
       types: [
          { type: 'heading', label: 'Heading' },
          { type: 'text', label: 'Text' },
-         { type: 'button', label: 'Button' },
+         { type: 'list', label: 'List' },
+         { type: 'quote', label: 'Quote' },
+         { type: 'code', label: 'Code' },
+         { type: 'link', label: 'Link' },
       ],
+   },
+   {
+      label: 'Action',
+      types: [{ type: 'button', label: 'Button' }],
    },
    {
       label: 'Media',

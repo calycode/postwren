@@ -307,5 +307,13 @@ export function blockLabel(block: Block): string {
          return `Columns (${block.columns.length})`;
       case 'social':
          return 'Social';
+      case 'list':
+         return block.ordered ? 'Numbered list' : 'List';
+      case 'quote':
+         return 'Quote';
+      case 'code':
+         return 'Code';
+      case 'link':
+         return 'Link';
    }
 }

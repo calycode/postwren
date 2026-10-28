@@ -41,6 +41,25 @@ function collectLinks(document: Document): LinkTarget[] {
                if (href !== undefined) targets.push({ href, linkId: block.id });
             }
             return;
+         case 'list':
+            for (const item of block.items.split('\n')) {
+               for (const match of item.matchAll(INLINE_LINK)) {
+                  const href = match[1];
+                  if (href !== undefined) targets.push({ href, linkId: block.id });
+               }
+            }
+            return;
+         case 'quote':
+            for (const match of block.text.matchAll(INLINE_LINK)) {
+               const href = match[1];
+               if (href !== undefined) targets.push({ href, linkId: block.id });
+            }
+            return;
+         case 'link':
+            targets.push({ href: block.href, linkId: block.id });
+            return;
+         case 'code':
+            return;
          case 'columns':
             for (const column of block.columns) {
                for (const child of column.blocks) visit(child);

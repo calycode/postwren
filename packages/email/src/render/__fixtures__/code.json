@@ -1,0 +1,24 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "code-1",
+         "type": "code",
+         "text": "OTP-4821\nExpires in 10 minutes",
+         "backgroundColor": "#f4f4f5",
+         "textColor": "#18181b",
+         "fontSize": 16,
+         "lineHeight": 24,
+         "borderRadius": 6,
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

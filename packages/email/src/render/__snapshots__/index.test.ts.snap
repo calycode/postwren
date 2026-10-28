@@ -12,7 +12,7 @@ exports[`renderEmail > golden output for button > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
@@ -51,7 +51,7 @@ exports[`renderEmail > golden output for columns > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
@@ -86,7 +86,7 @@ exports[`renderEmail > golden output for composed > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>A composed message</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 <span style="display:none!important;font-size:1px;line-height:1px;max-height:0;overflow:hidden;mso-hide:all;color:transparent;">Everything in one message&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</span>
@@ -135,7 +135,7 @@ exports[`renderEmail > golden output for divider > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
@@ -166,7 +166,7 @@ exports[`renderEmail > golden output for heading > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Hello bold world</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 <span style="display:none!important;font-size:1px;line-height:1px;max-height:0;overflow:hidden;mso-hide:all;color:transparent;">A short preview line&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</span>
@@ -195,7 +195,7 @@ exports[`renderEmail > golden output for image > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
@@ -224,7 +224,7 @@ exports[`renderEmail > golden output for social > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
@@ -255,7 +255,7 @@ exports[`renderEmail > golden output for spacer > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
@@ -284,7 +284,7 @@ exports[`renderEmail > golden output for text > matches the snapshot 1`] = `
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>Email</title>
-<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:600px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
+<style>body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}@media (max-width:599px){.stack{display:block!important;width:100%!important;}.px{padding-left:16px!important;padding-right:16px!important;}}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f5;">
 
