@@ -130,9 +130,9 @@ describe('public subscribe', () => {
          sourceUrl: 'https://site.example/newsletter',
       });
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(202);
       const body = await json(response);
-      expect(body.data).toEqual({ subscribed: true, created: true });
+      expect(body.data).toEqual({ subscribed: true });
 
       const row = await baseEnv()
          .DB.prepare(
@@ -191,8 +191,8 @@ describe('public subscribe', () => {
          website: 'https://spam.example',
       });
 
-      expect(response.status).toBe(200);
-      expect((await json(response)).data).toEqual({ subscribed: true, created: false });
+      expect(response.status).toBe(202);
+      expect((await json(response)).data).toEqual({ subscribed: true });
 
       const count = await baseEnv()
          .DB.prepare('SELECT COUNT(*) AS count FROM subscribers')
@@ -209,14 +209,16 @@ describe('public subscribe', () => {
          tags: ['vip'],
          metadata: { plan: 'pro' },
       });
-      expect((await json(first)).data.created).toBe(true);
+      expect(first.status).toBe(202);
 
       const second = await subscribe(created.key, {
          email: 'ADA@example.com',
          tags: ['vip', 'beta'],
          metadata: { plan: 'team', region: 'eu' },
       });
-      expect((await json(second)).data.created).toBe(false);
+      expect(second.status).toBe(202);
+      expect((await json(first)).data).toEqual({ subscribed: true });
+      expect((await json(second)).data).toEqual({ subscribed: true });
 
       const count = await baseEnv()
          .DB.prepare('SELECT COUNT(*) AS count FROM subscribers')
@@ -229,7 +231,7 @@ describe('public subscribe', () => {
          .run();
 
       const third = await subscribe(created.key, { email: 'ada@example.com' });
-      expect(third.status).toBe(200);
+      expect(third.status).toBe(202);
 
       const row = await baseEnv()
          .DB.prepare('SELECT status FROM subscribers WHERE email = ?')
@@ -260,7 +262,7 @@ describe('public subscribe', () => {
          { email: 'allowed@example.com' },
          { origin: 'https://site.example' },
       );
-      expect(allowed.status).toBe(200);
+      expect(allowed.status).toBe(202);
       expect(allowed.headers.get('access-control-allow-origin')).toBe('https://site.example');
 
       const blocked = await subscribe(
@@ -269,7 +271,8 @@ describe('public subscribe', () => {
          { origin: 'https://evil.example' },
       );
       expect(blocked.status).toBe(403);
-      expect(blocked.headers.get('access-control-allow-origin')).toBeNull();
+      expect(blocked.headers.get('access-control-allow-origin')).toBe('https://evil.example');
+      expect((await json(blocked)).error.code).toBe('forbidden');
    });
 
    it('answers preflight requests', async () => {
@@ -294,7 +297,7 @@ describe('public subscribe', () => {
 
       for (let index = 0; index < 10; index += 1) {
          const response = await subscribe(created.key, { email: `bulk${index}@example.com` });
-         expect(response.status).toBe(200);
+         expect(response.status).toBe(202);
       }
 
       const limited = await subscribe(created.key, { email: 'over@example.com' });

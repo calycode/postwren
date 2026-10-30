@@ -255,7 +255,7 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
                id: campaign.id,
                subject: campaign.subject,
                utm_campaign: campaign.utm_campaign,
-               meta: parseMetadataJson(campaign.metadata_json),
+               meta: parseMetadataJson(campaign.metadata_snapshot ?? campaign.metadata_json),
             },
             links: { unsubscribe: unsubscribeUrl },
          };

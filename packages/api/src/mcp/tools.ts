@@ -132,6 +132,11 @@ const strArray = (description: string): Record<string, unknown> => ({
    description,
    items: { type: 'string' },
 });
+const metadataRecord = (description: string): Record<string, unknown> => ({
+   type: 'object',
+   description,
+   additionalProperties: { type: 'string' },
+});
 
 const ID = str('Resource id');
 
@@ -146,7 +151,28 @@ const campaignFields = {
    utmSource: str('UTM source'),
    utmMedium: str('UTM medium'),
    utmCampaign: str('UTM campaign'),
+   metadata: metadataRecord('Campaign variables rendered as {{ campaign.meta.key }}'),
 };
+
+function optionalMetadata(
+   args: Record<string, unknown>,
+   key: string,
+): Record<string, string> | undefined {
+   const value = args[key];
+   if (value === undefined) return undefined;
+   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      throw new ToolInputError(`"${key}" must be an object of string values`);
+   }
+
+   const output: Record<string, string> = {};
+   for (const [entryKey, entryValue] of Object.entries(value)) {
+      if (typeof entryValue !== 'string') {
+         throw new ToolInputError(`"${key}.${entryKey}" must be a string`);
+      }
+      output[entryKey] = entryValue;
+   }
+   return output;
+}
 export const TOOLS: ToolDescriptor[] = [
    {
       name: 'list_tags',
@@ -200,7 +226,7 @@ export const TOOLS: ToolDescriptor[] = [
    {
       name: 'get_subscriber',
       title: 'Get subscriber',
-      description: 'Read one subscriber together with their tags.',
+      description: 'Read one subscriber together with their tags and custom metadata.',
       inputSchema: object({ id: ID }, ['id']),
       requiredScope: 'subscribers:read',
       readOnly: true,
@@ -210,12 +236,15 @@ export const TOOLS: ToolDescriptor[] = [
    {
       name: 'create_subscriber',
       title: 'Create subscriber',
-      description: 'Create a subscribed subscriber.',
+      description: 'Create a subscribed subscriber with optional custom metadata.',
       inputSchema: object(
          {
             email: str('Email address'),
             firstName: str('First name'),
             lastName: str('Last name'),
+            metadata: metadataRecord(
+               'Custom key/value fields rendered as {{ subscriber.meta.key }}',
+            ),
          },
          ['email'],
       ),
@@ -231,19 +260,24 @@ export const TOOLS: ToolDescriptor[] = [
                email: requiredString(args, 'email'),
                firstName: optionalString(args, 'firstName'),
                lastName: optionalString(args, 'lastName'),
+               metadata: optionalMetadata(args, 'metadata'),
             }),
          ),
    },
    {
       name: 'update_subscriber',
       title: 'Update subscriber',
-      description: 'Update a subscriber email or name.',
+      description:
+         'Update a subscriber email, name or custom metadata. Metadata keys are merged; null clears a key through the REST API.',
       inputSchema: object(
          {
             id: ID,
             email: str('Email address'),
             firstName: str('First name'),
             lastName: str('Last name'),
+            metadata: metadataRecord(
+               'Custom key/value fields rendered as {{ subscriber.meta.key }}',
+            ),
          },
          ['id'],
       ),
@@ -259,6 +293,7 @@ export const TOOLS: ToolDescriptor[] = [
                email: optionalString(args, 'email'),
                firstName: optionalString(args, 'firstName'),
                lastName: optionalString(args, 'lastName'),
+               metadata: optionalMetadata(args, 'metadata'),
             }),
          ),
    },
@@ -377,6 +412,7 @@ export const TOOLS: ToolDescriptor[] = [
             utmSource: optionalString(args, 'utmSource'),
             utmMedium: optionalString(args, 'utmMedium'),
             utmCampaign: optionalString(args, 'utmCampaign'),
+            metadata: optionalMetadata(args, 'metadata'),
          });
          return envelope(context, 'POST', '/api/v1/campaigns', body);
       },
@@ -405,6 +441,7 @@ export const TOOLS: ToolDescriptor[] = [
                utmSource: optionalString(args, 'utmSource'),
                utmMedium: optionalString(args, 'utmMedium'),
                utmCampaign: optionalString(args, 'utmCampaign'),
+               metadata: optionalMetadata(args, 'metadata'),
             }),
          ),
    },

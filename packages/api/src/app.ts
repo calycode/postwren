@@ -9,7 +9,6 @@ import { enforceScopes } from './middleware/scopes';
 import { authRoutes } from './routes/auth';
 import { apiKeyRoutes } from './routes/api-keys';
 import { subscriberRoutes } from './routes/subscribers';
-import { agentSubscriberRoutes } from './routes/agent-subscribers';
 import { tagRoutes } from './routes/tags';
 import { templateRoutes } from './routes/templates';
 import { campaignRoutes } from './routes/campaigns';
@@ -66,7 +65,6 @@ export function createApp(env: Env): Hono<AppEnv> {
    app.use('/api/v1/*', enforceScopes);
    app.route('/api/v1/settings/api-keys', apiKeyRoutes);
    app.route('/api/v1/subscribers', subscriberRoutes);
-   app.route('/api/v1/subscribers', agentSubscriberRoutes);
    app.route('/api/v1/tags', tagRoutes);
    app.route('/api/v1/templates', templateRoutes);
    app.route('/api/v1/campaigns', agentCampaignRoutes);

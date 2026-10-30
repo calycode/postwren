@@ -1,5 +1,7 @@
 # Agent auth and EmDash plugin feasibility
 
+> **Status (2026-10-30):** the agent API/MCP work and the public subscribe endpoint described here as missing have since merged into `master`; EmDash phase 1 is being implemented in `packages/emdash-plugin`. Use `docs/AGENT-ACCESS.md` and `docs/EMDASH-PLUGIN.md` for current contracts. Section 1 remains the spec reference; section 2 records the feasibility analysis.
+
 Two questions for this repo: what does it take to expose an MCP server that ChatGPT and Claude can connect to, and what can an EmDash plugin actually own if this mailer is packaged for EmDash sites. Sources were fetched on 2026-10-30. Where EmDash docs were ambiguous, the local source in `C:\DEVELOPMENT\CALY\exploration\emdash-block-builder` was checked.
 
 ## 1. MCP authorization in 2026

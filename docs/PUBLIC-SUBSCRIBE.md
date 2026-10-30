@@ -60,10 +60,10 @@ curl -X POST https://mail.example.com/api/public/subscribe \
 Successful response:
 
 ```json
-{ "data": { "subscribed": true, "created": true }, "error": null }
+{ "data": { "subscribed": true }, "error": null }
 ```
 
-`created` is `false` when the email already existed. Repeating the call is safe: tags and metadata are merged, the subscriber is not duplicated, and an unsubscribed or bounced subscriber is never moved back to `subscribed`.
+The response is identical for a new and an existing address (`202 Accepted`). That is deliberate: the endpoint is public and must not reveal list membership. Repeating the call is safe: tags and metadata are merged, the subscriber is not duplicated, and an unsubscribed or bounced subscriber is never moved back to `subscribed`.
 
 ### Browser code
 
@@ -148,7 +148,7 @@ document.querySelector('#newsletter').addEventListener('submit', async (event) =
 | `metadata`  | no       | Flat string map. Keys match `^[a-z][a-z0-9_]{0,63}$`, values ≤ 1024.       |
 | `source`    | no       | Provenance label stored on the subscriber. Defaults to `public_subscribe`. |
 | `sourceUrl` | no       | Absolute URL of the page that submitted the form.                          |
-| `website`   | no       | Honeypot. Any non-empty value returns a 200 no-op.                         |
+| `website`   | no       | Honeypot. Any non-empty value returns a 202 no-op.                         |
 
 Reserved metadata keys (`id`, `email`, `first_name`, `last_name`, `status`, `tags`) are rejected with a validation error.
 

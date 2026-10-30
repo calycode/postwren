@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { ZodError } from 'zod';
 import { sha256Hex } from '@mailer/worker-kit/ids';
 import { fail, ok } from '@mailer/worker-kit/envelope';
-import { UnauthorizedError, isAppError } from '@mailer/worker-kit/errors';
+import { isAppError } from '@mailer/worker-kit/errors';
 import { RATE_LIMITS, publicSubscribeInput } from '@mailer/shared/contracts';
 import type { AppEnv } from '../env';
 import { consumeRateLimit } from '../lib/rate-limit';
@@ -77,31 +77,36 @@ publicRoutes.options('/api/public/subscribe', (c) => {
 });
 
 publicRoutes.post('/api/public/subscribe', async (c) => {
+   const origin = c.req.header('origin') ?? null;
+   const requestId = c.get('requestId');
+   const reply = (response: Response): Response => withCors(response, origin);
+
    const secret = subscribeSecret(c);
    if (secret.length === 0) {
-      throw new UnauthorizedError('A subscribe key is required');
+      return reply(
+         fail(401, 'unauthorized', 'A subscribe key is required', undefined, requestId),
+      );
    }
 
    const key = await findKey(c.env.DB, secret);
    if (key === null) {
-      throw new UnauthorizedError('The subscribe key is invalid or revoked');
-   }
-
-   const origin = c.req.header('origin') ?? null;
-   const allowedOrigins = stringArray(key.allowed_origins);
-
-   if (origin !== null && !allowedOrigins.includes(origin)) {
-      return fail(
-         403,
-         'forbidden',
-         'Origin is not allowed for this subscribe key',
-         undefined,
-         c.get('requestId'),
+      return reply(
+         fail(401, 'unauthorized', 'The subscribe key is invalid or revoked', undefined, requestId),
       );
    }
 
-   const allowedOrigin = origin !== null ? origin : null;
-   const requestId = c.get('requestId');
+   const allowedOrigins = stringArray(key.allowed_origins);
+   if (origin !== null && !allowedOrigins.includes(origin)) {
+      return reply(
+         fail(
+            403,
+            'forbidden',
+            'Origin is not allowed for this subscribe key',
+            undefined,
+            requestId,
+         ),
+      );
+   }
 
    try {
       await consumeRateLimit(
@@ -117,13 +122,13 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
             : {};
 
       if (typeof record.website === 'string' && record.website.trim().length > 0) {
-         return withCors(ok({ subscribed: true, created: false }, { requestId }), allowedOrigin);
+         return reply(ok({ subscribed: true }, { status: 202, requestId }));
       }
 
       const body = publicSubscribeInput.parse(raw);
 
       const tags = [...stringArray(key.default_tags), ...(body.tags ?? [])];
-      const result = await upsertSubscriber(
+      await upsertSubscriber(
          c.env.DB,
          {
             email: body.email,
@@ -139,20 +144,16 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
          nowSeconds(),
       );
 
-      return withCors(
-         ok({ subscribed: true, created: result.created }, { requestId }),
-         allowedOrigin,
-      );
+      // Same answer for new and existing addresses: the endpoint is public and
+      // must not become a list-membership oracle.
+      return reply(ok({ subscribed: true }, { status: 202, requestId }));
    } catch (error) {
       if (isAppError(error)) {
-         return withCors(
-            fail(error.status, error.code, error.message, error.details, requestId),
-            allowedOrigin,
-         );
+         return reply(fail(error.status, error.code, error.message, error.details, requestId));
       }
 
       if (error instanceof ZodError) {
-         return withCors(
+         return reply(
             fail(
                422,
                'validation_error',
@@ -160,7 +161,6 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
                { issues: error.issues },
                requestId,
             ),
-            allowedOrigin,
          );
       }
 

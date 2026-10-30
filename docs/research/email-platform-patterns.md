@@ -1,5 +1,7 @@
 # Email platform patterns: Loops and Resend
 
+> **Status (2026-10-30):** the custom metadata/public-subscribe and agent API/MCP work this document marks "in flight" has since merged into `master`. Read `CONTEXT.md`, `docs/PUBLIC-SUBSCRIBE.md` and `docs/AGENT-ACCESS.md` for the shipped contracts. The gap analysis below records the code as it stood when the research ran; the backlog is still the source of truth for what to build next.
+
 Reference products for this repo, read against the actual code on 2026-10-30. All URLs were fetched on that date. This is a decision document, not a feature survey: every row ends in ADOPT, ADAPT, or SKIP for a single-tenant, tag-audience mailer with no automation builder, no A/B testing, and no billing.
 
 ## 1. Product model at a glance

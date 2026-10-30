@@ -246,6 +246,51 @@ describe('campaigns', () => {
       expect((await json(preview)).data.html).toContain('Edition october');
    });
 
+   it('freezes campaign metadata when the campaign is pinned', async () => {
+      const owner = await seedOwner(baseEnv());
+      const document = createDocument();
+      const text = document.children[0];
+      if (text?.type === 'text') text.text = 'Edition {{ campaign.meta.edition }}';
+      const template = await seedTemplate(baseEnv(), { document });
+
+      const created = await app.request('/api/v1/campaigns', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({
+            name: 'Frozen',
+            templateId: template.id,
+            subject: 'This week',
+            fromName: 'Sender',
+            fromEmail: 'noreply@example.com',
+            audienceQuery: '',
+            metadata: { edition: 'october' },
+         }),
+      });
+      const campaign = (await json(created)).data;
+
+      const scheduled = await app.request(`/api/v1/campaigns/${campaign.id}/schedule`, {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ scheduledAt: 4_000_000_000 }),
+      });
+      expect(scheduled.status).toBe(200);
+
+      const patched = await app.request(`/api/v1/campaigns/${campaign.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ metadata: { edition: 'november' } }),
+      });
+      expect((await json(patched)).data.metadata).toEqual({ edition: 'november' });
+
+      const preview = await app.request(`/api/v1/campaigns/${campaign.id}/preview`, {
+         headers: { cookie: owner.cookie },
+      });
+
+      const previewBody = await json(preview);
+      expect(previewBody.data.html).toContain('Edition october');
+      expect(previewBody.data.html).not.toContain('Edition november');
+   });
+
    it('counts an audience selected by metadata', async () => {
       const owner = await seedOwner(baseEnv());
       await seedSubscribers(baseEnv(), [

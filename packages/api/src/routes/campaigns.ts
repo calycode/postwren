@@ -106,6 +106,13 @@ function campaignResource(row: CampaignRow): CampaignResource {
    return { ...rest, metadata: parseMetadataJson(metadata_json) };
 }
 
+function campaignMergeMetadata(campaign: CampaignResource): MetadataRecord {
+   if (campaign.ir_snapshot === null || campaign.metadata_snapshot === null) {
+      return campaign.metadata;
+   }
+   return parseMetadataJson(campaign.metadata_snapshot);
+}
+
 async function findCampaign(db: D1Database, id: string): Promise<CampaignResource> {
    const campaign = await loadCampaign(db, id);
    if (campaign === null) {
@@ -123,7 +130,8 @@ async function pinAudience(
    const count = await countAudience(env.DB, query);
    await env.DB.prepare(
       `UPDATE campaigns
-       SET template_revision = ?, ir_snapshot = ?, audience_count = ?, updated_at = ?
+       SET template_revision = ?, ir_snapshot = ?, metadata_snapshot = metadata_json,
+           audience_count = ?, updated_at = ?
        WHERE id = ?`,
    )
       .bind(template.revision, template.ir_json, count, nowSeconds(), campaignId)
@@ -328,7 +336,7 @@ campaignRoutes.post('/:id/test', async (c) => {
          id: campaign.id,
          subject: campaign.subject,
          utm_campaign: campaign.utm_campaign,
-         meta: campaign.metadata,
+         meta: campaignMergeMetadata(campaign),
       }),
    );
    const rendered = renderEmail(merged, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
@@ -396,7 +404,7 @@ campaignRoutes.get('/:id/preview', async (c) => {
       sampleMergeContext({
          subject: campaign.subject,
          utm_campaign: campaign.utm_campaign,
-         meta: campaign.metadata,
+         meta: campaignMergeMetadata(campaign),
       }),
    );
    const result = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });

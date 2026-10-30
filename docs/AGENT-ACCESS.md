@@ -355,9 +355,9 @@ Every `tools/call` result contains a text content block whose JSON is the same `
 | `list_tags`            | `tags:read`         | Tags with subscriber counts                   |
 | `create_tag`           | `tags:write`        | Create a tag                                  |
 | `list_subscribers`     | `subscribers:read`  | Search/filter/paginate subscribers            |
-| `get_subscriber`       | `subscribers:read`  | One subscriber with tags                      |
-| `create_subscriber`    | `subscribers:write` | Create a subscriber                           |
-| `update_subscriber`    | `subscribers:write` | Update email/name                             |
+| `get_subscriber`       | `subscribers:read`  | One subscriber with tags and metadata         |
+| `create_subscriber`    | `subscribers:write` | Create a subscriber with optional metadata    |
+| `update_subscriber`    | `subscribers:write` | Update email/name, merge or clear metadata    |
 | `delete_subscriber`    | `subscribers:write` | Soft delete and suppress                      |
 | `assign_tag`           | `subscribers:write` | Attach one tag to one subscriber              |
 | `remove_tag`           | `subscribers:write` | Detach one tag from one subscriber            |
@@ -426,5 +426,5 @@ curl -X POST "$MAILER_URL/mcp" \
 - **Login return path.** If the browser is signed out, `/oauth/authorize` redirects to `/login?next=...`. The admin SPA hands server-rendered paths back to the browser, so the consent page loads after sign-in.
 - **Default OAuth scopes are read-only.** When a client omits `scope`, authorization defaults to `subscribers:read`, `campaigns:read`, `templates:read` and `tags:read`. Request write or send scopes explicitly.
 - **No media or import tools over MCP.** Media upload (`media:write`) and CSV import stay on REST; MCP covers structured resources.
-- **No custom metadata.** Subscriber metadata is out of scope for this feature, as is the public `POST /api/public/subscribe` endpoint (owned by another change).
+- **Custom metadata is supported.** Subscriber and campaign tools accept a flat `metadata` object; subscriber patches merge keys and `null` clears one. Metadata renders through `{{ subscriber.meta.key }}` / `{{ campaign.meta.key }}` and can be targeted with `meta:key=value` in audience queries. The public `POST /api/public/subscribe` endpoint is a separate publishable-key surface and is not exposed over MCP.
 - **CORS** still only allows the local Vite origins. MCP clients are expected to be server-side; a browser-based MCP client on another origin needs the allowed-origin list extended.

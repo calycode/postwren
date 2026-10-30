@@ -71,7 +71,7 @@ Test at these, not at internals:
 - JSON **resource representations are snake_case**, mirroring the D1 columns (`first_name`, `audience_count`, `template_revision`). The webapp normalises at its API client boundary; do not add a second mapping layer.
 - Every response is `{ data, error }`, plus `meta` when paginated. Failures are `{ data: null, error: { code, message, details? } }`.
 - Cursor pagination is opaque; clients never construct a cursor.
-- Campaigns freeze their content: `campaigns.ir_snapshot` is written when a campaign is scheduled or sent, and the queue consumer renders that snapshot, not the live template row.
+- Campaigns freeze their content: `campaigns.ir_snapshot` and `campaigns.metadata_snapshot` are written when a campaign is scheduled or sent, and the queue consumer renders that snapshot and its metadata, not the live template or campaign row.
 - A template's `revision` increments only on an explicit save. Autosave updates content and `updated_at` without bumping it; campaigns pin a revision.
 
 ## Custom metadata
@@ -79,7 +79,7 @@ Test at these, not at internals:
 Subscribers and campaigns both carry dynamic key/value metadata, but they are stored differently on purpose.
 
 - **Subscribers are audience rows.** Their metadata lives in `subscriber_metadata`, one row per `(subscriber_id, key)`, with an index on `(key, value)`. Audience queries must filter on individual keys (`meta:plan=pro`), and a normalised table keeps those filters parameterised, indexed and free of JSON parsing inside SQL. `subscriber_metadata` cascades with the subscriber.
-- **Campaigns are content.** Their metadata is a flat string map in `campaigns.metadata_json`. Campaigns are read as a whole row when rendering, never filtered by metadata key, so a JSON map avoids a join and matches the existing frozen-campaign model. The queue consumer reads metadata from the campaign row it already loads, not from the live template.
+- **Campaigns are content.** Their metadata is a flat string map in `campaigns.metadata_json`. Campaigns are read as a whole row when rendering, never filtered by metadata key, so a JSON map avoids a join and matches the existing frozen-campaign model. When a campaign is pinned, `metadata_snapshot` copies `metadata_json` next to `ir_snapshot`; the queue consumer and preview read the snapshot, so editing metadata after scheduling cannot change an in-flight send.
 
 Shared rules live in `@mailer/shared/metadata`:
 
@@ -109,7 +109,7 @@ The body is camelCase:
 }
 ```
 
-The endpoint is idempotent: an existing email gains tags and metadata, keeps its status (an unsubscribed or bounced subscriber is never revived), and records `source` / `source_url`. `subscribe_keys.default_tags` are added to every signup. Requests are rate limited with `RATE_LIMITS.publicSubscribe` against `rate_limits`.
+The endpoint is idempotent: an existing email gains tags and metadata, keeps its status (an unsubscribed or bounced subscriber is never revived), and records `source` / `source_url`. `subscribe_keys.default_tags` are added to every signup. Requests are rate limited with `RATE_LIMITS.publicSubscribe` against `rate_limits`. Every accepted request returns `202 { "data": { "subscribed": true } }` regardless of whether the address was new, so the public endpoint cannot be used to test list membership.
 
 Keys are managed under `/api/v1/subscribe-keys` with a normal session. `POST` returns the secret once; `GET` lists prefix, origins and default tags; `DELETE` revokes.
 
