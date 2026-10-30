@@ -10,6 +10,7 @@
       "lint": "eslint src"
    },
    "dependencies": {
+      "@cloudflare/workers-oauth-provider": "^1.2.4",
       "@mailer/email": "workspace:*",
       "@mailer/shared": "workspace:*",
       "@mailer/worker-kit": "workspace:*",

@@ -1,3 +1,4 @@
+import type { OAuthHelpers } from '@cloudflare/workers-oauth-provider';
 import type { Scope } from './auth/scopes';
 
 export type CampaignJob = {
@@ -23,6 +24,8 @@ export interface Env {
    ASSETS: Fetcher;
    CAMPAIGN_QUEUE: Queue<CampaignJob>;
    EMAIL: EmailBinding;
+   OAUTH_KV: KVNamespace;
+   OAUTH_PROVIDER?: OAuthHelpers;
    SESSION_SECRET: string;
    TOKEN_SECRET: string;
    APP_URL: string;
@@ -31,7 +34,7 @@ export interface Env {
    OWNER_EMAIL?: string;
 }
 
-export type AuthKind = 'session' | 'api_key' | 'oauth';
+export type AuthKind = 'session' | 'api_key' | 'service';
 
 export type AppEnv = {
    Bindings: Env;

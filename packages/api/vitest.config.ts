@@ -9,7 +9,7 @@ export default defineConfig({
          wrangler: { configPath: '../../wrangler.dev.jsonc' },
          miniflare: {
             compatibilityDate: '2026-08-22',
-            compatibilityFlags: ['nodejs_compat'],
+            compatibilityFlags: ['nodejs_compat', 'global_fetch_strictly_public'],
             bindings: { TEST_MIGRATIONS: migrations },
          },
       }),

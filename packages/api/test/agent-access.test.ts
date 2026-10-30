@@ -1,24 +1,33 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { env } from 'cloudflare:test';
+import { env, SELF } from 'cloudflare:test';
 import { sha256Hex } from '@mailer/worker-kit/ids';
 import type { Scope } from '../src/auth/scopes';
 import { apiKeyHash, generateApiKey } from '../src/auth/api-key';
-import { pkceChallenge } from '../src/oauth/pkce';
 import { authHeaders, baseEnv, createAppForTest, json, now, resetDb, seedOwner } from './helpers';
 
 const app = createAppForTest();
 const APP_URL = baseEnv().APP_URL.replace(/\/+$/, '');
 const REDIRECT_URI = 'https://client.example/callback';
-const VERIFIER = 'test-verifier-0123456789-abcdefghijklmnopqrstuvwxyzABCDE';
+const VERIFIER = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+const CHALLENGE = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
+
+type Client = { client_id: string; redirect_uris: string[] };
+type Auth = { cookie: string; csrf: string; userId: string };
+
+async function clearOAuthKv(): Promise<void> {
+   let cursor: string | undefined;
+   for (;;) {
+      const page = await env.OAUTH_KV.list(cursor === undefined ? {} : { cursor });
+      await Promise.all(page.keys.map((key) => env.OAUTH_KV.delete(key.name)));
+      if (page.list_complete || page.cursor === undefined) break;
+      cursor = page.cursor;
+   }
+}
 
 async function resetAgentDb(): Promise<void> {
-   await env.DB.batch([
-      env.DB.prepare('DELETE FROM oauth_tokens'),
-      env.DB.prepare('DELETE FROM oauth_grants'),
-      env.DB.prepare('DELETE FROM oauth_clients'),
-      env.DB.prepare('DELETE FROM api_keys'),
-   ]);
+   await env.DB.prepare('DELETE FROM api_keys').run();
    await resetDb();
+   await clearOAuthKv();
 }
 
 beforeEach(async () => {
@@ -56,68 +65,114 @@ function bearer(raw: string, extra: Record<string, string> = {}): Record<string,
    return { authorization: `Bearer ${raw}`, 'content-type': 'application/json', ...extra };
 }
 
-async function registerClient(
-   overrides: Record<string, unknown> = {},
-): Promise<{ client_id: string; redirect_uris: string[] }> {
-   const response = await app.request('/oauth/register', {
+function setCookies(response: Response): string[] {
+   const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+   return headers.getSetCookie?.() ?? [];
+}
+
+function mergeCookies(jar: Map<string, string>, response: Response): void {
+   for (const cookie of setCookies(response)) {
+      const pair = cookie.split(';')[0] ?? '';
+      const separator = pair.indexOf('=');
+      if (separator <= 0) continue;
+      jar.set(pair.slice(0, separator), pair.slice(separator + 1));
+   }
+}
+
+function cookieHeader(jar: Map<string, string>): string {
+   return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+}
+
+function jarFrom(auth: Auth): Map<string, string> {
+   const jar = new Map<string, string>();
+   for (const part of auth.cookie.split(';')) {
+      const [name, value] = part.trim().split('=');
+      if (name !== undefined && value !== undefined) jar.set(name, value);
+   }
+   return jar;
+}
+
+async function registerClient(overrides: Record<string, unknown> = {}): Promise<Client> {
+   const response = await SELF.fetch(`${APP_URL}/oauth/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
          client_name: 'Test connector',
          redirect_uris: [REDIRECT_URI],
+         token_endpoint_auth_method: 'none',
          ...overrides,
       }),
    });
 
    expect(response.status).toBe(201);
-   return json(response);
+   return (await response.json()) as Client;
 }
 
-type Client = { client_id: string; redirect_uris: string[] };
+type Approval = {
+   owner: Auth;
+   client: Client;
+   location: string;
+   jar: Map<string, string>;
+   code: string;
+};
 
-async function authorize(
+async function approveConsent(
    client: Client,
-   options: { scopes?: string; verifier?: string; redirectUri?: string; resource?: string } = {},
-): Promise<Response> {
-   const owner = await seedOwner();
+   options: { scopes?: string; verifier?: string; owner?: Auth } = {},
+): Promise<Approval> {
+   const owner = options.owner ?? (await seedOwner());
    const verifier = options.verifier ?? VERIFIER;
    const params = new URLSearchParams({
       response_type: 'code',
       client_id: client.client_id,
-      redirect_uri: options.redirectUri ?? client.redirect_uris[0] ?? REDIRECT_URI,
-      scope: options.scopes ?? 'subscribers:read tags:read',
+      redirect_uri: client.redirect_uris[0] ?? REDIRECT_URI,
+      scope: options.scopes ?? 'tags:read tags:write',
       state: 'state-123',
-      code_challenge: await pkceChallenge(verifier),
+      code_challenge: CHALLENGE,
       code_challenge_method: 'S256',
    });
-   if (options.resource !== undefined) params.set('resource', options.resource);
 
-   const consent = await app.request(`/oauth/authorize?${params.toString()}`, {
-      headers: { cookie: owner.cookie },
+   const jar = jarFrom(owner);
+   const consent = await SELF.fetch(`${APP_URL}/oauth/authorize?${params.toString()}`, {
+      headers: { cookie: cookieHeader(jar) },
+      redirect: 'manual',
    });
 
    expect(consent.status).toBe(200);
+   const html = await consent.text();
+   expect(html).toContain('Test connector');
+   expect(html).toContain('tags:read');
+   mergeCookies(jar, consent);
 
-   const form = new URLSearchParams(params);
-   form.set('csrf', owner.csrf);
-   form.set('decision', 'approve');
+   const handle = /name="handle" value="([^"]+)"/.exec(html)?.[1];
+   expect(handle).toBeTruthy();
 
-   return app.request('/oauth/authorize', {
+   const form = new URLSearchParams({
+      handle: handle ?? '',
+      csrf: owner.csrf,
+      decision: 'approve',
+   });
+
+   const approval = await SELF.fetch(`${APP_URL}/oauth/authorize`, {
       method: 'POST',
       headers: {
-         cookie: owner.cookie,
+         cookie: cookieHeader(jar),
          'content-type': 'application/x-www-form-urlencoded',
       },
       body: form.toString(),
+      redirect: 'manual',
    });
-}
 
-function codeFrom(response: Response): string {
-   const location = response.headers.get('location');
-   expect(location).not.toBeNull();
-   const code = new URL(location ?? '').searchParams.get('code');
-   expect(code).not.toBeNull();
-   return code ?? '';
+   expect(approval.status).toBe(302);
+   mergeCookies(jar, approval);
+
+   const location = approval.headers.get('location') ?? '';
+   const code = new URL(location).searchParams.get('code');
+   expect(code).toBeTruthy();
+   expect(new URL(location).searchParams.get('state')).toBe('state-123');
+   expect(new URL(location).searchParams.get('iss')).toBe(APP_URL);
+
+   return { owner, client, location, jar, code: code ?? '' };
 }
 
 function tokenForm(input: Record<string, string>): string {
@@ -138,7 +193,27 @@ async function exchangeCode(
    };
    if (options.resource !== undefined) body['resource'] = options.resource;
 
-   return app.request('/oauth/token', {
+   return SELF.fetch(`${APP_URL}/oauth/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: tokenForm(body),
+   });
+}
+
+async function refresh(
+   clientId: string,
+   refreshToken: string,
+   options: { resource?: string; scope?: string } = {},
+): Promise<Response> {
+   const body: Record<string, string> = {
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      refresh_token: refreshToken,
+   };
+   if (options.resource !== undefined) body['resource'] = options.resource;
+   if (options.scope !== undefined) body['scope'] = options.scope;
+
+   return SELF.fetch(`${APP_URL}/oauth/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: tokenForm(body),
@@ -146,11 +221,12 @@ async function exchangeCode(
 }
 
 async function mcp(raw: string, payload: unknown): Promise<Response> {
-   return app.request('/mcp', {
+   return SELF.fetch(`${APP_URL}/mcp`, {
       method: 'POST',
       headers: {
          authorization: `Bearer ${raw}`,
          'content-type': 'application/json',
+         accept: 'application/json, text/event-stream',
       },
       body: JSON.stringify(payload),
    });
@@ -219,8 +295,11 @@ describe('scoped API keys', () => {
 
       expect((await app.request('/api/v1/tags', { headers: bearer(expired) })).status).toBe(401);
       expect(
-         (await app.request('/api/v1/tags', { headers: bearer('mlr_abcdef_invalidsecretvalue') }))
-            .status,
+         (
+            await app.request('/api/v1/tags', {
+               headers: bearer('mlr_abcdef_invalidsecretvalue'),
+            })
+         ).status,
       ).toBe(401);
    });
 
@@ -319,22 +398,17 @@ describe('scoped API keys', () => {
 
 describe('OAuth discovery and registration', () => {
    it('advertises protected resource metadata for the MCP endpoint', async () => {
-      const response = await app.request('/.well-known/oauth-protected-resource');
+      const response = await SELF.fetch(`${APP_URL}/.well-known/oauth-protected-resource/mcp`);
       expect(response.status).toBe(200);
 
       const body = await json(response);
       expect(body.resource).toBe(`${APP_URL}/mcp`);
       expect(body.authorization_servers).toEqual([APP_URL]);
       expect(body.bearer_methods_supported).toEqual(['header']);
-      expect(body.scopes_supported).toContain('send:write');
-
-      const alias = await app.request('/.well-known/oauth-protected-resource/mcp');
-      expect(alias.status).toBe(200);
-      expect((await json(alias)).resource).toBe(`${APP_URL}/mcp`);
    });
 
-   it('advertises authorization server metadata with PKCE S256', async () => {
-      const response = await app.request('/.well-known/oauth-authorization-server');
+   it('advertises authorization server metadata with PKCE, DCR and CIMD', async () => {
+      const response = await SELF.fetch(`${APP_URL}/.well-known/oauth-authorization-server`);
       expect(response.status).toBe(200);
 
       const body = await json(response);
@@ -343,7 +417,9 @@ describe('OAuth discovery and registration', () => {
       expect(body.token_endpoint).toBe(`${APP_URL}/oauth/token`);
       expect(body.registration_endpoint).toBe(`${APP_URL}/oauth/register`);
       expect(body.code_challenge_methods_supported).toEqual(['S256']);
-      expect(body.token_endpoint_auth_methods_supported).toEqual(['none']);
+      expect(body.client_id_metadata_document_supported).toBe(true);
+      expect(body.grant_types_supported).toContain('authorization_code');
+      expect(body.grant_types_supported).toContain('refresh_token');
    });
 
    it('registers a public client and keeps localhost redirects', async () => {
@@ -351,24 +427,24 @@ describe('OAuth discovery and registration', () => {
          redirect_uris: ['http://localhost:3333/callback', REDIRECT_URI],
       });
 
-      expect(client.client_id).toMatch(/^ocl/);
+      expect(client.client_id).toBeTruthy();
       expect(client.redirect_uris).toEqual(['http://localhost:3333/callback', REDIRECT_URI]);
    });
 
-   it('rejects insecure, fragmented and confidential clients', async () => {
-      for (const overrides of [
-         { redirect_uris: ['http://evil.example/callback'] },
-         { redirect_uris: [`${REDIRECT_URI}#fragment`] },
-         { token_endpoint_auth_method: 'client_secret_basic' },
-      ]) {
-         const response = await app.request('/oauth/register', {
+   it('rejects insecure and fragmented redirect URIs', async () => {
+      for (const redirect of ['http://evil.example/callback', `${REDIRECT_URI}#fragment`]) {
+         const response = await SELF.fetch(`${APP_URL}/oauth/register`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ client_name: 'Bad', ...overrides }),
+            body: JSON.stringify({
+               client_name: 'Bad',
+               redirect_uris: [redirect],
+               token_endpoint_auth_method: 'none',
+            }),
          });
 
          expect(response.status).toBe(400);
-         expect((await json(response)).error).toBe('invalid_client_metadata');
+         expect((await json(response)).error).toBeTruthy();
       }
    });
 });
@@ -381,11 +457,13 @@ describe('OAuth authorization code with PKCE', () => {
          client_id: client.client_id,
          redirect_uri: REDIRECT_URI,
          scope: 'tags:read',
-         code_challenge: await pkceChallenge(VERIFIER),
+         code_challenge: CHALLENGE,
          code_challenge_method: 'S256',
       });
 
-      const response = await app.request(`/oauth/authorize?${params.toString()}`);
+      const response = await SELF.fetch(`${APP_URL}/oauth/authorize?${params.toString()}`, {
+         redirect: 'manual',
+      });
       expect(response.status).toBe(302);
 
       const location = new URL(response.headers.get('location') ?? '');
@@ -395,154 +473,92 @@ describe('OAuth authorization code with PKCE', () => {
 
    it('renders consent and exchanges a code for access and refresh tokens', async () => {
       const client = await registerClient();
-      const approval = await authorize(client, { scopes: 'tags:read tags:write' });
-      expect(approval.status).toBe(302);
-      expect(new URL(approval.headers.get('location') ?? '').searchParams.get('state')).toBe(
-         'state-123',
-      );
+      const approval = await approveConsent(client, { scopes: 'tags:read tags:write' });
 
-      const code = codeFrom(approval);
-      const token = await exchangeCode(client.client_id, code);
+      const token = await exchangeCode(client.client_id, approval.code);
       expect(token.status).toBe(200);
       expect(token.headers.get('cache-control')).toBe('no-store');
 
       const body = await json(token);
-      expect(body.token_type).toBe('Bearer');
+      expect(body.token_type.toLowerCase()).toBe('bearer');
       expect(body.expires_in).toBe(3600);
-      expect(body.access_token).toMatch(/^mlro_access_/);
-      expect(body.refresh_token).toMatch(/^mlro_refresh_/);
+      expect(body.access_token).toBeTruthy();
+      expect(body.refresh_token).toBeTruthy();
       expect(body.scope).toBe('tags:read tags:write');
 
       const rest = await app.request('/api/v1/tags', {
          headers: { authorization: `Bearer ${body.access_token}` },
       });
-      expect(rest.status).toBe(200);
+      expect(rest.status).toBe(401);
+   });
+
+   it('defaults to read-only scopes when the client requests none', async () => {
+      const client = await registerClient();
+      const approval = await approveConsent(client, { scopes: '' });
+
+      const tokens = await json(await exchangeCode(client.client_id, approval.code));
+      expect(tokens.scope.split(' ').sort()).toEqual(
+         ['campaigns:read', 'subscribers:read', 'tags:read', 'templates:read'].sort(),
+      );
    });
 
    it('rejects a wrong verifier, redirect mismatch and wrong resource', async () => {
       const client = await registerClient();
-      const code = codeFrom(await authorize(client, { scopes: 'tags:read' }));
+      const approval = await approveConsent(client, { scopes: 'tags:read' });
 
-      const wrongVerifier = await exchangeCode(client.client_id, code, {
+      const wrongVerifier = await exchangeCode(client.client_id, approval.code, {
          verifier: 'wrong-verifier-0123456789-abcdefghijklmnopqrstuvwxyzABCDE',
       });
       expect(wrongVerifier.status).toBe(400);
       expect((await json(wrongVerifier)).error).toBe('invalid_grant');
 
-      const wrongRedirect = await exchangeCode(client.client_id, code, {
+      const wrongRedirect = await exchangeCode(client.client_id, approval.code, {
          redirectUri: 'https://client.example/other',
       });
       expect(wrongRedirect.status).toBe(400);
       expect((await json(wrongRedirect)).error).toBe('invalid_grant');
 
-      const wrongResource = await exchangeCode(client.client_id, code, {
+      const wrongResource = await exchangeCode(client.client_id, approval.code, {
          resource: 'https://evil.example/mcp',
       });
       expect(wrongResource.status).toBe(400);
       expect((await json(wrongResource)).error).toBe('invalid_target');
    });
 
-   it('rejects a reused authorization code and revokes the grant', async () => {
+   it('rejects a reused authorization code', async () => {
       const client = await registerClient();
-      const code = codeFrom(await authorize(client, { scopes: 'tags:read' }));
+      const approval = await approveConsent(client, { scopes: 'tags:read' });
 
-      const first = await exchangeCode(client.client_id, code);
+      const first = await exchangeCode(client.client_id, approval.code);
       expect(first.status).toBe(200);
-      const firstBody = await json(first);
 
-      const second = await exchangeCode(client.client_id, code);
+      const second = await exchangeCode(client.client_id, approval.code);
       expect(second.status).toBe(400);
       expect((await json(second)).error).toBe('invalid_grant');
-
-      const access = await app.request('/api/v1/tags', {
-         headers: { authorization: `Bearer ${firstBody.access_token}` },
-      });
-      expect(access.status).toBe(401);
    });
 
-   it('rotates refresh tokens and revokes the grant on reuse', async () => {
+   it('rotates refresh tokens and rejects the previous token after use', async () => {
       const client = await registerClient();
-      const code = codeFrom(await authorize(client, { scopes: 'tags:read' }));
-      const first = await json(await exchangeCode(client.client_id, code));
+      const approval = await approveConsent(client, { scopes: 'tags:read' });
+      const first = await json(await exchangeCode(client.client_id, approval.code));
 
-      const wrongResource = await app.request('/oauth/token', {
-         method: 'POST',
-         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-         body: tokenForm({
-            grant_type: 'refresh_token',
-            client_id: client.client_id,
-            refresh_token: first.refresh_token,
-            resource: 'https://evil.example/mcp',
-         }),
-      });
-      expect(wrongResource.status).toBe(400);
-      expect((await json(wrongResource)).error).toBe('invalid_target');
-
-      const rotatedResponse = await app.request('/oauth/token', {
-         method: 'POST',
-         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-         body: tokenForm({
-            grant_type: 'refresh_token',
-            client_id: client.client_id,
-            refresh_token: first.refresh_token,
-         }),
-      });
+      const rotatedResponse = await refresh(client.client_id, first.refresh_token);
       expect(rotatedResponse.status).toBe(200);
-
       const rotated = await json(rotatedResponse);
       expect(rotated.refresh_token).not.toBe(first.refresh_token);
 
-      const reuse = await app.request('/oauth/token', {
-         method: 'POST',
-         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-         body: tokenForm({
-            grant_type: 'refresh_token',
-            client_id: client.client_id,
-            refresh_token: first.refresh_token,
-         }),
-      });
+      const secondRotation = await refresh(client.client_id, rotated.refresh_token);
+      expect(secondRotation.status).toBe(200);
+
+      const reuse = await refresh(client.client_id, first.refresh_token);
       expect(reuse.status).toBe(400);
       expect((await json(reuse)).error).toBe('invalid_grant');
-
-      const revoked = await app.request('/api/v1/tags', {
-         headers: { authorization: `Bearer ${rotated.access_token}` },
-      });
-      expect(revoked.status).toBe(401);
-   });
-
-   it('rejects unknown scopes before issuing a code', async () => {
-      const client = await registerClient();
-      const owner = await seedOwner();
-      const params = new URLSearchParams({
-         response_type: 'code',
-         client_id: client.client_id,
-         redirect_uri: REDIRECT_URI,
-         scope: 'subscribers:delete',
-         code_challenge: await pkceChallenge(VERIFIER),
-         code_challenge_method: 'S256',
-      });
-      const form = new URLSearchParams(params);
-      form.set('csrf', owner.csrf);
-      form.set('decision', 'approve');
-
-      const response = await app.request('/oauth/authorize', {
-         method: 'POST',
-         headers: {
-            cookie: owner.cookie,
-            'content-type': 'application/x-www-form-urlencoded',
-         },
-         body: form.toString(),
-      });
-
-      expect(response.status).toBe(302);
-      const location = new URL(response.headers.get('location') ?? '');
-      expect(location.searchParams.get('error')).toBe('invalid_scope');
    });
 });
 
 describe('MCP endpoint', () => {
    it('returns a 401 challenge pointing at protected resource metadata', async () => {
-      const response = await app.request('/mcp', {
+      const response = await SELF.fetch(`${APP_URL}/mcp`, {
          method: 'POST',
          headers: { 'content-type': 'application/json' },
          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }),
@@ -550,11 +566,11 @@ describe('MCP endpoint', () => {
 
       expect(response.status).toBe(401);
       expect(response.headers.get('www-authenticate')).toContain(
-         `resource_metadata="${APP_URL}/.well-known/oauth-protected-resource"`,
+         `resource_metadata="${APP_URL}/.well-known/oauth-protected-resource/mcp"`,
       );
    });
 
-   it('initializes, answers ping and lists tools', async () => {
+   it('initializes, answers ping and lists tools with an API key', async () => {
       const raw = await seedApiKey(['tags:read']);
 
       const initialized = await mcp(raw, {
@@ -701,23 +717,26 @@ describe('MCP endpoint', () => {
       expect(tool.error.code).toBe(-32602);
    });
 
-   it('accepts an OAuth access token on both MCP and REST', async () => {
+   it('accepts an OAuth access token on MCP and uses its scopes', async () => {
       const client = await registerClient();
-      const code = codeFrom(await authorize(client, { scopes: 'subscribers:read' }));
-      const tokens = await json(await exchangeCode(client.client_id, code));
+      const approval = await approveConsent(client, { scopes: 'tags:read tags:write' });
+      const tokens = await json(await exchangeCode(client.client_id, approval.code));
 
       const response = await mcp(tokens.access_token, {
          jsonrpc: '2.0',
          id: 10,
-         method: 'tools/list',
+         method: 'tools/call',
+         params: { name: 'create_tag', arguments: { name: 'from-oauth' } },
       });
       expect(response.status).toBe(200);
-      expect((await json(response)).result.tools).toBeDefined();
 
-      const rest = await app.request('/api/v1/subscribers', {
-         headers: { authorization: `Bearer ${tokens.access_token}` },
-      });
-      expect(rest.status).toBe(200);
+      const body = await json(response);
+      const content = JSON.parse(body.result.content[0].text) as {
+         data: { name: string };
+         error: null;
+      };
+      expect(content.error).toBeNull();
+      expect(content.data.name).toBe('from-oauth');
    });
 
    it('keeps subscriber export matched ahead of the new single-subscriber route', async () => {

@@ -79,6 +79,7 @@ pnpm exec wrangler d1 create mailer-cloudflare
 pnpm exec wrangler r2 bucket create mailer-cloudflare-media
 pnpm exec wrangler queues create mailer-campaigns
 pnpm exec wrangler queues create mailer-campaigns-dlq
+pnpm exec wrangler kv namespace create OAUTH_KV
 ```
 
 3. Put the returned ids into `wrangler.jsonc` (they are intentionally omitted so the Deploy button can provision them), then:

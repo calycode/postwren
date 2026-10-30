@@ -19,9 +19,7 @@ import { trackingRoutes } from './routes/tracking';
 import { mediaUploadRoutes, mediaServeRoutes } from './routes/media';
 import { publicRoutes } from './routes/public';
 import { subscribeKeyRoutes } from './routes/subscribe-keys';
-import { oauthDiscoveryRoutes } from './oauth/discovery';
 import { oauthRoutes } from './oauth/routes';
-import { mcpRoutes } from './mcp/server';
 
 const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
 
@@ -74,9 +72,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    app.route('/api/v1/subscribe-keys', subscribeKeyRoutes);
    app.route('/api/v1/media', mediaUploadRoutes);
 
-   app.route('/', oauthDiscoveryRoutes);
    app.route('/oauth', oauthRoutes);
-   app.route('/', mcpRoutes);
 
    app.route('/', trackingRoutes);
    app.route('/', mediaServeRoutes);

@@ -3,10 +3,10 @@
 Machine clients can drive this mailer in three ways:
 
 1. **Scoped API keys** — a secret you paste into another project. Best for scripts, CI and server-to-server integrations.
-2. **OAuth 2.1** — a browser consent flow that lets MCP hosts such as ChatGPT connectors or Claude-style clients obtain their own short-lived tokens.
+2. **OAuth 2.1** — Cloudflare's `@cloudflare/workers-oauth-provider` gives MCP hosts such as ChatGPT connectors or Claude-style clients their own short-lived tokens through a browser consent flow, DCR or CIMD.
 3. **MCP endpoint** — a stateless JSON-RPC server at `/mcp` that exposes lists, subscribers, campaigns and templates.
 
-All three share **one authorization model**: the same scope names, the same `/api/v1` routes, and the same `{ data, error }` envelopes. The MCP layer never re-implements SQL; it calls the REST routes in-process with the caller's credential.
+All three share **one authorization model**: the same scope names, the same `/api/v1` routes, and the same `{ data, error }` envelopes. The MCP layer never re-implements SQL; it calls the REST routes in-process with a short-lived credential carrying the caller's scopes.
 
 ---
 
@@ -219,26 +219,29 @@ curl -X POST "$MAILER_URL/api/v1/media" \
 }
 ```
 
-`401` means the credential is missing, malformed, expired or revoked. `403` means it is valid but lacks the scope, or the endpoint is session-only (API key administration and sender settings).
+`401` means the credential is missing, malformed, expired or revoked. `403` means it is valid but lacks the scope, or the endpoint is session-only (API key administration and sender settings). OAuth access tokens are accepted only by `/mcp`; use an API key or the session cookie for `/api/v1`.
 
 ---
 
 ## OAuth 2.1 for MCP
 
-The authorization server is this Worker. The issuer is `APP_URL`. Discovery, registration, authorization and token endpoints are standard OAuth responses rather than the `{ data, error }` API envelope.
+The authorization server is Cloudflare's [`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider), running in this Worker. It owns discovery, dynamic client registration, client-metadata documents, authorization codes, access tokens, refresh tokens and revocation. Grants, codes and token hashes live in the `OAUTH_KV` namespace; API keys stay in D1.
+
+The issuer is `APP_URL`. Discovery, registration, authorization and token endpoints use standard OAuth responses rather than the `{ data, error }` API envelope.
 
 ### Discovery
 
-| Endpoint                                      | Purpose                                         |
-| --------------------------------------------- | ----------------------------------------------- |
-| `GET /.well-known/oauth-protected-resource`   | RFC 9728 resource metadata for `${APP_URL}/mcp` |
-| `GET /.well-known/oauth-authorization-server` | RFC 8414 authorization server metadata          |
+| Endpoint                                        | Purpose                                         |
+| ----------------------------------------------- | ----------------------------------------------- |
+| `GET /.well-known/oauth-protected-resource/mcp` | RFC 9728 resource metadata for `${APP_URL}/mcp` |
+| `GET /.well-known/oauth-authorization-server`   | RFC 8414 authorization server metadata          |
+
+The protected-resource metadata URL is derived from the canonical resource path, so it ends in `/mcp`.
 
 ```json
 {
    "resource": "https://mailer.example.com/mcp",
    "authorization_servers": ["https://mailer.example.com"],
-   "scopes_supported": ["subscribers:read", "..."],
    "bearer_methods_supported": ["header"]
 }
 ```
@@ -249,15 +252,17 @@ The authorization server is this Worker. The issuer is `APP_URL`. Discovery, reg
    "authorization_endpoint": "https://mailer.example.com/oauth/authorize",
    "token_endpoint": "https://mailer.example.com/oauth/token",
    "registration_endpoint": "https://mailer.example.com/oauth/register",
+   "revocation_endpoint": "https://mailer.example.com/oauth/token",
    "response_types_supported": ["code"],
    "grant_types_supported": ["authorization_code", "refresh_token"],
    "code_challenge_methods_supported": ["S256"],
-   "token_endpoint_auth_methods_supported": ["none"],
+   "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post", "none"],
+   "client_id_metadata_document_supported": true,
    "scopes_supported": ["subscribers:read", "..."]
 }
 ```
 
-Metadata is cacheable for five minutes.
+`client_id_metadata_document_supported` is present because CIMD is enabled and the Worker carries the `global_fetch_strictly_public` compatibility flag. DCR remains available for clients that do not use CIMD.
 
 ### Flow
 
@@ -266,11 +271,11 @@ MCP client                     Browser                        Worker
     |                             |                              |
     |-- GET /mcp (no token) ------------------------------------->|
     |<-- 401 + WWW-Authenticate: Bearer resource_metadata=... ----|
-    |-- GET /.well-known/oauth-protected-resource --------------->|
+    |-- GET /.well-known/oauth-protected-resource/mcp ----------->|
     |<-- resource + authorization_servers ------------------------|
     |-- GET /.well-known/oauth-authorization-server ------------->|
-    |<-- endpoints, PKCE S256, scopes ----------------------------|
-    |-- POST /oauth/register (DCR: client_name, redirect_uris) -->|
+    |<-- endpoints, PKCE S256, CIMD, scopes ----------------------|
+    |-- POST /oauth/register (DCR) or use a CIMD client_id ------>|
     |<-- client_id (public client, no secret) --------------------|
     |                             |                              |
     |-- open /oauth/authorize?response_type=code&client_id=... -->|
@@ -278,8 +283,8 @@ MCP client                     Browser                        Worker
     |                             |<-- 302 /login?next=/oauth/...|
     |                             |-- sign in, return to consent->|
     |                             |<-- consent page (scopes) -----|
-    |                             |-- POST decision=approve ----->|
-    |<-- 302 redirect_uri?code=...&state=... ---------------------|
+    |                             |-- POST handle + decision ----->|
+    |<-- 302 redirect_uri?code=...&state=...&iss=... -------------|
     |-- POST /oauth/token (code + code_verifier + resource) ----->|
     |<-- access_token, refresh_token, expires_in, scope ----------|
     |-- POST /mcp (Authorization: Bearer access_token) ---------->|
@@ -288,12 +293,14 @@ MCP client                     Browser                        Worker
 
 Key properties:
 
-- **PKCE S256 is mandatory.** `plain` and missing challenges are rejected.
-- **Public clients only.** DCR rejects `token_endpoint_auth_method` other than `none`; there is no client secret to leak.
-- **Redirect URIs must be https**, except `http://localhost`, `http://127.0.0.1` and `http://[::1]` for local development. Fragments and embedded credentials are rejected.
-- **Authorization codes are single-use** and expire after 10 minutes. Reuse revokes the whole grant.
-- **Refresh tokens rotate.** The old refresh token is marked used. Presenting it again revokes the grant and all of its tokens.
-- **Audience is enforced.** Tokens are minted for `resource` (default `${APP_URL}/mcp`); the MCP endpoint rejects tokens for another resource.
+- **Provider-owned protocol.** The Worker does not implement token parsing, PKCE verification, code storage, refresh rotation or revocation itself.
+- **PKCE S256 is mandatory.** The provider rejects `plain` and missing challenges.
+- **Public clients work without secrets.** The provider also supports confidential clients and CIMD; this deployment only needs public clients.
+- **Redirect URIs must be https**, except loopback HTTP for local development. Fragments and embedded credentials are rejected.
+- **Authorization codes are single-use** and short-lived.
+- **Refresh tokens rotate.** The previous token stays valid until the new one is first used, then the previous token is rejected.
+- **Audience is enforced.** Tokens are minted for `resource` (default `${APP_URL}/mcp`); the MCP endpoint only accepts tokens for that resource.
+- **Revocation is built in.** `POST /oauth/token` also accepts RFC 7009 revocation requests, and the provider purges expired KV data from the cron handler.
 
 ### Token lifetimes
 
@@ -305,12 +312,20 @@ Key properties:
 
 ### Connecting ChatGPT
 
-1. Make sure `APP_URL` in `wrangler.jsonc` is the public HTTPS origin of the Worker. Discovery URLs and the token issuer are derived from it.
-2. In ChatGPT, create a custom connector / MCP server with the server URL `${APP_URL}/mcp`.
-3. ChatGPT probes the URL, receives `401` with `WWW-Authenticate`, then reads `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`.
-4. It registers itself through `POST /oauth/register` (DCR) and opens the authorization URL.
-5. Sign in with the owner account if prompted, review the requested scopes, and choose **Allow access**.
-6. The connector exchanges the code at `/oauth/token` and starts calling tools.
+1. Make sure `APP_URL` in `wrangler.jsonc` is the public HTTPS origin of the Worker. Discovery URLs, the issuer and token audiences are derived from it.
+2. Provision the OAuth KV namespace once per environment and put its id in `wrangler.jsonc`:
+
+   ```sh
+   pnpm exec wrangler kv namespace create OAUTH_KV
+   ```
+
+   The dev config ships with a placeholder id; `wrangler dev` uses local KV.
+
+3. In ChatGPT, create a custom connector / MCP server with the server URL `${APP_URL}/mcp`.
+4. ChatGPT probes the URL, receives `401` with `WWW-Authenticate`, then reads `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server`.
+5. It registers itself through `POST /oauth/register` (DCR) or presents a CIMD `client_id`, then opens the authorization URL.
+6. Sign in with the owner account if prompted, review the requested scopes, and choose **Allow access**.
+7. The connector exchanges the code at `/oauth/token` and starts calling tools.
 
 No client id, secret or redirect URI has to be configured by hand.
 
@@ -324,7 +339,7 @@ Clients that accept a remote MCP URL work the same way: point them at `${APP_URL
 - **Scopes** — the subset of the table above the client actually needs, space separated
 - **PKCE** — S256, mandatory
 
-Clients that only support static headers can use an API key instead:
+Clients that only support static headers can use an API key instead. API keys are also accepted by `/mcp`, and are the only bearer credential accepted by `/api/v1`:
 
 ```
 Authorization: Bearer mlr_<prefix>_<secret>
@@ -343,7 +358,7 @@ Authorization: Bearer mlr_<prefix>_<secret>
 - Unauthenticated requests return `401` with:
 
 ```
-WWW-Authenticate: Bearer resource_metadata="https://mailer.example.com/.well-known/oauth-protected-resource"
+WWW-Authenticate: Bearer resource_metadata="https://mailer.example.com/.well-known/oauth-protected-resource/mcp"
 ```
 
 Every `tools/call` result contains a text content block whose JSON is the same `{ data, error }` envelope as REST. On failure the result also carries `isError: true`. Secrets, hashes and tokens are never included in tool output.
@@ -405,23 +420,25 @@ curl -X POST "$MAILER_URL/mcp" \
 
 ## Security notes
 
-- **Hashes only.** API keys, authorization codes, access tokens and refresh tokens are stored as SHA-256 hashes. Plaintext exists only in the response that creates it.
+- **Hashes only.** API keys are stored as SHA-256 hashes in D1. The OAuth provider stores authorization codes, access tokens, refresh tokens and client secrets as SHA-256 hashes in `OAUTH_KV`, and encrypts token props with AES-GCM. Plaintext exists only in the response that creates it.
 - **Show once.** The API key secret is returned only from `POST /api/v1/settings/api-keys`. There is no "reveal" endpoint.
-- **Expiry and revocation.** API keys can expire and can be revoked at any time. OAuth tokens expire on the schedule above; OAuth grants are revoked automatically on authorization-code or refresh-token reuse.
+- **Expiry and revocation.** API keys can expire and can be revoked at any time. OAuth tokens expire on the schedule above. The provider supports RFC 7009 revocation at `POST /oauth/token` and purges expired KV records from the cron handler.
 - **CSRF.** Bearer requests skip CSRF because they do not ride on an ambient cookie. Session requests still require the double-submit token.
-- **Consent is CSRF-protected.** The consent form carries the session CSRF token and is rejected without it.
+- **Consent is CSRF-protected.** The consent form carries the session CSRF token and is rejected without it. The provider additionally binds the consent handle to the browser and makes it single-use.
 - **Least privilege.** Grant only the scopes a client needs. In particular do not grant `send:write` to a reporting or drafting agent.
-- **Rate limits.** OAuth registration is limited per IP (10/min), token exchange (60/min) and consent submissions (30/min). Existing public endpoints keep their own limits. Authenticated `/api/v1` traffic shares the application's normal behaviour; there is no separate bearer-only limit.
+- **One scope gate.** OAuth and API-key scopes use the same names and the same `middleware/scopes.ts` mapping. MCP tools call REST with a short-lived HMAC credential carrying the caller's scopes, so the REST paths enforce the same rules again.
 - **No secrets in MCP output.** Tool results only contain resource envelopes. API key administration and sender settings are not exposed as tools.
-- **PKCE and redirect validation** prevent code interception and open redirects. The authorization endpoint only redirects to URIs registered for that client.
+- **PKCE and redirect validation** are provider-owned and prevent code interception and open redirects. The authorization endpoint only redirects to URIs registered for that client or asserted by a valid CIMD document.
+- **OAuth access tokens are MCP-only.** They are not accepted by `/api/v1`; use an API key for direct REST access.
 
 ---
 
 ## Known limitations
 
 - **Stateless MCP.** No `Mcp-Session-Id`, no resumability and no server-initiated notifications/SSE. Batch requests work, but long-running calls are synchronous.
-- **Public OAuth clients only.** No client secrets, no `private_key_jwt`, no device authorization grant and no dynamic scope upgrades. To change scopes, re-run authorization.
-- **No grant management UI.** OAuth grants cannot be listed or revoked from the admin yet; revoke by deleting the client/grant rows in D1 or by letting tokens expire. API keys can be revoked from the API.
+- **OAuth state needs KV.** Production deployments must create the `OAUTH_KV` namespace and replace the placeholder id in `wrangler.jsonc`. `wrangler dev` uses local KV.
+- **DCR and CIMD.** DCR is available, and CIMD is enabled (requires `global_fetch_strictly_public`). There is no device authorization grant and no admin-driven scope upgrade; to change scopes, re-run authorization.
+- **No grant management UI.** The provider exposes `listUserGrants` and `revokeGrant`, but the admin has no screen for them yet. Revoke individual tokens through the provider’s revocation endpoint or let them expire. API keys can be revoked from the API.
 - **No API-key UI yet.** Keys are created and revoked through `/api/v1/settings/api-keys`. A small Settings screen can be added on top without changing the API.
 - **Login return path.** If the browser is signed out, `/oauth/authorize` redirects to `/login?next=...`. The admin SPA hands server-rendered paths back to the browser, so the consent page loads after sign-in.
 - **Default OAuth scopes are read-only.** When a client omits `scope`, authorization defaults to `subscribers:read`, `campaigns:read`, `templates:read` and `tags:read`. Request write or send scopes explicitly.
