@@ -14,6 +14,7 @@ describe('parseSubscriberCsv', () => {
                first_name: 'Ada',
                last_name: 'Lovelace',
                tags: ['newsletter', 'vienna'],
+               metadata: {},
             },
          ],
          errors: [],
@@ -24,7 +25,14 @@ describe('parseSubscriberCsv', () => {
       const result = parseSubscriberCsv('email\nada@example.com\n');
 
       expect(result.rows).toEqual([
-         { line: 2, email: 'ada@example.com', first_name: null, last_name: null, tags: [] },
+         {
+            line: 2,
+            email: 'ada@example.com',
+            first_name: null,
+            last_name: null,
+            tags: [],
+            metadata: {},
+         },
       ]);
       expect(result.errors).toEqual([]);
    });
@@ -57,7 +65,14 @@ describe('parseSubscriberCsv', () => {
       const result = parseSubscriberCsv(' E-Mail , FIRST_NAME ,notes\nada@example.com,Ada,x\n');
 
       expect(result.rows).toEqual([
-         { line: 2, email: 'ada@example.com', first_name: 'Ada', last_name: null, tags: [] },
+         {
+            line: 2,
+            email: 'ada@example.com',
+            first_name: 'Ada',
+            last_name: null,
+            tags: [],
+            metadata: {},
+         },
       ]);
       expect(result.errors).toEqual([]);
    });
@@ -111,7 +126,14 @@ describe('parseSubscriberCsv', () => {
       const result = parseSubscriberCsv('\nemail\n\nada@example.com\n\n');
 
       expect(result.rows).toEqual([
-         { line: 4, email: 'ada@example.com', first_name: null, last_name: null, tags: [] },
+         {
+            line: 4,
+            email: 'ada@example.com',
+            first_name: null,
+            last_name: null,
+            tags: [],
+            metadata: {},
+         },
       ]);
       expect(result.errors).toEqual([]);
    });
@@ -125,6 +147,7 @@ describe('parseSubscriberCsv', () => {
          first_name: null,
          last_name: null,
          tags: [],
+         metadata: {},
       });
    });
 
@@ -139,5 +162,57 @@ describe('parseSubscriberCsv', () => {
       const result = parseSubscriberCsv('email\n"bad email"\n');
 
       expect(result.errors[0]).toMatchObject({ line: 2, raw: '"bad email"' });
+   });
+
+   it('parses semicolon-separated metadata key/value pairs', () => {
+      const result = parseSubscriberCsv(
+         'email,metadata\nada@example.com,"plan=pro;signup_source=landing page"\n',
+      );
+
+      expect(result.rows[0]?.metadata).toEqual({
+         plan: 'pro',
+         signup_source: 'landing page',
+      });
+      expect(result.errors).toEqual([]);
+   });
+
+   it('allows equals signs inside a metadata value', () => {
+      const result = parseSubscriberCsv(
+         'email,metadata\nada@example.com,referral=https://example.com/?a=1\n',
+      );
+
+      expect(result.rows[0]?.metadata).toEqual({ referral: 'https://example.com/?a=1' });
+   });
+
+   it('reports invalid metadata keys as row errors and skips the row', () => {
+      const result = parseSubscriberCsv('email,metadata\nada@example.com,"Plan=pro"\n');
+
+      expect(result.rows).toEqual([]);
+      expect(result.errors[0]).toMatchObject({ line: 2 });
+      expect(result.errors[0]?.message).toMatch(/invalid metadata key/i);
+   });
+
+   it('reports reserved metadata keys as row errors', () => {
+      const result = parseSubscriberCsv(
+         'email,metadata\nada@example.com,email=other@example.com\n',
+      );
+
+      expect(result.rows).toEqual([]);
+      expect(result.errors[0]?.message).toMatch(/reserved/i);
+   });
+
+   it('reports a metadata entry without an equals sign', () => {
+      const result = parseSubscriberCsv('email,metadata\nada@example.com,plan\n');
+
+      expect(result.rows).toEqual([]);
+      expect(result.errors[0]?.message).toMatch(/key=value/i);
+   });
+
+   it('reports oversized metadata values as row errors', () => {
+      const value = 'a'.repeat(1025);
+      const result = parseSubscriberCsv(`email,metadata\nada@example.com,plan=${value}\n`);
+
+      expect(result.rows).toEqual([]);
+      expect(result.errors[0]?.message).toMatch(/1024/);
    });
 });

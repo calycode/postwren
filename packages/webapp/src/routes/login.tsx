@@ -24,6 +24,25 @@ function safeNext(raw: string | undefined): string {
    return '/subscribers';
 }
 
+const APP_PATH_PREFIXES = ['/subscribers', '/tags', '/templates', '/campaigns', '/settings'];
+
+function isAppPath(path: string): boolean {
+   const pathname = path.split('?')[0] ?? '';
+   return (
+      pathname === '/' ||
+      APP_PATH_PREFIXES.some((base) => pathname === base || pathname.startsWith(`${base}/`))
+   );
+}
+
+/**
+ * Server-rendered routes such as the OAuth consent page are outside the SPA
+ * router. Escape to a full navigation for those instead of showing NotFound.
+ */
+function goTo(route: (path: string) => void, next: string): void {
+   if (isAppPath(next)) route(next);
+   else window.location.assign(next);
+}
+
 export function Login() {
    const { query, route } = useLocation();
    const { status, refresh } = useAuth();
@@ -37,7 +56,7 @@ export function Login() {
    const [errors, setErrors] = useState<FieldErrors>({});
 
    useEffect(() => {
-      if (status === 'signed-in') route(next);
+      if (status === 'signed-in') goTo(route, next);
    }, [status, next, route]);
 
    useEffect(() => {
@@ -52,7 +71,7 @@ export function Login() {
          .then(async () => {
             if (cancelled) return;
             await refresh();
-            route(next);
+            goTo(route, next);
          })
          .catch((cause: unknown) => {
             if (!cancelled)
@@ -96,7 +115,7 @@ export function Login() {
       try {
          await verify(token);
          await refresh();
-         route(next);
+         goTo(route, next);
       } catch (cause) {
          setError(errorMessage(cause, 'Could not verify the sign-in link'));
       } finally {

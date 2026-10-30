@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createDocument } from '@mailer/email/ir';
 import type { Auth } from './helpers';
 import {
    authHeaders,
@@ -177,6 +178,88 @@ describe('campaigns', () => {
       const response = await createCampaignWithSender(owner, 'verified@example.org');
 
       expect(response.status).toBe(201);
+   });
+
+   it('stores campaign metadata and merges patches', async () => {
+      const owner = await seedOwner(baseEnv());
+      const template = await seedTemplate(baseEnv());
+
+      const created = await app.request('/api/v1/campaigns', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({
+            name: 'Weekly',
+            templateId: template.id,
+            subject: 'This week',
+            fromName: 'Sender',
+            fromEmail: 'noreply@example.com',
+            audienceQuery: 'tag:news',
+            metadata: { edition: 'october', region: 'eu' },
+         }),
+      });
+      expect(created.status).toBe(201);
+      const campaign = (await json(created)).data;
+      expect(campaign.metadata).toEqual({ edition: 'october', region: 'eu' });
+      expect(campaign.metadata_json).toBeUndefined();
+
+      const patched = await app.request(`/api/v1/campaigns/${campaign.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ metadata: { edition: 'november', region: null } }),
+      });
+      expect(patched.status).toBe(200);
+      expect((await json(patched)).data.metadata).toEqual({ edition: 'november' });
+
+      const list = await app.request('/api/v1/campaigns', {
+         headers: { cookie: owner.cookie },
+      });
+      expect((await json(list)).data[0].metadata).toEqual({ edition: 'november' });
+   });
+
+   it('sends campaign metadata from the campaign row, not the template', async () => {
+      const owner = await seedOwner(baseEnv());
+      const document = createDocument();
+      const text = document.children[0];
+      if (text?.type === 'text') text.text = 'Edition {{ campaign.meta.edition }}';
+      const template = await seedTemplate(baseEnv(), { document });
+
+      const created = await app.request('/api/v1/campaigns', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({
+            name: 'Weekly',
+            templateId: template.id,
+            subject: 'This week',
+            fromName: 'Sender',
+            fromEmail: 'noreply@example.com',
+            audienceQuery: '',
+            metadata: { edition: 'october' },
+         }),
+      });
+      const campaign = (await json(created)).data;
+
+      const preview = await app.request(`/api/v1/campaigns/${campaign.id}/preview`, {
+         headers: { cookie: owner.cookie },
+      });
+
+      expect(preview.status).toBe(200);
+      expect((await json(preview)).data.html).toContain('Edition october');
+   });
+
+   it('counts an audience selected by metadata', async () => {
+      const owner = await seedOwner(baseEnv());
+      await seedSubscribers(baseEnv(), [
+         { email: 'pro@example.com', metadata: { plan: 'pro' } },
+         { email: 'free@example.com', metadata: { plan: 'free' } },
+         { email: 'none@example.com' },
+      ]);
+
+      const response = await app.request('/api/v1/audience/preview?q=meta:plan=pro', {
+         headers: { cookie: owner.cookie },
+      });
+
+      expect(response.status).toBe(200);
+      expect((await json(response)).data.count).toBe(1);
    });
 });
 

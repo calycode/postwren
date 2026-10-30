@@ -1,3 +1,5 @@
+import type { Scope } from './auth/scopes';
+
 export type CampaignJob = {
    campaignId: string;
    recipientIds: string[];
@@ -29,10 +31,15 @@ export interface Env {
    OWNER_EMAIL?: string;
 }
 
+export type AuthKind = 'session' | 'api_key' | 'oauth';
+
 export type AppEnv = {
    Bindings: Env;
    Variables: {
       requestId: string;
       userId: string | null;
+      authKind: AuthKind | null;
+      authScopes: Scope[] | null;
+      credentialId: string | null;
    };
 };

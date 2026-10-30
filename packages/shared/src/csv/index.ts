@@ -1,9 +1,13 @@
+import { MAX_METADATA_KEYS, MAX_METADATA_VALUE_LENGTH, metadataKeyError } from '../metadata/index';
+import type { MetadataRecord } from '../metadata/index';
+
 export type SubscriberCsvRow = {
    line: number;
    email: string;
    first_name: string | null;
    last_name: string | null;
    tags: string[];
+   metadata: MetadataRecord;
 };
 
 export type CsvRowError = { line: number; message: string; raw: string };
@@ -130,6 +134,45 @@ function parseTags(value: string): string[] {
    return [...tags];
 }
 
+function parseMetadata(value: string): { metadata: MetadataRecord; error?: string } {
+   const metadata: MetadataRecord = {};
+   if (value.trim().length === 0) return { metadata };
+
+   for (const part of value.split(';')) {
+      const entry = part.trim();
+      if (entry.length === 0) continue;
+
+      const separator = entry.indexOf('=');
+      if (separator === -1) {
+         return { metadata, error: `Metadata entry "${entry}" must be key=value` };
+      }
+
+      const key = entry.slice(0, separator).trim();
+      const entryValue = entry.slice(separator + 1).trim();
+
+      const keyError = metadataKeyError(key);
+      if (keyError !== null) return { metadata, error: keyError };
+
+      if (entryValue.length > MAX_METADATA_VALUE_LENGTH) {
+         return {
+            metadata,
+            error: `Metadata value for "${key}" must be at most ${MAX_METADATA_VALUE_LENGTH} characters`,
+         };
+      }
+
+      metadata[key] = entryValue;
+   }
+
+   if (Object.keys(metadata).length > MAX_METADATA_KEYS) {
+      return {
+         metadata,
+         error: `At most ${MAX_METADATA_KEYS} metadata keys are allowed`,
+      };
+   }
+
+   return { metadata };
+}
+
 export function parseSubscriberCsv(text: string): CsvParseResult {
    const input = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
    const records = parseRecords(input);
@@ -152,6 +195,7 @@ export function parseSubscriberCsv(text: string): CsvParseResult {
    const firstNameIndex = names.indexOf('first_name');
    const lastNameIndex = names.indexOf('last_name');
    const tagsIndex = names.indexOf('tags');
+   const metadataIndex = names.indexOf('metadata');
 
    const rows: SubscriberCsvRow[] = [];
    const errors: CsvRowError[] = [];
@@ -173,6 +217,12 @@ export function parseSubscriberCsv(text: string): CsvParseResult {
 
       const firstName = cell(record, firstNameIndex);
       const lastName = cell(record, lastNameIndex);
+      const metadata = parseMetadata(cell(record, metadataIndex));
+
+      if (metadata.error !== undefined) {
+         errors.push({ line: record.line, message: metadata.error, raw: record.raw });
+         continue;
+      }
 
       rows.push({
          line: record.line,
@@ -180,6 +230,7 @@ export function parseSubscriberCsv(text: string): CsvParseResult {
          first_name: firstName.length > 0 ? firstName : null,
          last_name: lastName.length > 0 ? lastName : null,
          tags: parseTags(cell(record, tagsIndex)),
+         metadata: metadata.metadata,
       });
    }
 

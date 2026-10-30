@@ -19,9 +19,12 @@ export type CampaignInput = {
    utmSource?: string;
    utmMedium?: string;
    utmCampaign?: string;
+   metadata?: Record<string, string>;
 };
 
-export type CampaignPatch = Partial<CampaignInput>;
+export type CampaignPatch = Partial<Omit<CampaignInput, 'metadata'>> & {
+   metadata?: Record<string, string | null>;
+};
 
 export type CampaignListParams = {
    cursor?: string;

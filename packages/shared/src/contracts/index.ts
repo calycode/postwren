@@ -1,10 +1,27 @@
 import { z } from 'zod';
+import { metadataPatch, metadataRecord } from '../metadata/index';
 
 const emailField = z
    .string()
    .trim()
    .email()
    .transform((value) => value.toLowerCase());
+
+const originField = z
+   .string()
+   .trim()
+   .max(500)
+   .url()
+   .refine((value) => {
+      try {
+         const url = new URL(value);
+         return url.protocol === 'https:' || url.protocol === 'http:';
+      } catch {
+         return false;
+      }
+   }, 'Origins must be absolute http or https URLs');
+
+const tagNameField = z.string().trim().min(1).max(64);
 
 export const paginationQuery = z.object({
    cursor: z.string().trim().min(1).optional(),
@@ -16,10 +33,13 @@ export const subscriberInput = z
       email: emailField,
       firstName: z.string().trim().min(1).max(100).optional(),
       lastName: z.string().trim().min(1).max(100).optional(),
+      metadata: metadataRecord.optional(),
    })
    .strict();
 
-export const subscriberPatch = subscriberInput.partial();
+export const subscriberPatch = subscriberInput
+   .partial()
+   .extend({ metadata: metadataPatch.optional() });
 
 export const tagInput = z
    .object({
@@ -40,6 +60,7 @@ export const campaignInput = z
       utmSource: z.string().trim().min(1).max(100).optional(),
       utmMedium: z.string().trim().min(1).max(100).optional(),
       utmCampaign: z.string().trim().min(1).max(191).optional(),
+      metadata: metadataRecord.optional(),
    })
    .strict();
 
@@ -54,6 +75,27 @@ export const templateInput = z
 export const templateUpdateInput = templateInput
    .partial()
    .extend({ bumpRevision: z.boolean().optional() });
+
+export const publicSubscribeInput = z
+   .object({
+      email: emailField,
+      firstName: z.string().trim().min(1).max(100).optional(),
+      lastName: z.string().trim().min(1).max(100).optional(),
+      tags: z.array(tagNameField).max(20).optional(),
+      metadata: metadataRecord.optional(),
+      source: z.string().trim().min(1).max(100).optional(),
+      sourceUrl: z.string().trim().max(2048).url().optional(),
+      website: z.string().max(500).optional(),
+   })
+   .strict();
+
+export const subscribeKeyInput = z
+   .object({
+      name: z.string().trim().min(1).max(100),
+      allowedOrigins: z.array(originField).max(20).optional(),
+      defaultTags: z.array(tagNameField).max(20).optional(),
+   })
+   .strict();
 
 export const RATE_LIMITS = {
    publicSubscribe: { windowSeconds: 60, max: 10 },
@@ -70,3 +112,5 @@ export type TagInput = z.infer<typeof tagInput>;
 export type CampaignInput = z.infer<typeof campaignInput>;
 export type TemplateInput = z.infer<typeof templateInput>;
 export type TemplateUpdateInput = z.infer<typeof templateUpdateInput>;
+export type PublicSubscribeInput = z.infer<typeof publicSubscribeInput>;
+export type SubscribeKeyInput = z.infer<typeof subscribeKeyInput>;

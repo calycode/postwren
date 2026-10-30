@@ -35,6 +35,7 @@ import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { TagPicker } from '@/components/tag-picker';
+import { MetadataEditor } from '@/components/metadata-editor';
 import {
    addTag,
    create as createSubscriber,
@@ -59,6 +60,13 @@ import {
    titleCase,
 } from '@/lib/format';
 import { useDebouncedValue } from '@/lib/hooks';
+import {
+   metadataPatchFromRows,
+   metadataToRows,
+   rowsToMetadata,
+   validateMetadataRows,
+} from '@/lib/metadata';
+import type { MetadataRow } from '@/lib/metadata';
 import { appendCursorPage, cursorStateFrom, emptyCursorState } from '@/lib/pagination';
 import type { CursorState } from '@/lib/pagination';
 import { applyTagDiff, diffTags, mergeAppliedTags } from '@/lib/tag-diff';
@@ -78,9 +86,10 @@ type SubscriberForm = {
    email: string;
    first_name: string;
    last_name: string;
+   metadata: MetadataRow[];
 };
 
-const EMPTY_FORM: SubscriberForm = { email: '', first_name: '', last_name: '' };
+const EMPTY_FORM: SubscriberForm = { email: '', first_name: '', last_name: '', metadata: [] };
 
 function statusVariant(
    status: SubscriberStatus,
@@ -138,6 +147,7 @@ export function Subscribers() {
    const [formError, setFormError] = useState<string | null>(null);
    const [formTags, setFormTags] = useState<Tag[]>([]);
    const [savedTags, setSavedTags] = useState<Tag[]>([]);
+   const [savedMetadata, setSavedMetadata] = useState<Record<string, string>>({});
    const [tagError, setTagError] = useState<string | null>(null);
    const [saving, setSaving] = useState(false);
 
@@ -236,6 +246,7 @@ export function Subscribers() {
       setFormError(null);
       setFormTags([]);
       setSavedTags([]);
+      setSavedMetadata({});
       setTagError(null);
    }
 
@@ -250,11 +261,13 @@ export function Subscribers() {
          email: subscriber.email,
          first_name: subscriber.first_name ?? '',
          last_name: subscriber.last_name ?? '',
+         metadata: metadataToRows(subscriber.metadata),
       });
       setFormErrors({});
       setFormError(null);
       setFormTags(subscriber.tags ?? []);
       setSavedTags(subscriber.tags ?? []);
+      setSavedMetadata(subscriber.metadata ?? {});
       setTagError(null);
       setFormOpen(true);
    }
@@ -294,11 +307,20 @@ export function Subscribers() {
       if (first.length > 100) nextErrors.first_name = 'First name must be 100 characters or fewer.';
       if (last.length > 100) nextErrors.last_name = 'Last name must be 100 characters or fewer.';
 
+      const metadataIssues = validateMetadataRows(form.metadata);
+      if (
+         metadataIssues.general !== undefined ||
+         metadataIssues.rowErrors.some((error) => error !== undefined)
+      ) {
+         nextErrors.metadata = 'Fix the highlighted custom fields.';
+      }
+
       if (Object.keys(nextErrors).length > 0) {
          setFormErrors(nextErrors);
          return;
       }
 
+      const metadata = rowsToMetadata(form.metadata);
       const fields = {
          email,
          ...(first.length > 0 ? { firstName: first } : {}),
@@ -311,10 +333,13 @@ export function Subscribers() {
          let created: Subscriber | null = null;
 
          if (editing) {
-            await updateSubscriber(editing.id, fields);
+            await updateSubscriber(editing.id, {
+               ...fields,
+               metadata: metadataPatchFromRows(savedMetadata, form.metadata),
+            });
             subscriberId = editing.id;
          } else {
-            created = await createSubscriber(fields);
+            created = await createSubscriber({ ...fields, metadata });
             subscriberId = created.id;
          }
 
@@ -493,6 +518,30 @@ export function Subscribers() {
                   {subscriberTags.length > 3 && (
                      <Badge variant="secondary">+{subscriberTags.length - 3}</Badge>
                   )}
+               </div>
+            );
+         },
+      },
+      {
+         id: 'metadata',
+         header: 'Custom fields',
+         cell: (subscriber) => {
+            const entries = Object.entries(subscriber.metadata ?? {});
+            if (entries.length === 0) {
+               return <span className="text-muted-foreground">—</span>;
+            }
+            return (
+               <div className="flex flex-wrap gap-1">
+                  {entries.slice(0, 2).map(([key, value]) => (
+                     <Badge
+                        key={key}
+                        variant="outline"
+                        title={`${key}: ${value}`}
+                     >
+                        {key}
+                     </Badge>
+                  ))}
+                  {entries.length > 2 && <Badge variant="secondary">+{entries.length - 2}</Badge>}
                </div>
             );
          },
@@ -807,6 +856,32 @@ export function Subscribers() {
                            }
                         />
                      </Field>
+                  </div>
+
+                  <div className="grid gap-2">
+                     <h3 className="text-sm font-medium">Custom fields</h3>
+                     <p className="text-xs text-muted-foreground">
+                        Values are available to content as{' '}
+                        <code className="rounded bg-muted px-1 py-0.5">
+                           {'{{ subscriber.meta.key }}'}
+                        </code>
+                        .
+                     </p>
+                     <MetadataEditor
+                        idPrefix="subscriber-metadata"
+                        scope="subscriber"
+                        rows={form.metadata}
+                        onChange={(metadata) => setForm((current) => ({ ...current, metadata }))}
+                        disabled={saving}
+                     />
+                     {formErrors.metadata !== undefined && (
+                        <p
+                           role="alert"
+                           className="text-xs font-medium text-destructive"
+                        >
+                           {formErrors.metadata}
+                        </p>
+                     )}
                   </div>
 
                   <Field

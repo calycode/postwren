@@ -14,9 +14,12 @@ export type SubscriberInput = {
    email: string;
    firstName?: string;
    lastName?: string;
+   metadata?: Record<string, string>;
 };
 
-export type SubscriberPatch = Partial<SubscriberInput>;
+export type SubscriberPatch = Partial<Omit<SubscriberInput, 'metadata'>> & {
+   metadata?: Record<string, string | null>;
+};
 
 export type BulkTagsInput = {
    subscriberIds: string[];

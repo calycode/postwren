@@ -5,9 +5,11 @@ import type { Block, Document } from '@mailer/email/ir';
 import { renderEmail } from '@mailer/email/render';
 import { applyMergeTags } from '@mailer/email/template';
 import type { MergeContext } from '@mailer/email/template';
+import { parseMetadataJson } from '@mailer/shared/metadata';
 import type { CampaignRow, MailSubscriberRow } from '../lib/rows';
 import { createCloudflareAdapter, errorCodeOf } from '../adapters/email';
 import { nowSeconds } from '../lib/time';
+import { loadSubscriberMetadata } from '../lib/subscribers';
 
 const CLICK_TTL_SECONDS = 60 * 60 * 24;
 const OPEN_TTL_SECONDS = 60 * 60 * 24;
@@ -229,6 +231,7 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
          }
 
          const tags = await loadSubscriberTags(env.DB, subscriberId);
+         const metadata = await loadSubscriberMetadata(env.DB, subscriberId);
          const unsubToken = await signToken(
             { s: subscriberId, c: campaignId },
             {
@@ -246,11 +249,13 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
                first_name: subscriber.first_name,
                last_name: subscriber.last_name,
                tags,
+               meta: metadata,
             },
             campaign: {
                id: campaign.id,
                subject: campaign.subject,
                utm_campaign: campaign.utm_campaign,
+               meta: parseMetadataJson(campaign.metadata_json),
             },
             links: { unsubscribe: unsubscribeUrl },
          };

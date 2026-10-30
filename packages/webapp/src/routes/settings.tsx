@@ -19,7 +19,12 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { API_BASE_URL, ApiError } from '@/lib/api/client';
 import { createSender, listSenders, removeSender, updateSender } from '@/lib/api/settings';
-import type { SenderAddress, SenderSettings } from '@/lib/api/types';
+import {
+   create as createSubscribeKey,
+   list as listSubscribeKeys,
+   revoke as revokeSubscribeKey,
+} from '@/lib/api/subscribe-keys';
+import type { SenderAddress, SenderSettings, SubscribeKey } from '@/lib/api/types';
 import { errorMessage, fieldErrorsFrom, isEmail } from '@/lib/form-errors';
 import type { FieldErrors } from '@/lib/form-errors';
 import { formatDate } from '@/lib/format';
@@ -46,6 +51,19 @@ export function Settings() {
    const [deleteBusy, setDeleteBusy] = useState(false);
    const [deleteError, setDeleteError] = useState<string | null>(null);
 
+   const [keys, setKeys] = useState<SubscribeKey[]>([]);
+   const [keysLoading, setKeysLoading] = useState(true);
+   const [keysError, setKeysError] = useState<string | null>(null);
+   const [keysReloadKey, setKeysReloadKey] = useState(0);
+   const [keyName, setKeyName] = useState('');
+   const [keyOrigins, setKeyOrigins] = useState('');
+   const [keyTags, setKeyTags] = useState('');
+   const [keyBusy, setKeyBusy] = useState(false);
+   const [keyFormError, setKeyFormError] = useState<string | null>(null);
+   const [newSecret, setNewSecret] = useState<string | null>(null);
+   const [revoking, setRevoking] = useState<string | null>(null);
+   const [keyActionError, setKeyActionError] = useState<string | null>(null);
+
    useEffect(() => {
       let cancelled = false;
       setLoading(true);
@@ -69,6 +87,81 @@ export function Settings() {
 
    function reload() {
       setReloadKey((key) => key + 1);
+   }
+
+   useEffect(() => {
+      let cancelled = false;
+      setKeysLoading(true);
+      setKeysError(null);
+
+      listSubscribeKeys()
+         .then((result) => {
+            if (!cancelled) setKeys(result);
+         })
+         .catch((cause: unknown) => {
+            if (!cancelled) setKeysError(errorMessage(cause, 'Could not load subscribe keys'));
+         })
+         .finally(() => {
+            if (!cancelled) setKeysLoading(false);
+         });
+
+      return () => {
+         cancelled = true;
+      };
+   }, [keysReloadKey]);
+
+   function parseList(value: string): string[] {
+      return [
+         ...new Set(
+            value
+               .split(/[\s,]+/)
+               .map((entry) => entry.trim())
+               .filter((entry) => entry.length > 0),
+         ),
+      ];
+   }
+
+   async function submitKey(event: Event) {
+      event.preventDefault();
+      setKeyFormError(null);
+      setNewSecret(null);
+
+      const name = keyName.trim();
+      if (name.length === 0) {
+         setKeyFormError('Enter a name for the key.');
+         return;
+      }
+
+      setKeyBusy(true);
+      try {
+         const created = await createSubscribeKey({
+            name,
+            allowedOrigins: parseList(keyOrigins),
+            defaultTags: parseList(keyTags).map((tag) => tag.toLowerCase()),
+         });
+         setNewSecret(created.key ?? null);
+         setKeyName('');
+         setKeyOrigins('');
+         setKeyTags('');
+         setKeysReloadKey((key) => key + 1);
+      } catch (cause) {
+         setKeyFormError(errorMessage(cause, 'Could not create the subscribe key'));
+      } finally {
+         setKeyBusy(false);
+      }
+   }
+
+   async function revokeKey(id: string) {
+      setKeyActionError(null);
+      setRevoking(id);
+      try {
+         await revokeSubscribeKey(id);
+         setKeysReloadKey((key) => key + 1);
+      } catch (cause) {
+         setKeyActionError(errorMessage(cause, 'Could not revoke the subscribe key'));
+      } finally {
+         setRevoking(null);
+      }
    }
 
    async function submitAddress(event: Event) {
@@ -366,6 +459,159 @@ export function Settings() {
                      >
                         <Plus aria-hidden="true" />
                         {creating ? 'Adding…' : 'Add address'}
+                     </Button>
+                  </div>
+               </form>
+            </CardContent>
+         </Card>
+
+         <Card>
+            <CardHeader>
+               <CardTitle>Public subscribe keys</CardTitle>
+               <CardDescription>
+                  Publishable <code className="rounded bg-muted px-1 py-0.5">pk_live_…</code> keys
+                  let other sites call{' '}
+                  <code className="rounded bg-muted px-1 py-0.5">POST /api/public/subscribe</code>{' '}
+                  without a session. The key is shown once.
+               </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-5">
+               {keyActionError !== null && (
+                  <Alert variant="destructive">
+                     <AlertDescription>{keyActionError}</AlertDescription>
+                  </Alert>
+               )}
+
+               {keysLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading subscribe keys…</p>
+               ) : keysError !== null ? (
+                  <Alert variant="destructive">
+                     <AlertTitle>Could not load subscribe keys</AlertTitle>
+                     <AlertDescription>
+                        <p>{keysError}</p>
+                        <Button
+                           variant="outline"
+                           size="sm"
+                           className="mt-3"
+                           onClick={() => setKeysReloadKey((key) => key + 1)}
+                        >
+                           Try again
+                        </Button>
+                     </AlertDescription>
+                  </Alert>
+               ) : keys.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No subscribe keys yet.</p>
+               ) : (
+                  <ul className="grid gap-2">
+                     {keys.map((key) => (
+                        <li
+                           key={key.id}
+                           className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                           <div className="grid min-w-0 gap-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                 <span className="truncate font-medium">{key.name}</span>
+                                 <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                    {key.prefix}…
+                                 </code>
+                                 {key.revoked_at !== null && (
+                                    <Badge variant="outline">Revoked</Badge>
+                                 )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                 Origins:{' '}
+                                 {key.allowed_origins.length > 0
+                                    ? key.allowed_origins.join(', ')
+                                    : 'none (server-to-server only)'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                 Default tags:{' '}
+                                 {key.default_tags.length > 0
+                                    ? key.default_tags.join(', ')
+                                    : 'none'}{' '}
+                                 · created {formatDate(key.created_at)}
+                              </span>
+                           </div>
+
+                           <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={key.revoked_at !== null || revoking === key.id}
+                              onClick={() => void revokeKey(key.id)}
+                           >
+                              {revoking === key.id ? 'Revoking…' : 'Revoke'}
+                           </Button>
+                        </li>
+                     ))}
+                  </ul>
+               )}
+
+               {newSecret !== null && (
+                  <Alert variant="warning">
+                     <AlertTitle>Copy this key now</AlertTitle>
+                     <AlertDescription>
+                        <p>
+                           It is not shown again. Use it as a bearer token on the public endpoint.
+                        </p>
+                        <code className="mt-2 block overflow-x-auto rounded bg-muted px-2 py-1 text-xs">
+                           {newSecret}
+                        </code>
+                     </AlertDescription>
+                  </Alert>
+               )}
+
+               <Separator />
+
+               <form
+                  className="grid max-w-xl gap-3"
+                  onSubmit={(event) => void submitKey(event)}
+                  noValidate
+               >
+                  <h3 className="text-sm font-medium">Create key</h3>
+                  <Field
+                     label="Name"
+                     htmlFor="subscribe-key-name"
+                     error={keyFormError ?? undefined}
+                     required
+                  >
+                     <Input
+                        id="subscribe-key-name"
+                        value={keyName}
+                        placeholder="Marketing site"
+                        onInput={(event) => setKeyName(event.currentTarget.value)}
+                     />
+                  </Field>
+                  <Field
+                     label="Allowed origins"
+                     htmlFor="subscribe-key-origins"
+                     hint="Comma or space separated, for example https://example.com. Leave empty to block browser calls."
+                  >
+                     <Input
+                        id="subscribe-key-origins"
+                        value={keyOrigins}
+                        placeholder="https://example.com"
+                        onInput={(event) => setKeyOrigins(event.currentTarget.value)}
+                     />
+                  </Field>
+                  <Field
+                     label="Default tags"
+                     htmlFor="subscribe-key-tags"
+                     hint="Every signup through this key receives these tags."
+                  >
+                     <Input
+                        id="subscribe-key-tags"
+                        value={keyTags}
+                        placeholder="newsletter"
+                        onInput={(event) => setKeyTags(event.currentTarget.value)}
+                     />
+                  </Field>
+                  <div>
+                     <Button
+                        type="submit"
+                        disabled={keyBusy}
+                     >
+                        <Plus aria-hidden="true" />
+                        {keyBusy ? 'Creating…' : 'Create subscribe key'}
                      </Button>
                   </div>
                </form>
