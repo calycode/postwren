@@ -1,6 +1,6 @@
 {
    "extends": "../../tsconfig.base.json",
-   "include": ["src/**/*.ts", "test/**/*.ts"],
+   "include": ["src/**/*.ts", "test/**/*.ts", "test-node/**/*.ts"],
    "compilerOptions": {
       "lib": ["ES2022"],
       "types": [

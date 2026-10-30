@@ -5,7 +5,7 @@
    "type": "module",
    "main": "src/index.ts",
    "scripts": {
-      "test": "vitest run",
+      "test": "vitest run && vitest run --config vitest.node.config.ts",
       "check-types": "tsc --noEmit",
       "lint": "eslint src"
    },
