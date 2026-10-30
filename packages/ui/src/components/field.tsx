@@ -1,4 +1,5 @@
-import type { ComponentChildren, JSX } from 'preact';
+import { Fragment, cloneElement, isValidElement } from 'preact';
+import type { ComponentChildren, JSX, VNode } from 'preact';
 
 import { withoutRef } from '../lib/preact-compat';
 import { cn } from '../lib/utils';
@@ -17,6 +18,36 @@ export type FieldProps = Omit<
    required?: boolean;
 };
 
+type ControlProps = Record<string, unknown>;
+
+function singleControl(children: ComponentChildren): VNode<ControlProps> | null {
+   const candidates = (Array.isArray(children) ? children : [children]).filter(
+      (child) => child !== null && child !== undefined && child !== false && child !== '',
+   );
+   if (candidates.length !== 1) return null;
+
+   const [candidate] = candidates;
+   if (!isValidElement(candidate) || candidate.type === Fragment) return null;
+   return candidate as VNode<ControlProps>;
+}
+
+function describeControl(
+   control: VNode<ControlProps>,
+   describedById: string | undefined,
+   invalid: boolean,
+): VNode<ControlProps> {
+   const existing = control.props['aria-describedby'];
+   const ids =
+      typeof existing === 'string' ? existing.split(/\s+/).filter((id) => id.length > 0) : [];
+   if (describedById !== undefined && !ids.includes(describedById)) ids.push(describedById);
+
+   const props: ControlProps = { ...control.props };
+   if (ids.length > 0) props['aria-describedby'] = ids.join(' ');
+   if (invalid && props['aria-invalid'] === undefined) props['aria-invalid'] = true;
+
+   return cloneElement(control, props) as VNode<ControlProps>;
+}
+
 export function Field({
    className,
    children,
@@ -29,6 +60,12 @@ export function Field({
 }: FieldProps) {
    const hintId = htmlFor ? `${htmlFor}-hint` : undefined;
    const errorId = htmlFor ? `${htmlFor}-error` : undefined;
+   const showsError = error !== undefined;
+   const showsHint = !showsError && hint !== undefined;
+
+   const control = singleControl(children);
+   const describedById = showsError ? errorId : showsHint ? hintId : undefined;
+   const content = control ? describeControl(control, describedById, showsError) : children;
 
    return (
       <div
@@ -49,15 +86,15 @@ export function Field({
                )}
             </Label>
          )}
-         {children}
-         {error !== undefined ? (
+         {content}
+         {showsError ? (
             <p
                id={errorId}
                className="text-xs font-medium text-destructive"
             >
                {error}
             </p>
-         ) : hint !== undefined ? (
+         ) : showsHint ? (
             <p
                id={hintId}
                className="text-xs text-muted-foreground"

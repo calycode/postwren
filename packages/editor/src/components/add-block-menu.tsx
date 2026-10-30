@@ -56,16 +56,25 @@ const GROUPS: readonly {
 export function AddBlockMenu({
    onAdd,
    onAddPattern,
+   afterLabel,
    className,
 }: {
    onAdd: (type: BlockType) => void;
    onAddPattern: (pattern: BlockPattern) => void;
+   /** Label of the selected block; new blocks are inserted right after it. */
+   afterLabel?: string | null;
    className?: string;
 }) {
+   const insertionTitle =
+      afterLabel !== undefined && afterLabel !== null
+         ? `Adds after the selected block (${afterLabel})`
+         : 'Adds at the end of the document';
+
    return (
       <DropdownMenu className={className}>
          <DropdownMenuTrigger
             aria-label="Add block"
+            title={insertionTitle}
             className="h-8 px-2 text-xs"
          >
             <Plus

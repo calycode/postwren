@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type {
    Block,
@@ -53,9 +53,12 @@ import {
    normaliseColumns,
    removeBlock,
    removeFromSection,
+   SECTION_CHILD_LIMIT,
    updateBlock,
 } from '../lib/document-ops';
+import type { ImageUploader } from '../lib/media';
 import { HexInput, NumberInput, OptionSelect, SpacingEditor } from './field-controls';
+import { MediaField } from './media-field';
 import { MergeTagMenu } from './merge-tag-menu';
 
 const TEXTAREA_CLASS =
@@ -74,14 +77,36 @@ const MERGEABLE_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
    table: ['header', 'rows'],
 };
 
+const CONTENT_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
+   heading: ['level', 'text'],
+   text: ['text'],
+   button: ['text', 'href'],
+   image: ['src', 'alt', 'href'],
+   spacer: ['height'],
+   list: ['items', 'ordered'],
+   quote: ['text', 'attribution'],
+   code: ['text'],
+   link: ['text', 'href'],
+   avatar: ['src', 'alt', 'name', 'caption', 'href'],
+   table: ['header', 'rows'],
+};
+
 type PropertyPanelProps = {
    doc: Document;
    selectedId: string | null;
    onSelect: (id: string) => void;
-   onChange: (next: Document) => void;
+   /** `coalesceKey` merges rapid edits to the same field into one undo step. */
+   onChange: (next: Document, coalesceKey?: string) => void;
+   onUploadImage?: ImageUploader;
 };
 
-export function PropertyPanel({ doc, selectedId, onSelect, onChange }: PropertyPanelProps) {
+export function PropertyPanel({
+   doc,
+   selectedId,
+   onSelect,
+   onChange,
+   onUploadImage,
+}: PropertyPanelProps) {
    const block = selectedId ? findBlock(doc, selectedId) : null;
 
    return (
@@ -99,6 +124,7 @@ export function PropertyPanel({ doc, selectedId, onSelect, onChange }: PropertyP
                block={block}
                onChange={onChange}
                onSelect={onSelect}
+               onUploadImage={onUploadImage}
             />
          ) : (
             <div className="grid gap-3">
@@ -140,8 +166,10 @@ function DocumentSummary({ doc }: { doc: Document }) {
    );
 }
 
-function setKey(patch: (next: Partial<Block>) => void, key: string, value: unknown) {
-   patch({ [key]: value } as unknown as Partial<Block>);
+type Patch = (next: Partial<Block>, coalesceKey?: string) => void;
+
+function setKey(patch: Patch, key: string, value: unknown, coalesceKey: string = key) {
+   patch({ [key]: value } as unknown as Partial<Block>, coalesceKey);
 }
 
 function BlockProperties({
@@ -149,32 +177,39 @@ function BlockProperties({
    block,
    onChange,
    onSelect,
+   onUploadImage,
 }: {
    doc: Document;
    block: Block;
-   onChange: (next: Document) => void;
+   onChange: (next: Document, coalesceKey?: string) => void;
    onSelect: (id: string) => void;
+   onUploadImage?: ImageUploader;
 }) {
-   const patch = (next: Partial<Block>) => onChange(updateBlock(doc, block.id, next));
+   const patch: Patch = (next, coalesceKey) =>
+      onChange(updateBlock(doc, block.id, next), coalesceKey);
    const textRef = useRef<HTMLTextAreaElement>(null);
+   const contentKeys = CONTENT_FIELDS[block.type] ?? [];
+   const paddingSpec = BLOCK_FIELDS[block.type].find((spec) => spec.key === 'padding');
+   const contentFields = BLOCK_FIELDS[block.type].filter((spec) => contentKeys.includes(spec.key));
+   const styleFields = BLOCK_FIELDS[block.type].filter(
+      (spec) => spec.key !== 'padding' && !contentKeys.includes(spec.key),
+   );
+
+   const renderField = (spec: FieldSpec) => (
+      <SchemaField
+         key={spec.key}
+         spec={spec}
+         block={block}
+         settings={doc.settings}
+         patch={patch}
+         textareaRef={spec.key === 'text' && block.type === 'text' ? textRef : undefined}
+         onUploadImage={onUploadImage}
+      />
+   );
 
    return (
       <div className="grid gap-4">
-         <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{block.type}</Badge>
-            <BlockIdField id={block.id} />
-         </div>
-
-         {BLOCK_FIELDS[block.type].map((spec) => (
-            <SchemaField
-               key={spec.key}
-               spec={spec}
-               block={block}
-               settings={doc.settings}
-               patch={patch}
-               textareaRef={spec.key === 'text' && block.type === 'text' ? textRef : undefined}
-            />
-         ))}
+         {contentFields.map(renderField)}
 
          {block.type === 'image' && (
             <div className="grid gap-1">
@@ -215,6 +250,7 @@ function BlockProperties({
                doc={doc}
                block={block}
                onChange={onChange}
+               onUploadImage={onUploadImage}
             />
          )}
 
@@ -226,7 +262,62 @@ function BlockProperties({
                onSelect={onSelect}
             />
          )}
+
+         {styleFields.length > 0 && (
+            <div className="grid gap-4">{styleFields.map(renderField)}</div>
+         )}
+
+         {paddingSpec && (
+            <PaddingDetails
+               block={block}
+               spec={paddingSpec}
+               patch={patch}
+            />
+         )}
+
+         <AdvancedDetails block={block} />
       </div>
+   );
+}
+
+function PaddingDetails({ block, spec, patch }: { block: Block; spec: FieldSpec; patch: Patch }) {
+   const spacing = (block as unknown as Record<string, unknown>)[spec.key] as Spacing;
+   const summary = `${spacing.top} / ${spacing.right} / ${spacing.bottom} / ${spacing.left}`;
+
+   return (
+      <details className="rounded-md border border-border">
+         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            <span>Padding</span>
+            <span className="font-mono text-xs text-muted-foreground">{summary}</span>
+         </summary>
+         <div className="border-t border-border p-3">
+            <SpacingEditor
+               value={spacing}
+               idPrefix={`prop-${block.id}-${spec.key}`}
+               label="Padding sides"
+               onValueChange={(next) => setKey(patch, spec.key, next)}
+            />
+         </div>
+      </details>
+   );
+}
+
+function AdvancedDetails({ block }: { block: Block }) {
+   return (
+      <details className="rounded-md border border-border">
+         <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            Advanced
+         </summary>
+         <div className="grid gap-3 border-t border-border p-3">
+            <Badge
+               variant="outline"
+               className="w-fit"
+            >
+               {block.type}
+            </Badge>
+            <BlockIdField id={block.id} />
+         </div>
+      </details>
    );
 }
 
@@ -275,15 +366,69 @@ function BlockIdField({ id }: { id: string }) {
    );
 }
 
+function RowDeleteConfirm({
+   label,
+   onConfirm,
+   onCancel,
+}: {
+   label: string;
+   onConfirm: () => void;
+   onCancel: () => void;
+}) {
+   const groupRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+      groupRef.current?.focus();
+   }, []);
+
+   return (
+      <div
+         ref={groupRef}
+         role="group"
+         aria-label={`Delete ${label}?`}
+         tabIndex={-1}
+         className="flex items-center gap-1 outline-none"
+      >
+         <span className="text-[10px] font-medium text-destructive">Delete?</span>
+         <Button
+            size="sm"
+            variant="destructive"
+            className="h-6 px-1.5 text-[10px]"
+            aria-label={`Confirm delete ${label}`}
+            onClick={onConfirm}
+         >
+            Delete
+         </Button>
+         <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5 text-[10px]"
+            aria-label="Cancel delete"
+            onClick={onCancel}
+         >
+            Cancel
+         </Button>
+      </div>
+   );
+}
+
 type SchemaFieldProps = {
    spec: FieldSpec;
    block: Block;
    settings: DocumentSettings;
-   patch: (next: Partial<Block>) => void;
+   patch: Patch;
    textareaRef?: RefObject<HTMLTextAreaElement>;
+   onUploadImage?: ImageUploader;
 };
 
-function SchemaField({ spec, block, settings, patch, textareaRef }: SchemaFieldProps) {
+function SchemaField({
+   spec,
+   block,
+   settings,
+   patch,
+   textareaRef,
+   onUploadImage,
+}: SchemaFieldProps) {
    const values = block as unknown as Record<string, unknown>;
    const raw = values[spec.key];
    const id = `prop-${block.id}-${spec.key}`;
@@ -333,6 +478,18 @@ function SchemaField({ spec, block, settings, patch, textareaRef }: SchemaFieldP
       />
    ) : null;
 
+   if (spec.key === 'src' && (block.type === 'image' || block.type === 'avatar')) {
+      return (
+         <MediaField
+            id={id}
+            label={spec.label}
+            value={stringValue}
+            onValueChange={(next) => setKey(patch, spec.key, next)}
+            onUploadImage={onUploadImage}
+         />
+      );
+   }
+
    if (spec.kind === 'boolean') {
       return (
          <Checkbox
@@ -350,6 +507,7 @@ function SchemaField({ spec, block, settings, patch, textareaRef }: SchemaFieldP
          <SpacingEditor
             value={spacing}
             idPrefix={block.id}
+            label={spec.label}
             onValueChange={(next) => setKey(patch, spec.key, next)}
          />
       );
@@ -543,22 +701,29 @@ function OptionalColourField({
    onValueChange: (value: string | undefined) => void;
 }) {
    const usingTheme = value === undefined;
+   const current = value ?? themeColor;
 
    return (
       <div className="grid gap-2">
-         <Label htmlFor={id}>{label}</Label>
+         <Label htmlFor={usingTheme ? `${id}-theme` : id}>{label}</Label>
          <Checkbox
             id={`${id}-theme`}
             checked={usingTheme}
-            label="Use theme colour"
-            onChange={(event) =>
-               onValueChange(event.currentTarget.checked ? undefined : themeColor)
-            }
+            label="Match theme colour"
+            onChange={(event) => onValueChange(event.currentTarget.checked ? undefined : current)}
          />
+         <div className="flex items-center gap-2">
+            <span
+               aria-hidden="true"
+               className="size-5 shrink-0 rounded border border-border"
+               style={{ backgroundColor: themeColor }}
+            />
+            <span className="text-xs text-muted-foreground">Theme {themeColor}</span>
+         </div>
          {!usingTheme && (
             <HexInput
                id={id}
-               value={value}
+               value={current}
                fallback={themeColor}
                ariaLabel={label}
                onValueChange={onValueChange}
@@ -570,7 +735,15 @@ function OptionalColourField({
 
 type LeafBlockType = Exclude<BlockType, 'columns' | 'section'>;
 
-function LeafBlockMenu({ label, onAdd }: { label: string; onAdd: (type: LeafBlockType) => void }) {
+function LeafBlockMenu({
+   label,
+   disabled = false,
+   onAdd,
+}: {
+   label: string;
+   disabled?: boolean;
+   onAdd: (type: LeafBlockType) => void;
+}) {
    const options = BLOCK_TYPE_OPTIONS.filter(
       (option): option is { type: LeafBlockType; label: string } =>
          option.type !== 'columns' && option.type !== 'section',
@@ -578,7 +751,13 @@ function LeafBlockMenu({ label, onAdd }: { label: string; onAdd: (type: LeafBloc
 
    return (
       <DropdownMenu className="w-full">
-         <DropdownMenuTrigger className="w-full justify-center text-xs">
+         <DropdownMenuTrigger
+            className="w-full justify-center text-xs aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+            aria-disabled={disabled || undefined}
+            onClick={(event) => {
+               if (disabled) event.preventDefault();
+            }}
+         >
             {label}
          </DropdownMenuTrigger>
          <DropdownMenuContent className="w-44">
@@ -694,6 +873,12 @@ function ColumnsEditor({
                         <div
                            key={child.id}
                            className="flex items-center gap-1 rounded border border-border/70 px-2 py-1"
+                           onKeyDown={(event) => {
+                              if (event.key !== 'Escape') return;
+                              if (confirmingChildId !== child.id) return;
+                              event.stopPropagation();
+                              setConfirmingChildId(null);
+                           }}
                         >
                            <button
                               type="button"
@@ -703,30 +888,14 @@ function ColumnsEditor({
                               {blockLabel(child)}
                            </button>
                            {confirmingChildId === child.id ? (
-                              <div className="flex items-center gap-1">
-                                 <span className="text-[10px] font-medium text-destructive">
-                                    Delete?
-                                 </span>
-                                 <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    className="h-6 px-1.5 text-[10px]"
-                                    onClick={() => {
-                                       onChange(removeBlock(doc, child.id));
-                                       setConfirmingChildId(null);
-                                    }}
-                                 >
-                                    Delete
-                                 </Button>
-                                 <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 px-1.5 text-[10px]"
-                                    onClick={() => setConfirmingChildId(null)}
-                                 >
-                                    Cancel
-                                 </Button>
-                              </div>
+                              <RowDeleteConfirm
+                                 label={blockLabel(child)}
+                                 onConfirm={() => {
+                                    onChange(removeBlock(doc, child.id));
+                                    setConfirmingChildId(null);
+                                 }}
+                                 onCancel={() => setConfirmingChildId(null)}
+                              />
                            ) : (
                               <Button
                                  size="icon"
@@ -868,10 +1037,12 @@ function GalleryEditor({
    doc,
    block,
    onChange,
+   onUploadImage,
 }: {
    doc: Document;
    block: GalleryBlock;
    onChange: (next: Document) => void;
+   onUploadImage?: ImageUploader;
 }) {
    const updateImages = (images: GalleryImage[]) => {
       onChange(updateBlock(doc, block.id, { images }));
@@ -907,7 +1078,6 @@ function GalleryEditor({
          </div>
 
          {block.images.map((image, index) => {
-            const srcIssue = imageSrcIssue(image.src);
             const hrefIssueValue =
                image.href === undefined || image.href.trim().length === 0
                   ? undefined
@@ -936,23 +1106,13 @@ function GalleryEditor({
                      </Button>
                   </div>
 
-                  <div className="grid gap-1">
-                     <Label
-                        htmlFor={`gallery-src-${block.id}-${index}`}
-                        className="text-xs text-muted-foreground"
-                     >
-                        Image URL
-                     </Label>
-                     <Input
-                        id={`gallery-src-${block.id}-${index}`}
-                        value={image.src}
-                        aria-invalid={srcIssue ? true : undefined}
-                        onInput={(event) => updateImage(index, { src: event.currentTarget.value })}
-                     />
-                     {srcIssue && (
-                        <p className="text-xs font-medium text-destructive">{srcIssue}</p>
-                     )}
-                  </div>
+                  <MediaField
+                     id={`gallery-src-${block.id}-${index}`}
+                     label={`Image ${index + 1} URL`}
+                     value={image.src}
+                     onValueChange={(next) => updateImage(index, { src: next })}
+                     onUploadImage={onUploadImage}
+                  />
 
                   <div className="grid gap-1">
                      <Label
@@ -1020,8 +1180,10 @@ function SectionEditor({
    onSelect: (id: string) => void;
 }) {
    const [confirmingChildId, setConfirmingChildId] = useState<string | null>(null);
+   const atLimit = block.children.length >= SECTION_CHILD_LIMIT;
 
    const addChild = (type: LeafBlockType) => {
+      if (atLimit) return;
       const child = createBlock(type);
       if (child.type === 'section' || child.type === 'columns') return;
       onChange(insertIntoSection(doc, block.id, child));
@@ -1032,7 +1194,9 @@ function SectionEditor({
       <div className="grid gap-3 rounded-md border border-border p-3">
          <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium">Section content</span>
-            <span className="text-xs text-muted-foreground">{block.children.length}/20</span>
+            <span className="text-xs text-muted-foreground">
+               {block.children.length}/{SECTION_CHILD_LIMIT}
+            </span>
          </div>
 
          <div className="grid gap-1">
@@ -1043,6 +1207,12 @@ function SectionEditor({
                   <div
                      key={child.id}
                      className="flex items-center gap-1 rounded border border-border/70 px-2 py-1"
+                     onKeyDown={(event) => {
+                        if (event.key !== 'Escape') return;
+                        if (confirmingChildId !== child.id) return;
+                        event.stopPropagation();
+                        setConfirmingChildId(null);
+                     }}
                   >
                      <button
                         type="button"
@@ -1052,28 +1222,14 @@ function SectionEditor({
                         {blockLabel(child)}
                      </button>
                      {confirmingChildId === child.id ? (
-                        <div className="flex items-center gap-1">
-                           <span className="text-[10px] font-medium text-destructive">Delete?</span>
-                           <Button
-                              size="sm"
-                              variant="destructive"
-                              className="h-6 px-1.5 text-[10px]"
-                              onClick={() => {
-                                 onChange(removeFromSection(doc, block.id, child.id));
-                                 setConfirmingChildId(null);
-                              }}
-                           >
-                              Delete
-                           </Button>
-                           <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-1.5 text-[10px]"
-                              onClick={() => setConfirmingChildId(null)}
-                           >
-                              Cancel
-                           </Button>
-                        </div>
+                        <RowDeleteConfirm
+                           label={blockLabel(child)}
+                           onConfirm={() => {
+                              onChange(removeFromSection(doc, block.id, child.id));
+                              setConfirmingChildId(null);
+                           }}
+                           onCancel={() => setConfirmingChildId(null)}
+                        />
                      ) : (
                         <Button
                            size="icon"
@@ -1092,8 +1248,15 @@ function SectionEditor({
 
          <LeafBlockMenu
             label="+ Add content"
+            disabled={atLimit}
             onAdd={addChild}
          />
+
+         {atLimit && (
+            <p className="text-xs text-muted-foreground">
+               Section is full ({SECTION_CHILD_LIMIT} blocks)
+            </p>
+         )}
       </div>
    );
 }

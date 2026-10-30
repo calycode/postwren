@@ -8,7 +8,7 @@ import type {
    SectionBlock,
    TextBlock,
 } from '@mailer/email/ir';
-import { defaultSettings } from '@mailer/email/ir';
+import { defaultSettings, documentIssues } from '@mailer/email/ir';
 import {
    blockLabel,
    duplicateBlock,
@@ -58,6 +58,20 @@ function columnsBlock(id: string, columns: Column[]): ColumnsBlock {
       type: 'columns',
       columns,
       padding,
+   };
+}
+
+function sectionBlock(id: string, children: SectionBlock['children']): SectionBlock {
+   return {
+      id,
+      type: 'section',
+      backgroundColor: '#ffffff',
+      borderColor: '#e4e4e7',
+      borderWidth: 1,
+      borderRadius: 8,
+      padding,
+      innerPadding: padding,
+      children,
    };
 }
 
@@ -441,20 +455,6 @@ describe('normaliseColumns', () => {
 });
 
 describe('section operations', () => {
-   function sectionBlock(id: string, children: SectionBlock['children']): SectionBlock {
-      return {
-         id,
-         type: 'section',
-         backgroundColor: '#ffffff',
-         borderColor: '#e4e4e7',
-         borderWidth: 1,
-         borderRadius: 8,
-         padding,
-         innerPadding: padding,
-         children,
-      };
-   }
-
    function sectionDoc(): Document {
       return documentOf([
          textBlock('top'),
@@ -528,5 +528,53 @@ describe('section operations', () => {
 
    it('labels a section with its child count', () => {
       expect(blockLabel(sectionBlock('section', [textBlock('a')]))).toBe('Section (1)');
+   });
+});
+
+describe('structural integrity', () => {
+   it('adds a columns block at the top level when a column child is selected', () => {
+      const doc = documentOf([
+         columnsBlock('cols', [
+            { widthPercent: 50, blocks: [textBlock('left')] },
+            { widthPercent: 50, blocks: [textBlock('right')] },
+         ]),
+      ]);
+
+      const added = columnsBlock('added', [
+         { widthPercent: 50, blocks: [] },
+         { widthPercent: 50, blocks: [] },
+      ]);
+      const result = insertAfter(doc, 'left', added);
+
+      expect(result.children.map((block) => block.id)).toEqual(['cols', 'added']);
+      expect(documentIssues(result)).toEqual([]);
+   });
+
+   it('adds a section at the top level when a section child is selected', () => {
+      const doc = documentOf([sectionBlock('section', [textBlock('a')])]);
+      const result = insertAfter(doc, 'a', sectionBlock('added', []));
+
+      expect(result.children.map((block) => block.id)).toEqual(['section', 'added']);
+      expect(documentIssues(result)).toEqual([]);
+   });
+
+   it('refuses a twenty-first child in a section', () => {
+      const children = Array.from({ length: 20 }, (_, index) => textBlock(`child-${index}`));
+      const doc = documentOf([sectionBlock('section', children)]);
+
+      const result = insertIntoSection(doc, 'section', textBlock('overflow'));
+
+      expect(result).toBe(doc);
+      expect(documentIssues(doc)).toEqual([]);
+   });
+
+   it('adds a block after a full section instead of overflowing it', () => {
+      const children = Array.from({ length: 20 }, (_, index) => textBlock(`child-${index}`));
+      const doc = documentOf([sectionBlock('section', children)]);
+
+      const result = insertAfter(doc, 'child-19', textBlock('overflow'));
+
+      expect(result.children.map((block) => block.id)).toEqual(['section', 'overflow']);
+      expect(documentIssues(result)).toEqual([]);
    });
 });

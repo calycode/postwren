@@ -41,8 +41,19 @@ export function NumberInput({
 
    const commit = (raw: string) => {
       const next = parseNumber(raw, min, max, fallback);
-      onValueChange(next);
+      if (next !== value) onValueChange(next);
       setDraft(String(next));
+   };
+
+   const preview = (raw: string) => {
+      setDraft(raw);
+      if (raw.trim().length === 0) return;
+
+      const numeric = Number(raw);
+      if (!Number.isFinite(numeric) || numeric < min || numeric > max) return;
+
+      const next = Math.round(numeric);
+      if (next !== value) onValueChange(next);
    };
 
    return (
@@ -55,7 +66,7 @@ export function NumberInput({
          value={draft}
          disabled={disabled}
          aria-label={ariaLabel}
-         onInput={(event) => setDraft(event.currentTarget.value)}
+         onInput={(event) => preview(event.currentTarget.value)}
          onBlur={(event) => commit(event.currentTarget.value)}
          onKeyDown={(event) => {
             if (event.key === 'Enter') {
@@ -199,13 +210,19 @@ const SPACING_SIDES = ['top', 'right', 'bottom', 'left'] as const;
 type SpacingEditorProps = {
    value: Spacing;
    idPrefix: string;
+   label?: string;
    onValueChange: (value: Spacing) => void;
 };
 
-export function SpacingEditor({ value, idPrefix, onValueChange }: SpacingEditorProps) {
+export function SpacingEditor({
+   value,
+   idPrefix,
+   label = 'Padding',
+   onValueChange,
+}: SpacingEditorProps) {
    return (
       <fieldset className="grid gap-2">
-         <legend className="text-sm font-medium text-foreground">Padding</legend>
+         <legend className="text-sm font-medium text-foreground">{label}</legend>
          <div className="grid grid-cols-2 gap-2">
             {SPACING_SIDES.map((side) => {
                const id = `${idPrefix}-spacing-${side}`;

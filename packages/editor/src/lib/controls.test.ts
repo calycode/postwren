@@ -7,6 +7,7 @@ import {
    imageSrcIssue,
    insertAtCaret,
    isHexColor,
+   isHttpsUrlValue,
    mergeTagInsertion,
    normaliseHex,
    parseNumber,
@@ -125,6 +126,26 @@ describe('link controls', () => {
       expect(imageSrcIssue('')).toBe('Image URL is required');
       expect(imageSrcIssue('http://example.com/a.png')).toBe('Use an absolute https URL');
       expect(imageSrcIssue('/a.png')).toBe('Use an absolute https URL');
+   });
+
+   it('accepts media served over http by the local dev API', () => {
+      expect(imageSrcIssue('http://localhost:8787/media/a.png')).toBeUndefined();
+      expect(imageSrcIssue('http://localhost/a.png')).toBeUndefined();
+      expect(imageSrcIssue('http://127.0.0.1:8787/media/a.png')).toBeUndefined();
+      expect(imageSrcIssue('http://127.0.0.1/a.png')).toBeUndefined();
+   });
+
+   it('previews locally served media the same way it validates it', () => {
+      expect(isHttpsUrlValue('http://localhost:8787/media/a.png')).toBe(true);
+      expect(isHttpsUrlValue('https://example.com/a.png')).toBe(true);
+      expect(isHttpsUrlValue('http://example.com/a.png')).toBe(false);
+   });
+
+   it('rejects http URLs that are not on the local dev host', () => {
+      expect(imageSrcIssue('http://localhost.evil.test/a.png')).toBeDefined();
+      expect(imageSrcIssue('http://127.0.0.2:8787/a.png')).toBeDefined();
+      expect(imageSrcIssue('//localhost/a.png')).toBeDefined();
+      expect(imageSrcIssue('file:///a.png')).toBeDefined();
    });
 });
 

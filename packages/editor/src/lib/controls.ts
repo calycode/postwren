@@ -82,6 +82,16 @@ function isHttpsUrl(value: string): boolean {
    }
 }
 
+function isLocalDevUrl(value: string): boolean {
+   try {
+      const url = new URL(value.trim());
+      if (url.protocol !== 'http:') return false;
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+   } catch {
+      return false;
+   }
+}
+
 function isStaticHref(value: string): boolean {
    if (value.startsWith('mailto:')) {
       const address = value.slice('mailto:'.length).split('?')[0] ?? '';
@@ -91,7 +101,7 @@ function isStaticHref(value: string): boolean {
 }
 
 export function isHttpsUrlValue(value: string): boolean {
-   return isHttpsUrl(value);
+   return isHttpsUrl(value) || isLocalDevUrl(value);
 }
 
 export function hrefIssue(value: string): string | undefined {
@@ -113,7 +123,7 @@ export function hrefIssue(value: string): string | undefined {
 
 export function imageSrcIssue(value: string): string | undefined {
    if (value.trim().length === 0) return 'Image URL is required';
-   return isHttpsUrl(value) ? undefined : 'Use an absolute https URL';
+   return isHttpsUrl(value) || isLocalDevUrl(value) ? undefined : 'Use an absolute https URL';
 }
 
 export function insertAtCaret(

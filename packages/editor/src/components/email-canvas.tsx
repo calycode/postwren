@@ -7,6 +7,9 @@ import type { Viewport } from '../lib/viewport';
 const STYLE_ID = 'mailer-editor-canvas-style';
 const MAX_CANVAS_HEIGHT = 2000;
 const TOOLBAR_WIDTH = 180;
+const TOOLBAR_HEIGHT = 36;
+const SCROLL_MARGIN = 24;
+const SCROLL_ATTEMPTS = 20;
 
 type ToolbarPosition = {
    top: number;
@@ -25,6 +28,8 @@ type EmailCanvasProps = {
    onRequestDelete: (id: string) => void;
    onCancelDelete: () => void;
    onConfirmDelete: (id: string) => void;
+   onUndo: () => void;
+   onRedo: () => void;
 };
 
 function elementFromEvent(event: Event): Element | null {
@@ -55,10 +60,13 @@ export function EmailCanvas({
    onRequestDelete,
    onCancelDelete,
    onConfirmDelete,
+   onUndo,
+   onRedo,
 }: EmailCanvasProps) {
    const paneRef = useRef<HTMLDivElement>(null);
    const iframeRef = useRef<HTMLIFrameElement>(null);
    const cleanupRef = useRef<() => void>(() => undefined);
+   const pendingScrollRef = useRef(false);
    const [toolbarPosition, setToolbarPosition] = useState<ToolbarPosition | null>(null);
 
    const selectedIdRef = useRef(selectedId);
@@ -67,8 +75,10 @@ export function EmailCanvas({
       onSelect,
       onMove,
       onRequestDelete,
+      onUndo,
+      onRedo,
    });
-   callbacksRef.current = { onSelect, onMove, onRequestDelete };
+   callbacksRef.current = { onSelect, onMove, onRequestDelete, onUndo, onRedo };
 
    function updateToolbarPosition() {
       const pane = paneRef.current;
@@ -90,13 +100,15 @@ export function EmailCanvas({
       const paneRect = pane.getBoundingClientRect();
       const frameRect = frame.getBoundingClientRect();
       const blockRect = element.getBoundingClientRect();
-      const top = Math.max(4, frameRect.top - paneRect.top + blockRect.top - 40 + pane.scrollTop);
+
+      const blockTop = frameRect.top - paneRect.top + pane.scrollTop + blockRect.top;
+      const blockLeft = frameRect.left - paneRect.left + pane.scrollLeft + blockRect.left;
+
+      const above = blockTop - TOOLBAR_HEIGHT - 4;
+      const top = Math.max(4, above >= pane.scrollTop + 4 ? above : blockTop + 2);
       const left = Math.max(
          8,
-         Math.min(
-            frameRect.left - paneRect.left + blockRect.left + pane.scrollLeft,
-            Math.max(8, pane.scrollWidth - TOOLBAR_WIDTH),
-         ),
+         Math.min(blockLeft, Math.max(8, pane.scrollLeft + pane.clientWidth - TOOLBAR_WIDTH - 8)),
       );
 
       setToolbarPosition((previous) =>
@@ -106,12 +118,58 @@ export function EmailCanvas({
       );
    }
 
+   function scrollBlockIntoView(): boolean {
+      const pane = paneRef.current;
+      const frame = iframeRef.current;
+      const frameDoc = frame?.contentDocument;
+      const id = selectedIdRef.current;
+
+      if (!pane || !frame || !frameDoc || !id) return false;
+
+      const element = findBlockElement(frameDoc, id);
+      if (!element) return false;
+
+      const frameWindow = frame.contentWindow;
+      if (frameWindow !== null) {
+         const insideFrame = element.getBoundingClientRect();
+         const frameHeight = frame.clientHeight;
+
+         if (insideFrame.top < 0) {
+            frameWindow.scrollBy(0, insideFrame.top - SCROLL_MARGIN);
+         } else if (insideFrame.bottom > frameHeight) {
+            frameWindow.scrollBy(0, insideFrame.bottom - frameHeight + SCROLL_MARGIN);
+         }
+      }
+
+      const paneRect = pane.getBoundingClientRect();
+      const frameRect = frame.getBoundingClientRect();
+      const blockRect = element.getBoundingClientRect();
+      const top = frameRect.top - paneRect.top + blockRect.top;
+      const bottom = top + blockRect.height;
+      const visibleTop = SCROLL_MARGIN;
+      const visibleBottom = pane.clientHeight - SCROLL_MARGIN;
+
+      let delta = 0;
+      if (blockRect.height > visibleBottom - visibleTop) {
+         if (top < visibleTop || bottom > visibleBottom) delta = top - visibleTop;
+      } else if (top < visibleTop) {
+         delta = top - visibleTop;
+      } else if (bottom > visibleBottom) {
+         delta = bottom - visibleBottom;
+      }
+
+      if (Math.abs(delta) > 1) pane.scrollTo({ top: pane.scrollTop + delta });
+
+      return true;
+   }
+
    function measure() {
       const frame = iframeRef.current;
       const frameDoc = frame?.contentDocument;
-      if (!frame || !frameDoc) return;
+      const root = frameDoc?.documentElement;
+      if (!frame || !frameDoc || !root) return;
 
-      const contentHeight = frameDoc.documentElement.scrollHeight;
+      const contentHeight = root.scrollHeight;
       const height = Math.min(Math.max(contentHeight, 200), MAX_CANVAS_HEIGHT);
       frame.style.height = `${height}px`;
       frame.style.overflowY = contentHeight > MAX_CANVAS_HEIGHT ? 'auto' : 'hidden';
@@ -129,6 +187,26 @@ export function EmailCanvas({
       if (!id) return;
       const selected = findBlockElement(frameDoc, id);
       selected?.setAttribute('data-mailer-selected', 'true');
+   }
+
+   function handleHistoryKeyDown(event: KeyboardEvent): boolean {
+      if ((!event.metaKey && !event.ctrlKey) || event.altKey) return false;
+
+      const key = event.key.toLowerCase();
+
+      if (key === 'z' && !event.shiftKey) {
+         event.preventDefault();
+         callbacksRef.current.onUndo();
+         return true;
+      }
+
+      if ((key === 'z' && event.shiftKey) || key === 'y') {
+         event.preventDefault();
+         callbacksRef.current.onRedo();
+         return true;
+      }
+
+      return false;
    }
 
    function handleKeyDown(event: KeyboardEvent) {
@@ -188,10 +266,17 @@ export function EmailCanvas({
          callbacksRef.current.onSelect(block?.getAttribute('data-block-id') ?? null);
       };
 
-      const onKeyDown = (event: KeyboardEvent) => handleKeyDown(event);
+      const onKeyDown = (event: KeyboardEvent) => {
+         if (handleHistoryKeyDown(event)) return;
+         handleKeyDown(event);
+      };
+      const onFrameScroll = () => updateToolbarPosition();
 
       frameDoc.addEventListener('click', onClick);
       frameDoc.addEventListener('keydown', onKeyDown);
+      frameDoc.addEventListener('scroll', onFrameScroll, { passive: true, capture: true });
+      const frameWindow = frame.contentWindow;
+      frameWindow?.addEventListener('scroll', onFrameScroll, { passive: true });
 
       const observer = new ResizeObserver(() => measure());
       observer.observe(frameDoc.documentElement);
@@ -203,12 +288,19 @@ export function EmailCanvas({
       cleanupRef.current = () => {
          frameDoc.removeEventListener('click', onClick);
          frameDoc.removeEventListener('keydown', onKeyDown);
+         frameDoc.removeEventListener('scroll', onFrameScroll, { capture: true });
+         frameWindow?.removeEventListener('scroll', onFrameScroll);
          observer.disconnect();
          window.removeEventListener('resize', onWindowResize);
       };
 
       applySelection(frameDoc);
       measure();
+
+      if (pendingScrollRef.current && scrollBlockIntoView()) {
+         pendingScrollRef.current = false;
+      }
+
       window.requestAnimationFrame(() => {
          applySelection(frameDoc);
          measure();
@@ -229,6 +321,29 @@ export function EmailCanvas({
    }, []);
 
    useEffect(() => {
+      if (selectedId === null) {
+         pendingScrollRef.current = false;
+         return;
+      }
+
+      pendingScrollRef.current = true;
+      let attempts = 0;
+      let handle = 0;
+
+      const tick = () => {
+         attempts += 1;
+         if (scrollBlockIntoView()) {
+            pendingScrollRef.current = false;
+            return;
+         }
+         if (attempts < SCROLL_ATTEMPTS) handle = window.requestAnimationFrame(tick);
+      };
+
+      handle = window.requestAnimationFrame(tick);
+      return () => window.cancelAnimationFrame(handle);
+   }, [selectedId]);
+
+   useEffect(() => {
       const frameDoc = iframeRef.current?.contentDocument;
       applySelection(frameDoc);
       const frame = window.requestAnimationFrame(() => measure());
@@ -245,7 +360,7 @@ export function EmailCanvas({
          ref={paneRef}
          tabIndex={0}
          onKeyDown={handlePaneKeyDown}
-         className="relative min-h-0 overflow-y-auto bg-muted/30 p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+         className="relative min-h-0 overflow-y-auto bg-muted/30 p-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:p-4"
       >
          <div
             className={cn('mx-auto transition-[width] duration-200')}

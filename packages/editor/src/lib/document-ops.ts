@@ -9,10 +9,27 @@ import type {
 
 export type BlockPatch = Partial<Block>;
 
+export const SECTION_CHILD_LIMIT = 20;
+
 type ListResult = {
    blocks: Block[];
    changed: boolean;
 };
+
+function isContainerType(type: Block['type']): boolean {
+   return type === 'columns' || type === 'section';
+}
+
+function containsId(block: Block, id: string): boolean {
+   if (block.id === id) return true;
+   if (block.type === 'columns') {
+      return block.columns.some((column) => column.blocks.some((child) => containsId(child, id)));
+   }
+   if (block.type === 'section') {
+      return block.children.some((child) => containsId(child, id));
+   }
+   return false;
+}
 
 function flattenList(blocks: Block[]): Block[] {
    const flat: Block[] = [];
@@ -205,6 +222,20 @@ function insertAfterInList(blocks: Block[], id: string, block: Block): ListResul
 }
 
 export function insertAfter(doc: Document, id: string, block: Block): Document {
+   const anchorIndex = doc.children.findIndex((child) => containsId(child, id));
+   const anchor = anchorIndex < 0 ? undefined : doc.children[anchorIndex];
+
+   if (isContainerType(block.type)) {
+      // Containers are only valid at the top level, so a selected nested block
+      // anchors the insertion after its nearest top-level ancestor instead.
+      return insertBlock(doc, block, anchorIndex < 0 ? undefined : anchorIndex + 1);
+   }
+
+   if (anchor?.type === 'section' && anchor.children.length >= SECTION_CHILD_LIMIT) {
+      // A full section cannot hold another child, so the block lands after it.
+      return insertBlock(doc, block, anchorIndex + 1);
+   }
+
    const result = insertAfterInList(doc.children, id, block);
    return result.changed ? { ...doc, children: result.blocks } : insertBlock(doc, block);
 }
@@ -285,6 +316,7 @@ export function duplicateBlock(doc: Document, id: string, newId?: string): Docum
 export function insertIntoSection(doc: Document, sectionId: string, block: LeafBlock): Document {
    const section = findBlock(doc, sectionId);
    if (section?.type !== 'section') return doc;
+   if (section.children.length >= SECTION_CHILD_LIMIT) return doc;
    return updateBlock(doc, sectionId, { children: [...section.children, block] });
 }
 
