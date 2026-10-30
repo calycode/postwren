@@ -12,8 +12,9 @@ Requires EmDash 1.3.1 or later (`emdash` is a peer dependency). Cloudflare Worke
 pnpm add @mailer/emdash
 ```
 
-In a monorepo, use a workspace or `file:` link instead. The package ships TypeScript sources (like
-other native EmDash plugins) and is consumed by the site's Vite build, so it needs a build step
+In a monorepo, use a workspace or a local path instead, for example
+`pnpm add file:../cloudflare-mailer/packages/emdash-plugin`. The package ships TypeScript sources
+(like other native EmDash plugins) and is consumed by the site's Vite build, so it needs a build step
 before it can be published to a registry.
 
 ## Configure
