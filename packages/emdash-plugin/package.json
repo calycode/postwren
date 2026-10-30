@@ -5,6 +5,11 @@
    "type": "module",
    "description": "Native EmDash plugin that forwards newsletter signups to a Postwren Worker",
    "license": "MIT",
+   "repository": {
+      "type": "git",
+      "url": "git+https://github.com/calycode/postwren.git",
+      "directory": "packages/emdash-plugin"
+   },
    "exports": {
       ".": "./src/index.ts",
       "./plugin": "./src/plugin.ts",

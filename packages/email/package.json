@@ -44,6 +44,15 @@
    "publishConfig": {
       "access": "public"
    },
+   "repository": {
+      "type": "git",
+      "url": "git+https://github.com/calycode/postwren.git",
+      "directory": "packages/email"
+   },
+   "homepage": "https://github.com/calycode/postwren/tree/main/packages/email#readme",
+   "bugs": {
+      "url": "https://github.com/calycode/postwren/issues"
+   },
    "scripts": {
       "test": "vitest run",
       "check-types": "tsc --noEmit",

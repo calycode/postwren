@@ -3,6 +3,14 @@
    "private": true,
    "description": "Self-hosted email marketing on a single Cloudflare Worker",
    "license": "MIT",
+   "repository": {
+      "type": "git",
+      "url": "git+https://github.com/calycode/postwren.git"
+   },
+   "homepage": "https://github.com/calycode/postwren#readme",
+   "bugs": {
+      "url": "https://github.com/calycode/postwren/issues"
+   },
    "type": "module",
    "packageManager": "pnpm@11.22.0",
    "engines": {

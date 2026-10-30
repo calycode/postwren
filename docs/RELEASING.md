@@ -1,20 +1,15 @@
 # Release and remote checklist
 
-The repo is prepared for a remote, but no remote is configured yet. Nothing is published to npm.
+Remote: [`calycode/postwren`](https://github.com/calycode/postwren) (private). Nothing is published
+to npm yet.
 
-## GitHub: pick an owner without creating an org
+## GitHub
 
-The npm scope and the GitHub owner are independent decisions. Start with a personal repository and
-transfer it later if the project outgrows it; GitHub redirects the old URLs after a transfer.
+The repository lives under the `calycode` organisation on `main`. CI
+(`.github/workflows/ci.yml`) runs on every push to `main` and on pull requests.
 
-| Option                          | When                                              | Command                                                                                     |
-| ------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Personal repo (recommended now) | You want the code online without a new org        | `gh repo create <your-github-account>/postwren --private --source=. --remote=origin --push` |
-| Existing org                    | One of your current orgs already fits             | `gh repo create <org>/postwren --private --source=. --remote=origin --push`                 |
-| New org later                   | The project has contributors or a release cadence | Create the org, transfer the repo, keep the npm scope as-is                                 |
-
-The branch is `main` and CI (`.github/workflows/ci.yml`) already targets it. Do not create a GitHub
-org just to match an npm scope.
+If the project ever moves to a different owner, use GitHub's transfer flow. The old URLs redirect,
+so the npm metadata and docs do not need to change immediately.
 
 ### Before the first push
 
