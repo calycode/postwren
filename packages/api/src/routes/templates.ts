@@ -7,7 +7,7 @@ import { parseDocument } from '@mailer/email/ir';
 import type { Document } from '@mailer/email/ir';
 import { renderEmail } from '@mailer/email/render';
 import { applyMergeTags } from '@mailer/email/template';
-import { templateInput } from '@mailer/shared/contracts';
+import { templateInput, templateUpdateInput } from '@mailer/shared/contracts';
 import type { AppEnv } from '../env';
 import { readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';
@@ -83,21 +83,22 @@ templateRoutes.patch('/:id', async (c) => {
       throw new NotFoundError('Template not found');
    }
 
-   const body = templateInput.partial().parse(await readJson(c));
+   const body = templateUpdateInput.parse(await readJson(c));
    const now = nowSeconds();
 
    const name = body.name ?? existing.name;
    const subject = body.subject ?? existing.subject;
    const document = body.irJson === undefined ? documentFrom(existing) : parseDocument(body.irJson);
    const html = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL }).html;
+   const revisionBump = body.bumpRevision === false ? 0 : 1;
 
    await c.env.DB.prepare(
       `UPDATE templates
        SET name = ?, subject = ?, ir_json = ?, preview_html = ?,
-           revision = revision + 1, updated_at = ?
+           revision = revision + ?, updated_at = ?
        WHERE id = ?`,
    )
-      .bind(name, subject, JSON.stringify(document), html, now, id)
+      .bind(name, subject, JSON.stringify(document), html, revisionBump, now, id)
       .run();
 
    const row = await findTemplate(c.env.DB, id);

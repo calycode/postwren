@@ -51,6 +51,10 @@ export const templateInput = z
    })
    .strict();
 
+export const templateUpdateInput = templateInput
+   .partial()
+   .extend({ bumpRevision: z.boolean().optional() });
+
 export const RATE_LIMITS = {
    publicSubscribe: { windowSeconds: 60, max: 10 },
    publicUnsubscribe: { windowSeconds: 60, max: 20 },
@@ -65,3 +69,4 @@ export type SubscriberPatch = z.infer<typeof subscriberPatch>;
 export type TagInput = z.infer<typeof tagInput>;
 export type CampaignInput = z.infer<typeof campaignInput>;
 export type TemplateInput = z.infer<typeof templateInput>;
+export type TemplateUpdateInput = z.infer<typeof templateUpdateInput>;

@@ -7,6 +7,7 @@ import {
    subscriberPatch,
    tagInput,
    templateInput,
+   templateUpdateInput,
 } from './index';
 
 describe('paginationQuery', () => {
@@ -155,6 +156,43 @@ describe('templateInput', () => {
          templateInput.safeParse({ name: 'Welcome', subject: 'Hi', irJson: {}, extra: true })
             .success,
       ).toBe(false);
+   });
+});
+
+describe('templateUpdateInput', () => {
+   it('parses a content-only payload without bumpRevision', () => {
+      const irJson = { version: 1, settings: {}, children: [] };
+
+      expect(templateUpdateInput.parse({ subject: 'Hi', irJson })).toEqual({
+         subject: 'Hi',
+         irJson,
+      });
+   });
+
+   it('keeps bumpRevision false so autosave does not pin a new revision', () => {
+      const parsed = templateUpdateInput.parse({ irJson: {}, bumpRevision: false });
+
+      expect(parsed).toEqual({ irJson: {}, bumpRevision: false });
+      expect(parsed.bumpRevision).toBe(false);
+   });
+
+   it('keeps bumpRevision true for an explicit save', () => {
+      expect(templateUpdateInput.parse({ name: 'Welcome', bumpRevision: true })).toEqual({
+         name: 'Welcome',
+         bumpRevision: true,
+      });
+   });
+
+   it('accepts an empty payload', () => {
+      expect(templateUpdateInput.parse({})).toEqual({});
+   });
+
+   it('rejects a non-boolean bumpRevision', () => {
+      expect(templateUpdateInput.safeParse({ bumpRevision: 'no' }).success).toBe(false);
+   });
+
+   it('rejects unknown keys', () => {
+      expect(templateUpdateInput.safeParse({ irJson: {}, revision: 7 }).success).toBe(false);
    });
 });
 

@@ -58,6 +58,93 @@ describe('templates', () => {
       expect((await json(updated)).data.revision).toBe(2);
    });
 
+   it('autosaves content without bumping the revision', async () => {
+      const target = baseEnv();
+      const owner = await seedOwner(target);
+      const template = await seedTemplate(target);
+      const seededUpdatedAt = Math.floor(Date.now() / 1000) - 60;
+
+      await target.DB.prepare('UPDATE templates SET updated_at = ? WHERE id = ?')
+         .bind(seededUpdatedAt, template.id)
+         .run();
+
+      const document = { ...createDocument(), preheader: 'Autosaved copy' };
+      const response = await app.request(`/api/v1/templates/${template.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ irJson: document, bumpRevision: false }),
+      });
+
+      expect(response.status).toBe(200);
+      const updated = (await json(response)).data;
+      expect(updated.revision).toBe(1);
+      expect(JSON.parse(updated.ir_json).preheader).toBe('Autosaved copy');
+      expect(updated.updated_at).toBeGreaterThan(seededUpdatedAt);
+   });
+
+   it('bumps the revision by one on an explicit save', async () => {
+      const target = baseEnv();
+      const owner = await seedOwner(target);
+      const template = await seedTemplate(target);
+
+      const response = await app.request(`/api/v1/templates/${template.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ subject: 'Explicit save', bumpRevision: true }),
+      });
+
+      expect(response.status).toBe(200);
+      const updated = (await json(response)).data;
+      expect(updated.revision).toBe(2);
+      expect(updated.subject).toBe('Explicit save');
+   });
+
+   it('bumps the revision when bumpRevision is omitted', async () => {
+      const target = baseEnv();
+      const owner = await seedOwner(target);
+      const template = await seedTemplate(target);
+
+      const response = await app.request(`/api/v1/templates/${template.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ subject: 'Legacy caller' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect((await json(response)).data.revision).toBe(2);
+   });
+
+   it('rejects an invalid document and leaves the row untouched', async () => {
+      const target = baseEnv();
+      const owner = await seedOwner(target);
+      const template = await seedTemplate(target);
+
+      const before = (
+         await json(
+            await app.request(`/api/v1/templates/${template.id}`, { headers: authHeaders(owner) }),
+         )
+      ).data;
+
+      const response = await app.request(`/api/v1/templates/${template.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ irJson: { version: 99 }, bumpRevision: true }),
+      });
+
+      expect(response.status).toBe(422);
+      expect((await json(response)).error.code).toBe('validation_error');
+
+      const after = (
+         await json(
+            await app.request(`/api/v1/templates/${template.id}`, { headers: authHeaders(owner) }),
+         )
+      ).data;
+
+      expect(after.revision).toBe(before.revision);
+      expect(after.ir_json).toBe(before.ir_json);
+      expect(after.updated_at).toBe(before.updated_at);
+   });
+
    it('renders a preview with html, text, bytes and warnings', async () => {
       const owner = await seedOwner(baseEnv());
       const template = await seedTemplate(baseEnv());
