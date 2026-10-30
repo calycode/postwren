@@ -26,7 +26,7 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { CampaignFields } from '@/components/campaigns/campaign-fields';
-import { defaultSender, useSenders } from '@/components/campaigns/use-senders';
+import { useSenders } from '@/components/campaigns/use-senders';
 import { CampaignRecipients } from '@/components/campaigns/campaign-recipients';
 import { CampaignStats } from '@/components/campaigns/campaign-stats';
 import { EmailPreviewDialog } from '@/components/editor/preview-dialog';

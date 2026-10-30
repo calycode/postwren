@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'preact-iso';
-import { Copy, FileText, Plus, Trash2 } from 'lucide-react';
-import { Alert, AlertDescription, Badge, Button } from '@mailer/ui';
+import { Copy, FileText, Plus, Search, Trash2 } from 'lucide-react';
+import { Alert, AlertDescription, Badge, Button, Input } from '@mailer/ui';
 import { createDocument } from '@mailer/email/ir';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
@@ -16,6 +16,7 @@ import {
 import type { Template } from '@/lib/api/types';
 import { errorMessage } from '@/lib/form-errors';
 import { formatDate, relativeTime } from '@/lib/format';
+import { useDebouncedValue } from '@/lib/hooks';
 
 export function Templates() {
    const { route } = useLocation();
@@ -24,6 +25,8 @@ export function Templates() {
    const [loadError, setLoadError] = useState<string | null>(null);
    const [reloadKey, setReloadKey] = useState(0);
    const [actionError, setActionError] = useState<string | null>(null);
+   const [search, setSearch] = useState('');
+   const debouncedSearch = useDebouncedValue(search, 250);
    const [creating, setCreating] = useState(false);
    const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
    const [deleting, setDeleting] = useState<Template | null>(null);
@@ -50,6 +53,22 @@ export function Templates() {
          cancelled = true;
       };
    }, [reloadKey]);
+
+   const filteredTemplates = useMemo(() => {
+      const needle = debouncedSearch.trim().toLowerCase();
+      if (needle.length === 0) return templates;
+      return templates.filter(
+         (template) =>
+            template.name.toLowerCase().includes(needle) ||
+            template.subject.toLowerCase().includes(needle),
+      );
+   }, [templates, debouncedSearch]);
+
+   const searchActive = debouncedSearch.trim().length > 0;
+
+   function clearSearch(): void {
+      setSearch('');
+   }
 
    async function createTemplateAndOpen() {
       setActionError(null);
@@ -180,6 +199,41 @@ export function Templates() {
             }
          />
 
+         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+               <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+               />
+               <Input
+                  id="template-search"
+                  aria-label="Search templates"
+                  value={search}
+                  placeholder="Search by name or subject"
+                  className="pl-9"
+                  onInput={(event) => setSearch(event.currentTarget.value)}
+               />
+            </div>
+            {searchActive && (
+               <div className="flex items-center gap-3">
+                  <p
+                     className="text-sm text-muted-foreground"
+                     role="status"
+                     aria-live="polite"
+                  >
+                     {filteredTemplates.length} of {templates.length} templates
+                  </p>
+                  <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={clearSearch}
+                  >
+                     Clear search
+                  </Button>
+               </div>
+            )}
+         </div>
+
          {actionError !== null && (
             <Alert variant="destructive">
                <AlertDescription>{actionError}</AlertDescription>
@@ -189,25 +243,41 @@ export function Templates() {
          <DataTable
             caption="Templates"
             columns={columns}
-            rows={templates}
+            rows={filteredTemplates}
             rowKey={(template) => template.id}
             loading={loading}
             error={loadError}
             onRetry={() => setReloadKey((key) => key + 1)}
-            empty={{
-               title: 'No templates yet',
-               description: 'Create a template to start building an email document.',
-               icon: <FileText aria-hidden="true" />,
-               action: (
-                  <Button
-                     disabled={creating}
-                     onClick={() => void createTemplateAndOpen()}
-                  >
-                     <Plus aria-hidden="true" />
-                     New template
-                  </Button>
-               ),
-            }}
+            empty={
+               searchActive
+                  ? {
+                       title: 'No templates match your search',
+                       description: 'Try a different name or subject.',
+                       icon: <Search aria-hidden="true" />,
+                       action: (
+                          <Button
+                             variant="outline"
+                             onClick={clearSearch}
+                          >
+                             Clear search
+                          </Button>
+                       ),
+                    }
+                  : {
+                       title: 'No templates yet',
+                       description: 'Create a template to start building an email document.',
+                       icon: <FileText aria-hidden="true" />,
+                       action: (
+                          <Button
+                             disabled={creating}
+                             onClick={() => void createTemplateAndOpen()}
+                          >
+                             <Plus aria-hidden="true" />
+                             New template
+                          </Button>
+                       ),
+                    }
+            }
          />
 
          <ConfirmDialog
