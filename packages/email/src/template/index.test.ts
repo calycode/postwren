@@ -11,11 +11,18 @@ const context: MergeContext = {
       first_name: '<script>Ada</script>',
       last_name: null,
       tags: ['vip', 'beta'],
+      meta: {
+         plan: 'Pro',
+         signup_date: '1717242600',
+         note: '<b>VIP</b>',
+         referral_url: 'https://example.com/?a=1&b=2',
+      },
    },
    campaign: {
       id: 'camp-1',
       subject: 'Spring news',
       utm_campaign: 'spring',
+      meta: { edition: 'spring' },
    },
    links: {
       unsubscribe: 'https://example.com/u?token=abc&x=1',
@@ -194,6 +201,65 @@ describe('applyMergeTags', () => {
    it('rejects a merged href that is not an absolute https url', () => {
       const document = documentWith({ buttonHref: '{{ subscriber.first_name }}' });
       expect(() => applyMergeTags(document, context)).toThrow(/https/);
+   });
+});
+
+describe('custom metadata merge tags', () => {
+   it('substitutes subscriber and campaign metadata by key', () => {
+      const document = documentWith({
+         text: '{{ subscriber.meta.plan }}|{{ campaign.meta.edition }}',
+      });
+      expect((applyMergeTags(document, context).children[1] as TextBlock).text).toBe('Pro|spring');
+   });
+
+   it('renders a missing key as an empty string and lets default take over', () => {
+      const document = documentWith({
+         text: '{{ subscriber.meta.missing }}|{{ subscriber.meta.missing | default("friend") }}',
+      });
+      expect((applyMergeTags(document, context).children[1] as TextBlock).text).toBe('|friend');
+   });
+
+   it('applies filters to metadata values', () => {
+      const document = documentWith({
+         text: '{{ subscriber.meta.plan | upper }}|{{ subscriber.meta.plan | lower }}|{{ subscriber.meta.note }}',
+      });
+      expect((applyMergeTags(document, context).children[1] as TextBlock).text).toBe(
+         'PRO|pro|&lt;b&gt;VIP&lt;/b&gt;',
+      );
+   });
+
+   it('formats a metadata timestamp with the date filter', () => {
+      const document = documentWith({
+         text: '{{ subscriber.meta.signup_date | date("YYYY-MM-DD") }}',
+      });
+      expect((applyMergeTags(document, context).children[1] as TextBlock).text).toBe('2024-06-01');
+   });
+
+   it('keeps an https metadata value intact inside an href', () => {
+      const document = documentWith({ buttonHref: '{{ subscriber.meta.referral_url }}' });
+      const button = applyMergeTags(document, context).children[2] as ButtonBlock;
+      expect(button.href).toBe('https://example.com/?a=1&b=2');
+   });
+
+   it('rejects a metadata href that is not an absolute https url', () => {
+      const document = documentWith({ buttonHref: '{{ subscriber.meta.note }}' });
+      expect(() => applyMergeTags(document, context)).toThrow(/https/);
+   });
+
+   it('validates dynamic metadata paths and their keys', () => {
+      expect(validateTemplate('{{ subscriber.meta.plan }}').ok).toBe(true);
+      expect(validateTemplate('{{ campaign.meta.edition | upper }}').ok).toBe(true);
+      expect(validateTemplate('{{ subscriber.meta.Plan }}').ok).toBe(false);
+      expect(validateTemplate('{{ subscriber.meta. }}').ok).toBe(false);
+      expect(validateTemplate('{{ campaign.meta.1plan }}').ok).toBe(false);
+   });
+
+   it('reports dynamic metadata tags from findMergeTags', () => {
+      expect(
+         findMergeTags(
+            '{{ subscriber.meta.plan }} {{ campaign.meta.edition | default("x") }} {{ subscriber.meta.plan }}',
+         ),
+      ).toEqual(['subscriber.meta.plan', 'campaign.meta.edition | default("x")']);
    });
 });
 

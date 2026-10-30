@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createDocument } from '@mailer/email/ir';
 import workerHandler from '../src/index';
 import {
    FakeEmail,
@@ -86,6 +87,39 @@ describe('queue consumer', () => {
 
       await workerHandler.queue(batch, env);
       expect(email.sent).toHaveLength(1);
+   });
+
+   it('merges subscriber and campaign metadata from the frozen campaign row', async () => {
+      const target = baseEnv();
+      const document = createDocument();
+      const text = document.children[0];
+      if (text?.type === 'text') {
+         text.text = '{{ subscriber.meta.plan }} / {{ campaign.meta.edition | default("none") }}';
+      }
+      const template = await seedTemplate(target, { document });
+      const [subscriberId] = await seedSubscribers(target, [
+         {
+            email: 'meta-reader@example.com',
+            tags: ['news'],
+            metadata: { plan: 'pro' },
+         },
+      ]);
+      const campaignId = await seedCampaign(target, {
+         templateId: template.id,
+         audienceQuery: 'tag:news',
+         status: 'sending',
+         metadata: { edition: 'october' },
+      });
+      await seedRecipient(target, { campaignId, subscriberId: subscriberId! });
+
+      const email = new FakeEmail();
+      const env = withQueue(withEmail(target, email), new FakeQueue());
+      const { batch } = makeBatch([{ campaignId, recipientIds: [subscriberId!] }]);
+
+      await workerHandler.queue(batch, env);
+
+      expect(email.sent).toHaveLength(1);
+      expect(email.sent[0]?.text).toContain('pro / october');
    });
 
    it('marks a suppressed subscriber without sending', async () => {

@@ -111,6 +111,7 @@ describe('link controls', () => {
       expect(hrefIssue('mailto:hi@example.com')).toBeUndefined();
       expect(hrefIssue('{{ links.unsubscribe }}')).toBeUndefined();
       expect(hrefIssue('https://example.com/{{ subscriber.id }}')).toBeUndefined();
+      expect(hrefIssue('{{ subscriber.meta.referral_url }}')).toBeUndefined();
    });
 
    it('rejects missing, relative and unsafe hrefs', () => {
@@ -119,6 +120,8 @@ describe('link controls', () => {
       expect(hrefIssue('javascript:alert(1)')).toBeDefined();
       expect(hrefIssue('http://example.com')).toBeDefined();
       expect(hrefIssue('{{ subscriber.unknown }}')).toBeDefined();
+      expect(hrefIssue('{{ subscriber.meta.Bad }}')).toBeDefined();
+      expect(hrefIssue('http://example.com/{{ campaign.meta.slug }}')).toBeDefined();
    });
 
    it('requires an absolute https image URL', () => {

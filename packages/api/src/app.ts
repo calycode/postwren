@@ -14,6 +14,8 @@ import { audienceRoutes } from './routes/audience';
 import { settingsRoutes } from './routes/settings';
 import { trackingRoutes } from './routes/tracking';
 import { mediaUploadRoutes, mediaServeRoutes } from './routes/media';
+import { publicRoutes } from './routes/public';
+import { subscribeKeyRoutes } from './routes/subscribe-keys';
 
 const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
 
@@ -21,6 +23,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    const app = new Hono<AppEnv>();
 
    app.use('*', requestContext);
+   app.route('/', publicRoutes);
    app.use(
       '*',
       cors({
@@ -59,6 +62,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    app.route('/api/v1/campaigns', campaignRoutes);
    app.route('/api/v1/audience', audienceRoutes);
    app.route('/api/v1/settings', settingsRoutes);
+   app.route('/api/v1/subscribe-keys', subscribeKeyRoutes);
    app.route('/api/v1/media', mediaUploadRoutes);
 
    app.route('/', trackingRoutes);

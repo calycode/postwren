@@ -97,16 +97,103 @@ describe('compileAudience', () => {
    });
 });
 
+describe('metadata audience terms', () => {
+   const META_EXISTS =
+      'EXISTS (SELECT 1 FROM subscriber_metadata sm WHERE sm.subscriber_id = s.id AND sm.key = ? AND sm.value = ?)';
+   const META_NOT_EXISTS =
+      'NOT EXISTS (SELECT 1 FROM subscriber_metadata sm WHERE sm.subscriber_id = s.id AND sm.key = ? AND sm.value = ?)';
+
+   it('compiles an exact metadata match to a parameterised EXISTS', () => {
+      const { sql, params } = compileAudience('meta:plan=pro');
+
+      expect(sql).toBe(`${SUPPRESSION} AND ${META_EXISTS}`);
+      expect(params).toEqual(['plan', 'pro']);
+   });
+
+   it('compiles a negated metadata term to NOT EXISTS', () => {
+      const { sql, params } = compileAudience('-meta:plan=pro');
+
+      expect(sql).toBe(`${SUPPRESSION} AND ${META_NOT_EXISTS}`);
+      expect(params).toEqual(['plan', 'pro']);
+   });
+
+   it('keeps tag behaviour and binds parameters in placeholder order', () => {
+      const { sql, params } = compileAudience(
+         'tag:newsletter meta:plan=pro -tag:test -meta:plan=free',
+      );
+
+      expect(sql).toContain('EXISTS (SELECT 1 FROM subscriber_tags');
+      expect(sql).toContain('NOT EXISTS (SELECT 1 FROM subscriber_tags');
+      expect(sql).toContain(META_EXISTS);
+      expect(sql).toContain(META_NOT_EXISTS);
+      expect(sql.match(/\?/g)).toHaveLength(6);
+      expect(params).toEqual(['newsletter', 'plan', 'pro', 'test', 'plan', 'free']);
+   });
+
+   it('accepts an equals sign and url characters inside the value', () => {
+      const { params } = compileAudience('meta:referral=https://example.com/?a=1&b=2');
+      expect(params).toEqual(['referral', 'https://example.com/?a=1&b=2']);
+   });
+
+   it('rejects duplicate metadata terms', () => {
+      expect(() => compileAudience('meta:plan=pro meta:plan=pro')).toThrow(AudienceError);
+      expect(() => compileAudience('meta:plan=pro -meta:plan=pro')).toThrow(AudienceError);
+   });
+
+   it('rejects a missing key or value', () => {
+      expect(() => compileAudience('meta:=pro')).toThrow(AudienceError);
+      expect(() => compileAudience('meta:plan=')).toThrow(AudienceError);
+      expect(() => compileAudience('meta:plan')).toThrow(AudienceError);
+   });
+
+   it('rejects invalid metadata keys', () => {
+      expect(() => compileAudience('meta:Plan=pro')).toThrow(AudienceError);
+      expect(() => compileAudience('meta:1plan=pro')).toThrow(AudienceError);
+      expect(() => compileAudience('meta:plan-name=pro')).toThrow(AudienceError);
+   });
+
+   it('rejects values longer than 1024 characters', () => {
+      expect(() => compileAudience(`meta:plan=${'a'.repeat(1025)}`)).toThrow(AudienceError);
+      expect(compileAudience(`meta:plan=${'a'.repeat(1024)}`).params).toHaveLength(2);
+   });
+
+   it('binds injection attempts instead of interpolating them', () => {
+      const payload = "pro') OR 1=1 --";
+      const { sql, params } = compileAudience(`meta:plan=${payload.replace(/\s+/g, '')}`);
+
+      expect(sql).not.toContain('OR 1=1');
+      expect(sql.match(/\?/g)).toHaveLength(2);
+      expect(params[1]).toBe(payload.replace(/\s+/g, ''));
+
+      expect(() => compileAudience(`meta:plan=${payload}`)).toThrow(AudienceError);
+   });
+
+   it('rejects more than ten metadata terms per side', () => {
+      const include = Array.from({ length: 11 }, (_, i) => `meta:k${i}=v`).join(' ');
+      const exclude = Array.from({ length: 11 }, (_, i) => `-meta:k${i}=v`).join(' ');
+
+      expect(() => compileAudience(include)).toThrow(AudienceError);
+      expect(() => compileAudience(exclude)).toThrow(AudienceError);
+   });
+});
+
 describe('parseAudienceQuery', () => {
    it('returns normalised include and exclude names for UI chips', () => {
       expect(parseAudienceQuery('TAG:NewsLetter  -TAG:VIENNA')).toEqual({
          include: ['newsletter'],
          exclude: ['vienna'],
+         metaInclude: [],
+         metaExclude: [],
       });
    });
 
    it('returns empty arrays for an empty query', () => {
-      expect(parseAudienceQuery('')).toEqual({ include: [], exclude: [] });
+      expect(parseAudienceQuery('')).toEqual({
+         include: [],
+         exclude: [],
+         metaInclude: [],
+         metaExclude: [],
+      });
    });
 
    it('throws AudienceError on invalid input', () => {

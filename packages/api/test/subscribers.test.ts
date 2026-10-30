@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { parseSubscriberCsv } from '@mailer/shared/csv';
 import {
    authHeaders,
    createAppForTest,
@@ -189,7 +190,9 @@ describe('subscribers', () => {
       expect(response.headers.get('content-disposition')).toContain('subscribers.csv');
 
       const text = await response.text();
-      expect(text.split('\n')[0]).toBe('email,first_name,last_name,tags,status,created_at');
+      expect(text.split('\n')[0]).toBe(
+         'email,first_name,last_name,tags,metadata,status,created_at',
+      );
       expect(text).toContain('export@example.com');
       expect(text).toContain('vip');
    });
@@ -284,5 +287,89 @@ describe('subscribers', () => {
          body: JSON.stringify({ tagId: 'tag_missing' }),
       });
       expect(missingTag.status).toBe(404);
+   });
+
+   it('creates, reads, lists and patches subscriber metadata', async () => {
+      const owner = await auth();
+
+      const created = await app.request('/api/v1/subscribers', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({
+            email: 'meta@example.com',
+            metadata: { plan: 'pro', signup_source: 'landing page' },
+         }),
+      });
+
+      expect(created.status).toBe(201);
+      const subscriber = (await json(created)).data;
+      expect(subscriber.metadata).toEqual({
+         plan: 'pro',
+         signup_source: 'landing page',
+      });
+
+      const detail = await app.request(`/api/v1/subscribers/${subscriber.id}`, {
+         headers: { cookie: owner.cookie },
+      });
+      expect(detail.status).toBe(200);
+      expect((await json(detail)).data.metadata.plan).toBe('pro');
+
+      const list = await app.request('/api/v1/subscribers', {
+         headers: { cookie: owner.cookie },
+      });
+      expect((await json(list)).data[0].metadata).toEqual({
+         plan: 'pro',
+         signup_source: 'landing page',
+      });
+
+      const patched = await app.request(`/api/v1/subscribers/${subscriber.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ metadata: { plan: 'team', signup_source: null } }),
+      });
+      expect(patched.status).toBe(200);
+      expect((await json(patched)).data.metadata).toEqual({ plan: 'team' });
+   });
+
+   it('rejects reserved and malformed metadata keys', async () => {
+      const owner = await auth();
+
+      for (const metadata of [{ email: 'other@example.com' }, { Plan: 'pro' }]) {
+         const response = await app.request('/api/v1/subscribers', {
+            method: 'POST',
+            headers: authHeaders(owner),
+            body: JSON.stringify({ email: 'bad-meta@example.com', metadata }),
+         });
+         expect(response.status).toBe(422);
+      }
+   });
+
+   it('round-trips metadata through CSV import and export', async () => {
+      const owner = await auth();
+      const csv = [
+         'email,first_name,metadata',
+         'csv-meta@example.com,Ada,"plan=pro;signup_source=landing page;referral=https://example.com/?a=1"',
+      ].join('\n');
+
+      const imported = await app.request('/api/v1/subscribers/import', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ csv }),
+      });
+      expect(imported.status).toBe(200);
+      expect((await json(imported)).data.imported).toBe(1);
+
+      const exported = await app.request('/api/v1/subscribers/export', {
+         headers: { cookie: owner.cookie },
+      });
+      const text = await exported.text();
+      const parsed = parseSubscriberCsv(text);
+
+      expect(parsed.errors).toEqual([]);
+      expect(parsed.rows[0]?.metadata).toEqual({
+         plan: 'pro',
+         signup_source: 'landing page',
+         referral: 'https://example.com/?a=1',
+      });
    });
 });

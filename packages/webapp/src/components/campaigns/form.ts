@@ -1,6 +1,13 @@
 import type { CampaignInput, CampaignPatch } from '@/lib/api/campaigns';
 import type { FieldErrors } from '@/lib/form-errors';
 import { isEmail } from '@/lib/form-errors';
+import {
+   metadataPatchFromRows,
+   metadataToRows,
+   rowsToMetadata,
+   validateMetadataRows,
+} from '@/lib/metadata';
+import type { MetadataRow } from '@/lib/metadata';
 import type { CampaignView } from './model';
 
 export type CampaignFormState = {
@@ -14,6 +21,7 @@ export type CampaignFormState = {
    utmSource: string;
    utmMedium: string;
    utmCampaign: string;
+   metadata: MetadataRow[];
 };
 
 export const EMPTY_CAMPAIGN_FORM: CampaignFormState = {
@@ -27,6 +35,7 @@ export const EMPTY_CAMPAIGN_FORM: CampaignFormState = {
    utmSource: '',
    utmMedium: '',
    utmCampaign: '',
+   metadata: [],
 };
 
 export function formFromCampaign(campaign: CampaignView): CampaignFormState {
@@ -41,6 +50,7 @@ export function formFromCampaign(campaign: CampaignView): CampaignFormState {
       utmSource: campaign.utmSource,
       utmMedium: campaign.utmMedium,
       utmCampaign: campaign.utmCampaign,
+      metadata: metadataToRows(campaign.metadata),
    };
 }
 
@@ -61,11 +71,22 @@ export function campaignFormToInput(form: CampaignFormState): CampaignInput {
       utmSource: optional(form.utmSource),
       utmMedium: optional(form.utmMedium),
       utmCampaign: optional(form.utmCampaign),
+      metadata: rowsToMetadata(form.metadata),
    };
 }
 
-export function campaignFormToPatch(form: CampaignFormState): CampaignPatch {
-   return campaignFormToInput(form);
+export function campaignFormToPatch(
+   form: CampaignFormState,
+   saved: CampaignFormState = EMPTY_CAMPAIGN_FORM,
+): CampaignPatch {
+   return {
+      ...campaignFormToInput(form),
+      metadata: metadataPatchFromRows(rowsToMetadata(saved.metadata), form.metadata),
+   };
+}
+
+function metadataKey(rows: MetadataRow[]): string {
+   return JSON.stringify(rows.map((row) => [row.key, row.value]));
 }
 
 export function isCampaignFormDirty(form: CampaignFormState, saved: CampaignFormState): boolean {
@@ -79,7 +100,8 @@ export function isCampaignFormDirty(form: CampaignFormState, saved: CampaignForm
       form.audienceQuery !== saved.audienceQuery ||
       form.utmSource !== saved.utmSource ||
       form.utmMedium !== saved.utmMedium ||
-      form.utmCampaign !== saved.utmCampaign
+      form.utmCampaign !== saved.utmCampaign ||
+      metadataKey(form.metadata) !== metadataKey(saved.metadata)
    );
 }
 
@@ -121,6 +143,11 @@ export function validateCampaignForm(form: CampaignFormState): FieldErrors {
    }
    if (form.utmCampaign.trim().length > 191) {
       errors.utmCampaign = 'UTM campaign must be 191 characters or fewer.';
+   }
+
+   const metadata = validateMetadataRows(form.metadata);
+   if (metadata.general !== undefined || metadata.rowErrors.some((error) => error !== undefined)) {
+      errors.metadata = 'Fix the highlighted custom fields.';
    }
 
    return errors;

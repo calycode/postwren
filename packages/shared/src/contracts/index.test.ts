@@ -3,8 +3,10 @@ import {
    RATE_LIMITS,
    campaignInput,
    paginationQuery,
+   publicSubscribeInput,
    subscriberInput,
    subscriberPatch,
+   subscribeKeyInput,
    tagInput,
    templateInput,
    templateUpdateInput,
@@ -57,6 +59,39 @@ describe('subscriberInput', () => {
          false,
       );
    });
+
+   it('accepts metadata key/value pairs', () => {
+      expect(
+         subscriberInput.parse({
+            email: 'ada@example.com',
+            metadata: { plan: 'pro', signup_source: 'landing page' },
+         }),
+      ).toEqual({
+         email: 'ada@example.com',
+         metadata: { plan: 'pro', signup_source: 'landing page' },
+      });
+   });
+
+   it('rejects reserved, malformed and oversized metadata', () => {
+      expect(
+         subscriberInput.safeParse({ email: 'a@example.com', metadata: { email: 'x' } }).success,
+      ).toBe(false);
+      expect(
+         subscriberInput.safeParse({ email: 'a@example.com', metadata: { Plan: 'pro' } }).success,
+      ).toBe(false);
+      expect(
+         subscriberInput.safeParse({ email: 'a@example.com', metadata: { plan: 'a'.repeat(1025) } })
+            .success,
+      ).toBe(false);
+   });
+
+   it('rejects more than 50 metadata keys', () => {
+      const metadata = Object.fromEntries(
+         Array.from({ length: 51 }, (_, index) => [`key_${index}`, 'value']),
+      );
+
+      expect(subscriberInput.safeParse({ email: 'a@example.com', metadata }).success).toBe(false);
+   });
 });
 
 describe('subscriberPatch', () => {
@@ -70,6 +105,12 @@ describe('subscriberPatch', () => {
 
    it('still validates an email when present', () => {
       expect(subscriberPatch.safeParse({ email: 'bad' }).success).toBe(false);
+   });
+
+   it('accepts null metadata values so a key can be deleted', () => {
+      expect(subscriberPatch.parse({ metadata: { plan: null, tier: 'gold' } })).toEqual({
+         metadata: { plan: null, tier: 'gold' },
+      });
    });
 });
 
@@ -133,6 +174,12 @@ describe('campaignInput', () => {
 
    it('rejects unknown keys', () => {
       expect(campaignInput.safeParse({ ...base, status: 'sent' }).success).toBe(false);
+   });
+
+   it('accepts campaign metadata', () => {
+      expect(campaignInput.parse({ ...base, metadata: { edition: 'october' } }).metadata).toEqual({
+         edition: 'october',
+      });
    });
 });
 
@@ -202,5 +249,63 @@ describe('RATE_LIMITS', () => {
          expect(limit.windowSeconds).toBeGreaterThan(0);
          expect(limit.max).toBeGreaterThan(0);
       }
+   });
+});
+
+describe('publicSubscribeInput', () => {
+   it('accepts the public form payload and lowercases the email', () => {
+      expect(
+         publicSubscribeInput.parse({
+            email: ' Ada@Example.com ',
+            firstName: 'Ada',
+            tags: ['newsletter'],
+            metadata: { signup_source: 'emdash' },
+            source: 'emdash',
+            sourceUrl: 'https://example.com/newsletter',
+            website: '',
+         }),
+      ).toEqual({
+         email: 'ada@example.com',
+         firstName: 'Ada',
+         tags: ['newsletter'],
+         metadata: { signup_source: 'emdash' },
+         source: 'emdash',
+         sourceUrl: 'https://example.com/newsletter',
+         website: '',
+      });
+   });
+
+   it('rejects a non-absolute sourceUrl', () => {
+      expect(
+         publicSubscribeInput.safeParse({
+            email: 'ada@example.com',
+            sourceUrl: 'not-a-url',
+         }).success,
+      ).toBe(false);
+   });
+});
+
+describe('subscribeKeyInput', () => {
+   it('accepts allowed origins and default tags', () => {
+      expect(
+         subscribeKeyInput.parse({
+            name: 'Marketing site',
+            allowedOrigins: ['https://example.com'],
+            defaultTags: ['newsletter'],
+         }),
+      ).toEqual({
+         name: 'Marketing site',
+         allowedOrigins: ['https://example.com'],
+         defaultTags: ['newsletter'],
+      });
+   });
+
+   it('rejects a non-http origin', () => {
+      expect(
+         subscribeKeyInput.safeParse({
+            name: 'Marketing site',
+            allowedOrigins: ['ftp://example.com'],
+         }).success,
+      ).toBe(false);
    });
 });

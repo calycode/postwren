@@ -71,11 +71,13 @@ const PREVIEW_MERGE_CONTEXT: MergeContext = {
       first_name: 'Max',
       last_name: 'Muster',
       tags: ['preview'],
+      meta: { plan: 'preview' },
    },
    campaign: {
       id: 'preview-campaign',
       subject: 'Preview subject',
       utm_campaign: 'preview',
+      meta: { edition: 'preview' },
    },
    links: {
       unsubscribe: PREVIEW_UNSUBSCRIBE_URL,
