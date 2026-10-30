@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { parseSubscriberCsv } from '@mailer/shared/csv';
+import { parseSubscriberCsv } from '@postwren/shared/csv';
 import {
    authHeaders,
    createAppForTest,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
-import { sha256Hex } from '@mailer/worker-kit/ids';
+import { sha256Hex } from '@postwren/worker-kit/ids';
 import type { Scope } from '../src/auth/scopes';
 import { apiKeyHash, generateApiKey } from '../src/auth/api-key';
 import { authHeaders, baseEnv, createAppForTest, json, now, resetDb, seedOwner } from './helpers';
@@ -244,7 +244,7 @@ describe('scoped API keys', () => {
 
       expect(created.status).toBe(201);
       const createdBody = await json(created);
-      expect(createdBody.data.key).toMatch(/^mlr_[a-z0-9]+_/);
+      expect(createdBody.data.key).toMatch(/^pwr_[a-z0-9]+_/);
       expect(createdBody.data.scopes).toEqual(['subscribers:read', 'tags:write']);
 
       const stored = await env.DB.prepare('SELECT * FROM api_keys WHERE id = ?')
@@ -297,7 +297,7 @@ describe('scoped API keys', () => {
       expect(
          (
             await app.request('/api/v1/tags', {
-               headers: bearer('mlr_abcdef_invalidsecretvalue'),
+               headers: bearer('pwr_abcdef_invalidsecretvalue'),
             })
          ).status,
       ).toBe(401);
@@ -582,7 +582,7 @@ describe('MCP endpoint', () => {
       expect(initialized.status).toBe(200);
       const init = await json(initialized);
       expect(init.result.protocolVersion).toBe('2025-06-18');
-      expect(init.result.serverInfo.name).toBe('mailer-cloudflare');
+      expect(init.result.serverInfo.name).toBe('postwren');
       expect(init.result.capabilities.tools).toBeDefined();
 
       const notification = await mcp(raw, {

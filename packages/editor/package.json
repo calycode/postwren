@@ -1,5 +1,5 @@
 {
-   "name": "@mailer/editor",
+   "name": "@postwren/editor",
    "version": "0.1.0",
    "private": true,
    "type": "module",
@@ -12,8 +12,8 @@
       "lint": "eslint src"
    },
    "dependencies": {
-      "@mailer/email": "workspace:*",
-      "@mailer/ui": "workspace:*",
+      "@postwren/email": "workspace:*",
+      "@postwren/ui": "workspace:*",
       "lucide-react": "^1.62.0",
       "preact": "^10.29.7"
    },

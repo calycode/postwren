@@ -1,5 +1,5 @@
-import type { Column, Spacing } from '@mailer/email/ir';
-import { validateTemplate } from '@mailer/email/template';
+import type { Column, Spacing } from '@postwren/email/ir';
+import { validateTemplate } from '@postwren/email/template';
 
 export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 

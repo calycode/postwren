@@ -1,9 +1,9 @@
-import { timingSafeEqual } from '@mailer/worker-kit/http';
+import { timingSafeEqual } from '@postwren/worker-kit/http';
 import { isScope } from './scopes';
 import type { Scope } from './scopes';
 import { nowSeconds } from '../lib/time';
 
-export const SERVICE_TOKEN_HEADER = 'x-mailer-service-token';
+export const SERVICE_TOKEN_HEADER = 'x-postwren-service-token';
 export const SERVICE_TOKEN_TTL_SECONDS = 60;
 
 type ServiceTokenPayload = {

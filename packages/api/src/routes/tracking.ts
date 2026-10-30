@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { verifyToken } from '@mailer/shared/tokens';
-import { ok } from '@mailer/worker-kit/envelope';
-import { NotFoundError } from '@mailer/worker-kit/errors';
-import { RATE_LIMITS } from '@mailer/shared/contracts';
+import { verifyToken } from '@postwren/shared/tokens';
+import { ok } from '@postwren/worker-kit/envelope';
+import { NotFoundError } from '@postwren/worker-kit/errors';
+import { RATE_LIMITS } from '@postwren/shared/contracts';
 import type { AppEnv } from '../env';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { nowSeconds } from '../lib/time';

@@ -1,5 +1,5 @@
-import { DocumentError, parseDocument } from '@mailer/email/ir';
-import type { Document } from '@mailer/email/ir';
+import { DocumentError, parseDocument } from '@postwren/email/ir';
+import type { Document } from '@postwren/email/ir';
 import type { Template } from '@/lib/api/types';
 
 export type ParsedTemplateDocument = {

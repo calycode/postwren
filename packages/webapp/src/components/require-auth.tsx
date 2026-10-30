@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'react';
 import { useLocation } from 'preact-iso';
-import { Skeleton } from '@mailer/ui';
+import { Skeleton } from '@postwren/ui';
 import { useAuth } from '@/lib/auth';
 
 export function RequireAuth({ children }: { children: ComponentChildren }) {

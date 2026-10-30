@@ -91,7 +91,7 @@ button[value="deny"] { background: transparent; color: inherit;
 <main>
 <h1>Authorize ${escapeHtml(details.clientName)}</h1>
 <p>Signed in as <span class="username">${escapeHtml(username)}</span>.</p>
-<p>This client is asking for API access to your mailer. It will act with the scopes below
+<p>This client is asking for API access to your Postwren workspace. It will act with the scopes below
 until you revoke its grant.</p>
 ${loopback}
 <dl>

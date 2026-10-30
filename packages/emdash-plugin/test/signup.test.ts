@@ -12,7 +12,10 @@ const SETTINGS: SubscribeSettings = {
 
 type RecordedCall = { url: string; init: RequestInit };
 
-function recorder(status = 200, body = '{"data":{"subscribed":true},"error":null}'): {
+function recorder(
+   status = 200,
+   body = '{"data":{"subscribed":true},"error":null}',
+): {
    calls: RecordedCall[];
    fetch: FetchLike;
 } {
@@ -84,9 +87,9 @@ describe('subscribe', () => {
    it('serves a valid signup without exposing whether the subscriber already existed', async () => {
       const { fetch } = recorder(200, '{"data":{"subscribed":true,"created":false},"error":null}');
 
-      await expect(subscribe({ settings: SETTINGS, fetch }, { email: 'ada@example.com' })).resolves.toEqual(
-         { subscribed: true },
-      );
+      await expect(
+         subscribe({ settings: SETTINGS, fetch }, { email: 'ada@example.com' }),
+      ).resolves.toEqual({ subscribed: true });
    });
 
    it('merges default and submitted tags without duplicates', async () => {
@@ -122,7 +125,10 @@ describe('subscribe', () => {
 
       await subscribe(
          { settings: SETTINGS, fetch },
-         { email: 'ada@example.com', metadata: { ok_key: 'yes', 'Bad-Key': 'no', email: 'reserved' } },
+         {
+            email: 'ada@example.com',
+            metadata: { ok_key: 'yes', 'Bad-Key': 'no', email: 'reserved' },
+         },
       );
 
       expect((await sentBody(calls[0]!)).metadata).toEqual({ ok_key: 'yes' });

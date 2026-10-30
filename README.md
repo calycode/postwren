@@ -1,4 +1,6 @@
-# Mailer Cloudflare
+# Postwren
+
+> Small bird. Loud voice. One Worker.
 
 Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, per-recipient rendering, open/click tracking, and one-click unsubscribe.
 
@@ -8,7 +10,7 @@ Beyond the admin UI, the Worker exposes three integration surfaces: a public sub
 
 ## Why the email layer is its own package
 
-`@mailer/email` is a versioned IR plus a renderer that emits **only** `table`/`tr`/`td` layout with inline styles and MSO conditional comments, because Outlook on Windows renders with Microsoft Word's engine. There is no `div`, no flex, no `max-width` outside the root table. The same pure function renders the editor preview and the sent message, so what you see is what goes out. It has no React, no DOM, and no Node APIs, and it is the piece worth publishing on its own.
+`@postwren/email` is a versioned IR plus a renderer that emits **only** `table`/`tr`/`td` layout with inline styles and MSO conditional comments, because Outlook on Windows renders with Microsoft Word's engine. There is no `div`, no flex, no `max-width` outside the root table. The same pure function renders the editor preview and the sent message, so what you see is what goes out. It has no React, no DOM, and no Node APIs, and it is the piece worth publishing on its own.
 
 ## Stack
 
@@ -34,7 +36,7 @@ migrations/    numbered SQL
 ## Integrations
 
 - **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
-- **Scripts and external apps** — scoped `mlr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
+- **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
 - **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
 - **EmDash sites** — a native plugin that proxies signups to the Worker and renders its settings in the EmDash admin. See [packages/emdash-plugin](packages/emdash-plugin) once installed.
 
@@ -45,13 +47,12 @@ Subscribers and campaigns both carry custom key/value metadata, rendered as `{{ 
 ```sh
 pnpm install
 pnpm db:migrate:local
-pnpm --filter @mailer/webapp build   # the Worker serves the built SPA
-pnpm exec wrangler dev --config wrangler.dev.jsonc --port 8787
+pnpm dev                  # Vite on :5173, Worker on :8787
 ```
 
-Open `/login`, enter the address in `OWNER_EMAIL` (`dev@example.com` by default), and use the **Development mode** button that appears after "Send link" — outside production the magic-link token is returned in the response instead of emailed.
+Open `http://localhost:5173/login`, enter the address in `OWNER_EMAIL` (`dev@example.com` by default), and use the **Development mode** button that appears after "Send link" — outside production the magic-link token is returned in the response instead of emailed.
 
-For hot reload, run Vite on `:5173` alongside the Worker; it proxies `/api`, `/media`, `/t`, and `/u`. If the Worker is not on 8787, update `API_TARGET` in `packages/webapp/vite.config.ts` or pass `VITE_API_TARGET`.
+For the Worker to serve the built SPA on `:8787`, run `pnpm build` once and open `http://localhost:8787`. Vite proxies `/api`, `/media`, `/t`, and `/u`; `/mcp`, `/oauth`, and `/.well-known` must be called on `:8787` directly. If the Worker is not on 8787, update `API_TARGET` in `packages/webapp/vite.config.ts` or pass `VITE_API_TARGET`.
 
 No `send_email` binding exists locally. The adapter logs to `email_dev_sink` and returns a `dev-*` id, so dispatch, the queue consumer, stats, and resend paths are all exercisable. Cron does not fire on its own: `curl http://127.0.0.1:8787/cdn-cgi/local/scheduled`.
 
@@ -75,14 +76,14 @@ pnpm deploy
 2. Create the resources, then deploy:
 
 ```sh
-pnpm exec wrangler d1 create mailer-cloudflare
-pnpm exec wrangler r2 bucket create mailer-cloudflare-media
-pnpm exec wrangler queues create mailer-campaigns
-pnpm exec wrangler queues create mailer-campaigns-dlq
+pnpm exec wrangler d1 create postwren
+pnpm exec wrangler r2 bucket create postwren-media
+pnpm exec wrangler queues create postwren-campaigns
+pnpm exec wrangler queues create postwren-campaigns-dlq
 pnpm exec wrangler kv namespace create OAUTH_KV
 ```
 
-3. Put the returned ids into `wrangler.jsonc` (they are intentionally omitted so the Deploy button can provision them), then:
+3. Put the returned ids into `wrangler.jsonc` (they are intentionally omitted so the Deploy button can provision them; replace the all-zero `OAUTH_KV` placeholder with the real KV id), then:
 
 ```sh
 pnpm exec wrangler secret put SESSION_SECRET
@@ -98,7 +99,7 @@ pnpm deploy
 
 ## Behaviour worth knowing
 
-- **Campaigns freeze content.** `ir_snapshot` is written at schedule/send-now; editing the template afterwards does not change an in-flight send.
+- **Campaigns freeze content.** `ir_snapshot` and `metadata_snapshot` are written at schedule/send-now; editing the template or campaign metadata afterwards does not change an in-flight send.
 - **Sends are idempotent.** A recipient is claimed with a conditional `UPDATE ... WHERE status = 'queued'`; replaying a queue batch sends nothing.
 - **Daily quota is a wall, not a failure.** `E_DAILY_LIMIT_EXCEEDED` pauses the campaign rather than failing recipients.
 - **Opens are approximate.** Apple Mail Privacy Protection and corporate proxies pre-fetch pixels. Clicks are the real metric.
@@ -107,3 +108,11 @@ pnpm deploy
 ## Testing strategy
 
 Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-trips, `compileAudience` SQL, token sign/verify, CSV parsing, HTTP through `createApp`, and the campaign lifecycle through the real queue handler. Editor tests cover document operations, not DOM internals.
+
+## Project
+
+- [Brand and naming](docs/BRANDING.md)
+- [Release and remote checklist](docs/RELEASING.md)
+- [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
+- [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
+- [EmDash plugin packaging](docs/EMDASH-PLUGIN.md)

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { ok } from '@mailer/worker-kit/envelope';
+import { ok } from '@postwren/worker-kit/envelope';
 import type { AppEnv } from '../env';
 import { countAudience } from '../lib/audience';
 

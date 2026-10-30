@@ -1,36 +1,55 @@
 {
-   "name": "@mailer/email",
+   "name": "@postwren/email",
    "version": "0.1.0",
-   "description": "Table-safe email intermediate representation and renderer for legacy clients",
+   "description": "Table-safe email IR, renderer and merge tags for Postwren",
    "license": "MIT",
    "type": "module",
-   "files": [
-      "dist"
+   "sideEffects": false,
+   "keywords": [
+      "email",
+      "email-marketing",
+      "newsletter",
+      "email-rendering",
+      "html-email",
+      "table-layout",
+      "merge-tags"
    ],
+   "files": [
+      "dist",
+      "README.md",
+      "LICENSE"
+   ],
+   "main": "./dist/index.js",
+   "module": "./dist/index.js",
+   "types": "./dist/index.d.ts",
    "exports": {
       ".": {
          "types": "./dist/index.d.ts",
          "import": "./dist/index.js"
       },
       "./ir": {
-         "types": "./src/ir/index.ts",
-         "import": "./src/ir/index.ts"
+         "types": "./dist/ir/index.d.ts",
+         "import": "./dist/ir/index.js"
       },
       "./render": {
-         "types": "./src/render/index.ts",
-         "import": "./src/render/index.ts"
+         "types": "./dist/render/index.d.ts",
+         "import": "./dist/render/index.js"
       },
       "./template": {
-         "types": "./src/template/index.ts",
-         "import": "./src/template/index.ts"
+         "types": "./dist/template/index.d.ts",
+         "import": "./dist/template/index.js"
       },
       "./package.json": "./package.json"
+   },
+   "publishConfig": {
+      "access": "public"
    },
    "scripts": {
       "test": "vitest run",
       "check-types": "tsc --noEmit",
       "build": "tsup",
-      "lint": "eslint src"
+      "lint": "eslint src",
+      "prepublishOnly": "pnpm build"
    },
    "dependencies": {
       "zod": "^3.25.76"

@@ -63,13 +63,13 @@ function providerFor(env: Env): OAuthProvider<Env> {
          resource: `${origin}/mcp`,
          authorization_servers: [origin],
          bearer_methods_supported: ['header'],
-         resource_name: 'Mailer Cloudflare',
+         resource_name: 'Postwren',
       },
       resolveExternalToken: async ({
          token,
          env: callbackEnv,
       }: ResolveExternalTokenInput<Env>): Promise<ResolveExternalTokenResult | null> => {
-         if (!token.startsWith('mlr_')) {
+         if (!token.startsWith('pwr_')) {
             return null;
          }
 

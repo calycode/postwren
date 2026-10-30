@@ -56,7 +56,7 @@ describe('createPlugin', () => {
    it('resolves a definition EmDash accepts', () => {
       const plugin = createPlugin({ workerUrl: 'https://mail.example.com' });
 
-      expect(plugin.id).toBe('mailer');
+      expect(plugin.id).toBe('postwren');
       expect(plugin.capabilities).toContain('network:request');
       expect(plugin.capabilities).toContain('hooks.page-fragments:register');
       expect(plugin.allowedHosts).toEqual(['mail.example.com']);
@@ -111,7 +111,11 @@ describe('signup route', () => {
    it('falls back to the descriptor workerUrl when the setting is empty', async () => {
       const plugin = createPlugin({ workerUrl: 'https://mail.example.com' });
       const calls: RecordedCall[] = [];
-      const ctx = fakeContext({ siteKey: 'pk_live_from_settings' }, { email: 'ada@example.com' }, calls);
+      const ctx = fakeContext(
+         { siteKey: 'pk_live_from_settings' },
+         { email: 'ada@example.com' },
+         calls,
+      );
 
       await plugin.routes.signup!.handler(ctx);
 

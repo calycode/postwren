@@ -14,17 +14,17 @@ export default tseslint.config(
                patterns: [
                   {
                      group: [
-                        '@mailer/api',
-                        '@mailer/webapp',
-                        '@mailer/ui',
-                        '@mailer/editor',
-                        '@mailer/shared',
-                        '@mailer/worker-kit',
+                        '@postwren/api',
+                        '@postwren/webapp',
+                        '@postwren/ui',
+                        '@postwren/editor',
+                        '@postwren/shared',
+                        '@postwren/worker-kit',
                         'preact*',
                         'hono',
                      ],
                      message:
-                        '@mailer/email must stay dependency-free and portable (no DOM, no React, no app code).',
+                        '@postwren/email must stay dependency-free and portable (no DOM, no React, no app code).',
                   },
                ],
             },

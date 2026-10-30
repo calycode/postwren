@@ -1,7 +1,7 @@
-# @mailer/emdash
+# @postwren/emdash
 
 A native [EmDash](https://emdashcms.com) plugin that forwards newsletter signups from an EmDash site
-to a Mailer Cloudflare Worker. Phase 1: the Worker stays standalone and owns all data; the plugin is a
+to a Postwren Worker. Phase 1: the Worker stays standalone and owns all data; the plugin is a
 server-side proxy plus an optional footer form. No subscriber data lands in the CMS database.
 
 Requires EmDash 1.3.1 or later (`emdash` is a peer dependency). Cloudflare Workers only.
@@ -9,11 +9,11 @@ Requires EmDash 1.3.1 or later (`emdash` is a peer dependency). Cloudflare Worke
 ## Install
 
 ```sh
-pnpm add @mailer/emdash
+pnpm add @postwren/emdash
 ```
 
 In a monorepo, use a workspace or a local path instead, for example
-`pnpm add file:../cloudflare-mailer/packages/emdash-plugin`. The package ships TypeScript sources
+`pnpm add file:../postwren/packages/emdash-plugin`. The package ships TypeScript sources
 (like other native EmDash plugins) and is consumed by the site's Vite build, so it needs a build step
 before it can be published to a registry.
 
@@ -21,17 +21,17 @@ before it can be published to a registry.
 
 ```js
 // astro.config.mjs
-import emdash from "emdash/astro";
-import { mailerPlugin } from "@mailer/emdash";
+import emdash from 'emdash/astro';
+import { postwrenPlugin } from '@postwren/emdash';
 
 export default defineConfig({
    integrations: [
       emdash({
          // ...database, storage, plugins...
          plugins: [
-            mailerPlugin({
-               workerUrl: "https://mail.example.com", // your Mailer Worker origin
-               defaultTags: ["newsletter"], // optional fallback
+            postwrenPlugin({
+               workerUrl: 'https://mail.example.com', // your Postwren Worker origin
+               defaultTags: ['newsletter'], // optional fallback
             }),
          ],
       }),
@@ -44,9 +44,9 @@ editing this file and redeploying.
 
 ## Create the subscribe key
 
-In the Mailer Worker admin open **Settings → Public subscribe keys**, create a key for this site and
-copy the `pk_live_…` value — it is shown once. These are publishable site keys, not the `mlr_` agent
-keys. See `docs/PUBLIC-SUBSCRIBE.md` in the mailer repo for the key API.
+In the Postwren Worker admin open **Settings → Public subscribe keys**, create a key for this site and
+copy the `pk_live_…` value — it is shown once. These are publishable site keys, not the `pwr_` agent
+keys. See `docs/PUBLIC-SUBSCRIBE.md` in the Postwren repo for the key API.
 
 The plugin calls the Worker server-to-server, so the key never reaches the browser and the key's
 origin allowlist is not consulted (no `Origin` header is sent). Add the site origin anyway if you
@@ -54,23 +54,23 @@ also plan to call the Worker from browser code.
 
 ## Settings
 
-Plugins → Mailer → Settings (`/_emdash/admin/plugins-manager/mailer/settings`):
+Plugins → Postwren → Settings (`/_emdash/admin/plugins-manager/postwren/settings`):
 
-| Setting | Type | Meaning |
-| --- | --- | --- |
-| Mailer Worker URL | url | Should equal the `workerUrl` passed to `mailerPlugin()` |
-| Publishable subscribe key | secret | `pk_live_…`, encrypted at rest by EmDash |
-| Default tags | string | Comma-separated, added to every signup |
-| Inject the signup form | boolean | Adds the footer form to public pages (default off) |
-| Signup form heading | string | Heading text, default "Newsletter" |
+| Setting                   | Type    | Meaning                                                   |
+| ------------------------- | ------- | --------------------------------------------------------- |
+| Postwren Worker URL       | url     | Should equal the `workerUrl` passed to `postwrenPlugin()` |
+| Publishable subscribe key | secret  | `pk_live_…`, encrypted at rest by EmDash                  |
+| Default tags              | string  | Comma-separated, added to every signup                    |
+| Inject the signup form    | boolean | Adds the footer form to public pages (default off)        |
+| Signup form heading       | string  | Heading text, default "Newsletter"                        |
 
 ## Routes
 
-| Route | Method | Access |
-| --- | --- | --- |
-| `/_emdash/api/plugins/mailer/signup` | POST | public |
-| `/_emdash/api/plugins/mailer/overview` | GET | `plugins:read` |
-| `/_emdash/api/plugins/mailer/testConnection` | POST | `plugins:manage` |
+| Route                                          | Method | Access           |
+| ---------------------------------------------- | ------ | ---------------- |
+| `/_emdash/api/plugins/postwren/signup`         | POST   | public           |
+| `/_emdash/api/plugins/postwren/overview`       | GET    | `plugins:read`   |
+| `/_emdash/api/plugins/postwren/testConnection` | POST   | `plugins:manage` |
 
 `signup` accepts `{ email, firstName?, lastName?, tags?, metadata?, sourceUrl?, website? }` as JSON
 (≤ 8 KiB) and answers `{ "success": true, "data": { "subscribed": true } }`. Failures:
@@ -84,10 +84,27 @@ It always tells the Worker `source: "emdash"` and merges `defaultTags` with subm
 ```html
 <form id="newsletter">
    <label for="newsletter-email">Email address</label>
-   <input id="newsletter-email" name="email" type="email" autocomplete="email" required />
-   <input name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" hidden />
+   <input
+      id="newsletter-email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      required
+   />
+   <input
+      name="website"
+      type="text"
+      tabindex="-1"
+      autocomplete="off"
+      aria-hidden="true"
+      hidden
+   />
    <button type="submit">Subscribe</button>
-   <p id="newsletter-status" role="status" aria-live="polite"></p>
+   <p
+      id="newsletter-status"
+      role="status"
+      aria-live="polite"
+   ></p>
 </form>
 ```
 
@@ -97,7 +114,7 @@ document.querySelector('#newsletter').addEventListener('submit', async (event) =
    const form = new FormData(event.currentTarget);
    const status = document.querySelector('#newsletter-status');
 
-   const response = await fetch('/_emdash/api/plugins/mailer/signup', {
+   const response = await fetch('/_emdash/api/plugins/postwren/signup', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'X-EmDash-Request': '1' },
       body: JSON.stringify({

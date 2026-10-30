@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { ok } from '@mailer/worker-kit/envelope';
-import { ConflictError, NotFoundError } from '@mailer/worker-kit/errors';
+import { ok } from '@postwren/worker-kit/envelope';
+import { ConflictError, NotFoundError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { dispatchCampaign, loadCampaign } from '../jobs/dispatch';
 import { nowSeconds } from '../lib/time';

@@ -1,5 +1,5 @@
 import { Compass } from 'lucide-react';
-import { buttonVariants, EmptyState } from '@mailer/ui';
+import { buttonVariants, EmptyState } from '@postwren/ui';
 
 export function NotFound() {
    return (

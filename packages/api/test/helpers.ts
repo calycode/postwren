@@ -1,7 +1,7 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import { createId, randomToken, sha256Hex } from '@mailer/worker-kit/ids';
-import { createDocument } from '@mailer/email/ir';
-import type { Document } from '@mailer/email/ir';
+import { createId, randomToken, sha256Hex } from '@postwren/worker-kit/ids';
+import { createDocument } from '@postwren/email/ir';
+import type { Document } from '@postwren/email/ir';
 import type { CampaignJob, EmailBinding, Env } from '../src/env';
 import { createApp } from '../src/app';
 import workerHandler from '../src/index';
@@ -344,7 +344,7 @@ export function makeBatch(jobs: CampaignJob[]): {
 
    return {
       batch: {
-         queue: 'mailer-campaigns-dev',
+         queue: 'postwren-campaigns-dev',
          messages,
       } as unknown as MessageBatch<CampaignJob>,
       messages,
@@ -371,6 +371,6 @@ export async function signTokenForTest(
    payload: Record<string, unknown>,
    ttlSeconds = 3600,
 ): Promise<string> {
-   const { signToken } = await import('@mailer/shared/tokens');
+   const { signToken } = await import('@postwren/shared/tokens');
    return signToken(payload, { secret, purpose, ttlSeconds });
 }

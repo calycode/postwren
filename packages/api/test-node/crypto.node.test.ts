@@ -6,7 +6,7 @@ describe('API key format', () => {
    it('generates a prefix and a secret that survive parsing', () => {
       const { raw, prefix } = generateApiKey();
 
-      expect(raw.startsWith(`mlr_${prefix}_`)).toBe(true);
+      expect(raw.startsWith(`pwr_${prefix}_`)).toBe(true);
       expect(parseApiKey(raw)).toEqual({ prefix, secret: raw.slice(prefix.length + 5) });
    });
 
@@ -21,9 +21,9 @@ describe('API key format', () => {
    });
 
    it('rejects secrets that do not follow the documented format', () => {
-      expect(parseApiKey('mlr_short_x')).toBeNull();
+      expect(parseApiKey('pwr_short_x')).toBeNull();
       expect(parseApiKey('not-a-key')).toBeNull();
-      expect(parseApiKey('mlr_abcdef_short')).toBeNull();
+      expect(parseApiKey('pwr_abcdef_short')).toBeNull();
    });
 });
 

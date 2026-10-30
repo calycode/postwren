@@ -1,4 +1,4 @@
-import type { Block, Document } from '@mailer/email/ir';
+import type { Block, Document } from '@postwren/email/ir';
 import {
    Badge,
    DropdownMenu,
@@ -6,7 +6,7 @@ import {
    DropdownMenuItem,
    DropdownMenuTrigger,
    cn,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { ListTree } from 'lucide-react';
 import { blockLabel } from '../lib/document-ops';
 import { BlockIcon } from './block-icon';

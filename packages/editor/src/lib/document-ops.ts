@@ -5,7 +5,7 @@ import type {
    DocumentSettings,
    LeafBlock,
    SectionChild,
-} from '@mailer/email/ir';
+} from '@postwren/email/ir';
 
 export type BlockPatch = Partial<Block>;
 

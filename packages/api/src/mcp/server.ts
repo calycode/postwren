@@ -6,7 +6,7 @@ import { callTool, findTool, toolDefinitions } from './tools';
 
 const LATEST_PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set(['2025-06-18', '2025-03-26']);
-const SERVER_INFO = { name: 'mailer-cloudflare', version: '0.1.0' };
+const SERVER_INFO = { name: 'postwren', version: '0.1.0' };
 
 type JsonRpcId = string | number | null;
 
@@ -138,7 +138,7 @@ async function handleMessage(
                capabilities: { tools: { listChanged: false } },
                serverInfo: SERVER_INFO,
                instructions:
-                  'Manage lists, subscribers, campaigns and templates for this mailer. ' +
+                  'Manage lists, subscribers, campaigns and templates for Postwren. ' +
                   'Every call is limited by the scopes granted to the credential. ' +
                   'Prefer preview_audience before schedule_campaign or send_campaign_now.',
             }),

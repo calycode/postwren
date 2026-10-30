@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { z } from 'zod';
-import { createId, randomToken, sha256Hex } from '@mailer/worker-kit/ids';
-import { ok } from '@mailer/worker-kit/envelope';
-import { AppError, UnauthorizedError } from '@mailer/worker-kit/errors';
-import { RATE_LIMITS } from '@mailer/shared/contracts';
+import { createId, randomToken, sha256Hex } from '@postwren/worker-kit/ids';
+import { ok } from '@postwren/worker-kit/envelope';
+import { AppError, UnauthorizedError } from '@postwren/worker-kit/errors';
+import { RATE_LIMITS } from '@postwren/shared/contracts';
 import type { AppEnv } from '../env';
 import { readJson } from '../lib/validation';
 import { consumeRateLimit } from '../lib/rate-limit';
@@ -56,11 +56,11 @@ authRoutes.post('/magic-link', async (c) => {
       const signInUrl = `${c.env.APP_URL}/login?token=${encodeURIComponent(raw)}`;
       try {
          await c.env.EMAIL.send({
-            from: { email: c.env.EMAIL_FROM, name: 'Mailer' },
+            from: { email: c.env.EMAIL_FROM, name: 'Postwren' },
             to: body.email,
             subject: 'Your sign-in link',
-            text: `Sign in to Mailer: ${signInUrl}\n\nThis link expires in 15 minutes. If you did not request it, ignore this email.`,
-            html: `<a href="${signInUrl}">Sign in to Mailer</a><br>This link expires in 15 minutes.`,
+            text: `Sign in to Postwren: ${signInUrl}\n\nThis link expires in 15 minutes. If you did not request it, ignore this email.`,
+            html: `<a href="${signInUrl}">Sign in to Postwren</a><br>This link expires in 15 minutes.`,
          });
       } catch (error) {
          console.error('magic_link_send_failed', {

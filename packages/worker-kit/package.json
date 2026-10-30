@@ -1,5 +1,5 @@
 {
-   "name": "@mailer/worker-kit",
+   "name": "@postwren/worker-kit",
    "version": "0.1.0",
    "private": true,
    "type": "module",

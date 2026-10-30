@@ -1,5 +1,5 @@
-import { createId } from '@mailer/worker-kit/ids';
-import { AppError } from '@mailer/worker-kit/errors';
+import { createId } from '@postwren/worker-kit/ids';
+import { AppError } from '@postwren/worker-kit/errors';
 
 export type SenderAddressRow = {
    id: string;

@@ -8,7 +8,7 @@ import {
    SelectItem,
    SelectTrigger,
    SelectValue,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import type { SenderAddress, Template } from '@/lib/api/types';
 import type { FieldErrors } from '@/lib/form-errors';
 import { MetadataEditor } from '@/components/metadata-editor';

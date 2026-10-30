@@ -5,10 +5,10 @@ export interface SignupFormOptions {
    heading: string;
 }
 
-const FORM_ID = 'mailer-signup-form';
-const EMAIL_ID = 'mailer-signup-email';
-const WEBSITE_ID = 'mailer-signup-website';
-const STATUS_CLASS = 'mailer-signup__status';
+const FORM_ID = 'postwren-signup-form';
+const EMAIL_ID = 'postwren-signup-email';
+const WEBSITE_ID = 'postwren-signup-website';
+const STATUS_CLASS = 'postwren-signup__status';
 
 function escapeHtml(value: string): string {
    return value
@@ -24,26 +24,26 @@ function escapeHtml(value: string): string {
  * light/dark scheme without importing tokens or hex values.
  */
 const STYLES = `<style>
-.mailer-signup{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin:2rem auto;max-width:32rem;font:inherit;color:inherit}
-.mailer-signup__heading{flex:1 1 100%;margin:0;font-size:1.125rem;font-weight:600}
-.mailer-signup__field{display:flex;flex:1 1 14rem;flex-direction:column;gap:.25rem}
-.mailer-signup__label,.mailer-signup__hp{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
-.mailer-signup input{font:inherit;padding:.5rem .625rem;border:1px solid;border-radius:.375rem;background:Field;color:FieldText}
-.mailer-signup button{font:inherit;padding:.5rem 1rem;border:1px solid CanvasText;border-radius:.375rem;background:CanvasText;color:Canvas;cursor:pointer}
-.mailer-signup button[disabled]{opacity:.6;cursor:progress}
-.mailer-signup__status{flex:1 1 100%;margin:0;font-size:.875rem}
+.postwren-signup{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;margin:2rem auto;max-width:32rem;font:inherit;color:inherit}
+.postwren-signup__heading{flex:1 1 100%;margin:0;font-size:1.125rem;font-weight:600}
+.postwren-signup__field{display:flex;flex:1 1 14rem;flex-direction:column;gap:.25rem}
+.postwren-signup__label,.postwren-signup__hp{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.postwren-signup input{font:inherit;padding:.5rem .625rem;border:1px solid;border-radius:.375rem;background:Field;color:FieldText}
+.postwren-signup button{font:inherit;padding:.5rem 1rem;border:1px solid CanvasText;border-radius:.375rem;background:CanvasText;color:Canvas;cursor:pointer}
+.postwren-signup button[disabled]{opacity:.6;cursor:progress}
+.postwren-signup__status{flex:1 1 100%;margin:0;font-size:.875rem}
 </style>`;
 
 function formHtml(options: SignupFormOptions): string {
    const heading = escapeHtml(options.heading);
-   return `<section class="mailer-signup" aria-labelledby="${FORM_ID}-heading">${STYLES}
-<h2 class="mailer-signup__heading" id="${FORM_ID}-heading">${heading}</h2>
-<form class="mailer-signup__form" id="${FORM_ID}" data-mailer-signup>
-<div class="mailer-signup__field">
-<label class="mailer-signup__label" for="${EMAIL_ID}">Email address</label>
+   return `<section class="postwren-signup" aria-labelledby="${FORM_ID}-heading">${STYLES}
+<h2 class="postwren-signup__heading" id="${FORM_ID}-heading">${heading}</h2>
+<form class="postwren-signup__form" id="${FORM_ID}" data-postwren-signup>
+<div class="postwren-signup__field">
+<label class="postwren-signup__label" for="${EMAIL_ID}">Email address</label>
 <input id="${EMAIL_ID}" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
 </div>
-<div class="mailer-signup__hp" aria-hidden="true">
+<div class="postwren-signup__hp" aria-hidden="true">
 <label for="${WEBSITE_ID}">Website</label>
 <input id="${WEBSITE_ID}" name="website" type="text" tabindex="-1" autocomplete="off">
 </div>
@@ -54,7 +54,7 @@ function formHtml(options: SignupFormOptions): string {
 }
 
 const SCRIPT = `(function () {
-  var forms = document.querySelectorAll('[data-mailer-signup]');
+  var forms = document.querySelectorAll('[data-postwren-signup]');
   Array.prototype.forEach.call(forms, function (form) {
     var status = form.querySelector('.${STATUS_CLASS}');
     var button = form.querySelector('button[type="submit"]');
@@ -100,7 +100,7 @@ const SCRIPT = `(function () {
 
 export function signupFormFragments(options: SignupFormOptions): PageFragmentContribution[] {
    return [
-      { kind: 'html', placement: 'body:end', html: formHtml(options), key: 'mailer-signup-form' },
-      { kind: 'inline-script', placement: 'body:end', code: SCRIPT, key: 'mailer-signup-script' },
+      { kind: 'html', placement: 'body:end', html: formHtml(options), key: 'postwren-signup-form' },
+      { kind: 'inline-script', placement: 'body:end', code: SCRIPT, key: 'postwren-signup-script' },
    ];
 }

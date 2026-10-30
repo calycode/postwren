@@ -2,7 +2,7 @@ import {
    MAX_METADATA_KEYS,
    MAX_METADATA_VALUE_LENGTH,
    metadataKeyError,
-} from '@mailer/shared/metadata';
+} from '@postwren/shared/metadata';
 
 export type MetadataRow = { key: string; value: string };
 

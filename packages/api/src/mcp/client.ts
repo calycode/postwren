@@ -42,7 +42,7 @@ export async function callApi(
          method,
          headers: {
             'content-type': 'application/json',
-            'x-mailer-service-token': await signServiceToken(
+            'x-postwren-service-token': await signServiceToken(
                context.env.TOKEN_SECRET,
                context.scopes,
             ),

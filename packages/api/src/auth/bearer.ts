@@ -21,7 +21,7 @@ type ApiKeyRow = {
 };
 
 export function looksLikeApiKey(raw: string): boolean {
-   return raw.startsWith('mlr_');
+   return raw.startsWith('pwr_');
 }
 
 export async function authenticateApiKey(

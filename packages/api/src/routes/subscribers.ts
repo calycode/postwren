@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { ok, paginated } from '@mailer/worker-kit/envelope';
-import { ConflictError, NotFoundError, ValidationError } from '@mailer/worker-kit/errors';
-import { paginationQuery, subscriberInput, subscriberPatch } from '@mailer/shared/contracts';
-import { parseSubscriberCsv } from '@mailer/shared/csv';
-import { MAX_METADATA_KEYS, mergeMetadata } from '@mailer/shared/metadata';
-import type { MetadataRecord } from '@mailer/shared/metadata';
+import { ok, paginated } from '@postwren/worker-kit/envelope';
+import { ConflictError, NotFoundError, ValidationError } from '@postwren/worker-kit/errors';
+import { paginationQuery, subscriberInput, subscriberPatch } from '@postwren/shared/contracts';
+import { parseSubscriberCsv } from '@postwren/shared/csv';
+import { MAX_METADATA_KEYS, mergeMetadata } from '@postwren/shared/metadata';
+import type { MetadataRecord } from '@postwren/shared/metadata';
 import type { AppEnv } from '../env';
 import { decodeKeysetCursor, encodeKeysetCursor } from '../lib/cursor';
 import { isUniqueViolation, likePattern, readJson } from '../lib/validation';

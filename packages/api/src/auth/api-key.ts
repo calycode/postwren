@@ -1,8 +1,8 @@
-import { createId, randomToken, sha256Hex } from '@mailer/worker-kit/ids';
+import { createId, randomToken, sha256Hex } from '@postwren/worker-kit/ids';
 
-export const API_KEY_PREFIX = 'mlr_';
+export const API_KEY_PREFIX = 'pwr_';
 
-const KEY_PATTERN = /^mlr_([a-z0-9]{6,32})_([A-Za-z0-9_-]{20,})$/;
+const KEY_PATTERN = /^pwr_([a-z0-9]{6,32})_([A-Za-z0-9_-]{20,})$/;
 
 export type ParsedApiKey = { prefix: string; secret: string };
 

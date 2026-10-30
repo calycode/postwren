@@ -9,7 +9,7 @@ import {
    SelectTrigger,
    SelectValue,
    Skeleton,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import type { SenderAddress } from '@/lib/api/types';
 
 export type SenderSelectProps = {

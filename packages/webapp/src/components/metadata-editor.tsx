@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { Button, Input } from '@mailer/ui';
-import { MAX_METADATA_KEYS, MAX_METADATA_VALUE_LENGTH } from '@mailer/shared/metadata';
+import { Button, Input } from '@postwren/ui';
+import { MAX_METADATA_KEYS, MAX_METADATA_VALUE_LENGTH } from '@postwren/shared/metadata';
 import type { MetadataRow } from '@/lib/metadata';
 import { validateMetadataRows } from '@/lib/metadata';
 

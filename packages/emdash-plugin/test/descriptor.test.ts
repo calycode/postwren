@@ -2,39 +2,36 @@ import type { SettingsAccess } from 'emdash';
 import { describe, expect, it } from 'vitest';
 import {
    SETTINGS_SCHEMA,
-   mailerPlugin,
+   postwrenPlugin,
    normaliseWorkerUrl,
    parseTags,
    readSettings,
 } from '../src/index';
 
-describe('mailerPlugin', () => {
+describe('postwrenPlugin', () => {
    it('describes a native plugin that EmDash can load from its entrypoint', () => {
-      const descriptor = mailerPlugin({ workerUrl: 'https://mail.example.com/' });
+      const descriptor = postwrenPlugin({ workerUrl: 'https://mail.example.com/' });
 
-      expect(descriptor.id).toBe('mailer');
+      expect(descriptor.id).toBe('postwren');
       expect(descriptor.format).toBe('native');
-      expect(descriptor.entrypoint).toBe('@mailer/emdash/plugin');
+      expect(descriptor.entrypoint).toBe('@postwren/emdash/plugin');
       expect(descriptor.version).toMatch(/^\d+\.\d+\.\d+/);
    });
 
    it('asks only for the network and page-fragment capabilities', () => {
-      const descriptor = mailerPlugin({ workerUrl: 'https://mail.example.com' });
+      const descriptor = postwrenPlugin({ workerUrl: 'https://mail.example.com' });
 
-      expect(descriptor.capabilities).toEqual([
-         'network:request',
-         'hooks.page-fragments:register',
-      ]);
+      expect(descriptor.capabilities).toEqual(['network:request', 'hooks.page-fragments:register']);
    });
 
    it('restricts network access to the Worker host', () => {
-      const descriptor = mailerPlugin({ workerUrl: 'https://mail.example.com' });
+      const descriptor = postwrenPlugin({ workerUrl: 'https://mail.example.com' });
 
       expect(descriptor.allowedHosts).toEqual(['mail.example.com']);
    });
 
    it('registers settings and no admin page, so EmDash renders the form itself', () => {
-      const descriptor = mailerPlugin({ workerUrl: 'https://mail.example.com' });
+      const descriptor = postwrenPlugin({ workerUrl: 'https://mail.example.com' });
 
       expect(Object.keys(descriptor.settingsSchema ?? {})).toEqual([
          'workerUrl',
@@ -58,9 +55,11 @@ describe('mailerPlugin', () => {
    });
 
    it('refuses a missing or non-http worker URL', () => {
-      expect(() => mailerPlugin({ workerUrl: '   ' })).toThrow(/requires a workerUrl/);
-      expect(() => mailerPlugin({ workerUrl: 'not a url' })).toThrow(/invalid workerUrl/);
-      expect(() => mailerPlugin({ workerUrl: 'ftp://mail.example.com' })).toThrow(/http or https/);
+      expect(() => postwrenPlugin({ workerUrl: '   ' })).toThrow(/requires a workerUrl/);
+      expect(() => postwrenPlugin({ workerUrl: 'not a url' })).toThrow(/invalid workerUrl/);
+      expect(() => postwrenPlugin({ workerUrl: 'ftp://mail.example.com' })).toThrow(
+         /http or https/,
+      );
    });
 });
 

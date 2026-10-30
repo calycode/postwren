@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { ZodError } from 'zod';
-import { sha256Hex } from '@mailer/worker-kit/ids';
-import { fail, ok } from '@mailer/worker-kit/envelope';
-import { isAppError } from '@mailer/worker-kit/errors';
-import { RATE_LIMITS, publicSubscribeInput } from '@mailer/shared/contracts';
+import { sha256Hex } from '@postwren/worker-kit/ids';
+import { fail, ok } from '@postwren/worker-kit/envelope';
+import { isAppError } from '@postwren/worker-kit/errors';
+import { RATE_LIMITS, publicSubscribeInput } from '@postwren/shared/contracts';
 import type { AppEnv } from '../env';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { readJson } from '../lib/validation';
@@ -83,9 +83,7 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
 
    const secret = subscribeSecret(c);
    if (secret.length === 0) {
-      return reply(
-         fail(401, 'unauthorized', 'A subscribe key is required', undefined, requestId),
-      );
+      return reply(fail(401, 'unauthorized', 'A subscribe key is required', undefined, requestId));
    }
 
    const key = await findKey(c.env.DB, secret);

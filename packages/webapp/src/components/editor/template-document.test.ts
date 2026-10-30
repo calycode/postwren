@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument } from '@mailer/email/ir';
+import { createDocument } from '@postwren/email/ir';
 import type { Template } from '@/lib/api/types';
 import { parseTemplateDocument } from './template-document';
 

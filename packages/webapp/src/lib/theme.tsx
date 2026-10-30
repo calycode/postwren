@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 export type ThemeMode = 'light' | 'dark' | 'system';
 type ResolvedTheme = 'light' | 'dark';
 
-export const THEME_STORAGE_KEY = 'mailer-theme';
+export const THEME_STORAGE_KEY = 'postwren-theme';
 
 type ThemeContextValue = {
    mode: ThemeMode;

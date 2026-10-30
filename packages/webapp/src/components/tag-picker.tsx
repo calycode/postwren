@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { Input } from '@mailer/ui';
+import { Input } from '@postwren/ui';
 import { autocomplete as autocompleteTags } from '@/lib/api/tags';
 import type { Tag } from '@/lib/api/types';
 import { errorMessage } from '@/lib/form-errors';

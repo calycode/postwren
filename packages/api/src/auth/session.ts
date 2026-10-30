@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { sha256Hex, randomToken } from '@mailer/worker-kit/ids';
+import { sha256Hex, randomToken } from '@postwren/worker-kit/ids';
 import type { Env, AppEnv } from '../env';
 import { nowSeconds } from '../lib/time';
 

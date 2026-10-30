@@ -1,6 +1,7 @@
 # Brand proposal
 
-Status: proposal, not yet applied to code. Naming checks run on 2026-10-30.
+Status: applied to the workspace, Worker names, API key prefix and EmDash plugin. Naming checks run
+on 2026-10-30; remote and npm release steps live in `docs/RELEASING.md`.
 
 ## The name
 
@@ -54,14 +55,14 @@ Example lines:
 
 ## Naming architecture
 
-| Thing | Name |
-| --- | --- |
-| Product | Postwren |
-| Packages | `@postwren/email`, `@postwren/editor`, `@postwren/ui`, `@postwren/webapp`, `@postwren/api`, `@postwren/shared`, `@postwren/worker-kit`, `@postwren/emdash` |
-| CLI | `postwren` |
-| Worker names | `postwren`, `postwren-dev` |
-| EmDash plugin | id `postwren`, package `@postwren/emdash` |
-| Domains | `postwren.email` (primary), `postwren.dev`, `postwren.io`, `postwren.so` |
+| Thing         | Name                                                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product       | Postwren                                                                                                                                                   |
+| Packages      | `@postwren/email`, `@postwren/editor`, `@postwren/ui`, `@postwren/webapp`, `@postwren/api`, `@postwren/shared`, `@postwren/worker-kit`, `@postwren/emdash` |
+| CLI           | `postwren`                                                                                                                                                 |
+| Worker names  | `postwren`, `postwren-dev`                                                                                                                                 |
+| EmDash plugin | id `postwren`, package `@postwren/emdash`                                                                                                                  |
+| Domains       | `postwren.email` (primary), `postwren.dev`, `postwren.io`, `postwren.so`                                                                                   |
 
 Do **not** rename the database tables, migration filenames, environment variables (`APP_URL`,
 `EMAIL_FROM`, `SESSION_SECRET`, `TOKEN_SECRET`) or the `/api/public`, `/mcp`, `/oauth` paths. The
@@ -69,16 +70,16 @@ brand is a presentation layer; the wire and data contracts stay stable.
 
 ## Availability snapshot (2026-10-30)
 
-| Check | Result |
-| --- | --- |
-| `postwren.email` | unregistered |
-| `postwren.dev` | unregistered |
-| `postwren.io` | unregistered |
-| `postwren.so` | unregistered |
-| `postwren.com` | registered |
-| npm `postwren`, `@postwren/*` | unclaimed |
-| GitHub org `postwren` | unclaimed |
-| Direct email product | none found |
+| Check                         | Result       |
+| ----------------------------- | ------------ |
+| `postwren.email`              | unregistered |
+| `postwren.dev`                | unregistered |
+| `postwren.io`                 | unregistered |
+| `postwren.so`                 | unregistered |
+| `postwren.com`                | registered   |
+| npm `postwren`, `@postwren/*` | unclaimed    |
+| GitHub org `postwren`         | unclaimed    |
+| Direct email product          | none found   |
 
 Caveats: availability is a point-in-time snapshot, not trademark clearance. Search results are
 currently polluted by a Base token called `$POSTWREN` and by example copy on unrelated sites, so the
@@ -87,25 +88,25 @@ search before spending on a logo or a paid domain.
 
 ## Names considered and rejected
 
-| Name | Why not |
-| --- | --- |
-| Posthorn | A self-hosted email gateway already uses this exact name and the post-rider horn story. |
-| Handbill | An existing advertising app and an existing Cloudflare Worker tool use it. |
-| Crier | `crier.audio` is a newsletter audio product. |
-| Peal | Multiple companies (Peal Systems, Peal payments, Peal alarm app). |
-| Bindery | A newsletter-to-book product already owns the newsletter adjacency. |
-| Galley | A culinary software company owns the name. |
-| Stentor | An existing self-hosted email delivery platform uses it. |
-| Soloist | An existing publishing/newsletter platform uses it. |
-| Postmark, Postbox, Posthorn, Mailcoach, Missive, Estafette | Direct or near-direct email/product collisions. |
+| Name                                                       | Why not                                                                                 |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Posthorn                                                   | A self-hosted email gateway already uses this exact name and the post-rider horn story. |
+| Handbill                                                   | An existing advertising app and an existing Cloudflare Worker tool use it.              |
+| Crier                                                      | `crier.audio` is a newsletter audio product.                                            |
+| Peal                                                       | Multiple companies (Peal Systems, Peal payments, Peal alarm app).                       |
+| Bindery                                                    | A newsletter-to-book product already owns the newsletter adjacency.                     |
+| Galley                                                     | A culinary software company owns the name.                                              |
+| Stentor                                                    | An existing self-hosted email delivery platform uses it.                                |
+| Soloist                                                    | An existing publishing/newsletter platform uses it.                                     |
+| Postmark, Postbox, Posthorn, Mailcoach, Missive, Estafette | Direct or near-direct email/product collisions.                                         |
 
 ## Rename plan
 
 Do it in this order, one commit per step, tests green after each.
 
-1. **Brand only.** Add this file, change the README title and one-liner, keep `@mailer/*` and the
+1. **Brand only.** Add this file, change the README title and one-liner, keep `@postwren/*` and the
    Worker names. Zero risk.
-2. **Workspace rename.** `@mailer/*` -> `@postwren/*` across `package.json`, imports, tsconfig paths,
+2. **Workspace rename.** `@postwren/*` -> `@postwren/*` across `package.json`, imports, tsconfig paths,
    turbo filters and test aliases; root package name `postwren`; update `pnpm-lock.yaml`. Mechanical,
    no behaviour change.
 3. **Infrastructure names.** `wrangler.jsonc` Worker name, D1 database, R2 bucket, queue names. Safe

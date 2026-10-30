@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Spacing } from '@mailer/email/ir';
+import type { Spacing } from '@postwren/email/ir';
 import {
    Input,
    Label,
@@ -8,7 +8,7 @@ import {
    SelectItem,
    SelectTrigger,
    SelectValue,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import type { FieldOption } from '../lib/block-schema';
 import { clampNumber, isHexColor, parseNumber } from '../lib/controls';
 

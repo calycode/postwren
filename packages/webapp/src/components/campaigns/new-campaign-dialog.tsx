@@ -11,7 +11,7 @@ import {
    DialogFooter,
    DialogHeader,
    DialogTitle,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { ApiError } from '@/lib/api/client';
 import { create as createCampaign } from '@/lib/api/campaigns';
 import { errorMessage, fieldErrorsFrom } from '@/lib/form-errors';

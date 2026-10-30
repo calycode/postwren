@@ -14,7 +14,7 @@ import {
    Field,
    Input,
    Separator,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { API_BASE_URL, ApiError } from '@/lib/api/client';

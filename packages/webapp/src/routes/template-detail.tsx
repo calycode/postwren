@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useRoute } from 'preact-iso';
 import { ArrowLeft, FileText } from 'lucide-react';
-import { documentIssues } from '@mailer/email/ir';
-import type { Document } from '@mailer/email/ir';
-import { EmailEditor } from '@mailer/editor';
+import { documentIssues } from '@postwren/email/ir';
+import type { Document } from '@postwren/email/ir';
+import { EmailEditor } from '@postwren/editor';
 import {
    Alert,
    AlertDescription,
@@ -12,7 +12,7 @@ import {
    EmptyState,
    Skeleton,
    buttonVariants,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EditorHeader } from '@/components/editor/editor-header';
 import { EmailPreviewDialog } from '@/components/editor/preview-dialog';

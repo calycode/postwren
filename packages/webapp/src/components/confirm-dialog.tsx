@@ -8,7 +8,7 @@ import {
    DialogFooter,
    DialogHeader,
    DialogTitle,
-} from '@mailer/ui';
+} from '@postwren/ui';
 
 type ConfirmDialogProps = {
    open: boolean;

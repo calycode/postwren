@@ -1,4 +1,4 @@
-import type { BadgeVariants } from '@mailer/ui';
+import type { BadgeVariants } from '@postwren/ui';
 import type { CampaignStatus } from '@/lib/api/types';
 
 export type CampaignBadgeVariant = NonNullable<BadgeVariants['variant']>;

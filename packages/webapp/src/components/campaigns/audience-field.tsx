@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { Field, Input } from '@mailer/ui';
+import { Field, Input } from '@postwren/ui';
 import { TagPicker } from '@/components/tag-picker';
 import type { Tag } from '@/lib/api/types';
 import { formatNumber } from '@/lib/format';

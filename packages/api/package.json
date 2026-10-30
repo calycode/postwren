@@ -1,5 +1,5 @@
 {
-   "name": "@mailer/api",
+   "name": "@postwren/api",
    "version": "0.1.0",
    "private": true,
    "type": "module",
@@ -11,9 +11,9 @@
    },
    "dependencies": {
       "@cloudflare/workers-oauth-provider": "^1.2.4",
-      "@mailer/email": "workspace:*",
-      "@mailer/shared": "workspace:*",
-      "@mailer/worker-kit": "workspace:*",
+      "@postwren/email": "workspace:*",
+      "@postwren/shared": "workspace:*",
+      "@postwren/worker-kit": "workspace:*",
       "hono": "^4.13.14",
       "zod": "^3.25.76"
    },

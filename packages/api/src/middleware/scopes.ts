@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import { AppError } from '@mailer/worker-kit/errors';
+import { AppError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { hasScope, requiredScope } from '../auth/scopes';
 

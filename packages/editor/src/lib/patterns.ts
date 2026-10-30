@@ -1,4 +1,4 @@
-import type { Block, ColumnsBlock, HeadingBlock, TextBlock } from '@mailer/email/ir';
+import type { Block, ColumnsBlock, HeadingBlock, TextBlock } from '@postwren/email/ir';
 import {
    createAvatarBlock,
    createHeadingBlock,
@@ -7,7 +7,7 @@ import {
    createListBlock,
    createQuoteBlock,
    createTextBlock,
-} from '@mailer/email/ir';
+} from '@postwren/email/ir';
 
 export type BlockPattern = {
    id: string;

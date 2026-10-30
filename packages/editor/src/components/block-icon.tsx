@@ -1,4 +1,4 @@
-import type { BlockType } from '@mailer/email/ir';
+import type { BlockType } from '@postwren/email/ir';
 import {
    Code,
    Columns2,

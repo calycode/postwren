@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import { deriveRequestId, clientIp } from '@mailer/worker-kit/request';
+import { deriveRequestId, clientIp } from '@postwren/worker-kit/request';
 import type { AppEnv } from '../env';
 
 export const requestContext: MiddlewareHandler<AppEnv> = async (c, next) => {

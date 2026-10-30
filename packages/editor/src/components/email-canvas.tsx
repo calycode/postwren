@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, cn } from '@mailer/ui';
+import { Button, cn } from '@postwren/ui';
 import { ArrowDown, ArrowUp, Copy, Trash } from 'lucide-react';
 import { VIEWPORT_WIDTH } from '../lib/viewport';
 import type { Viewport } from '../lib/viewport';
 
-const STYLE_ID = 'mailer-editor-canvas-style';
+const STYLE_ID = 'postwren-editor-canvas-style';
 const MAX_CANVAS_HEIGHT = 2000;
 const TOOLBAR_WIDTH = 180;
 const TOOLBAR_HEIGHT = 36;
@@ -180,13 +180,13 @@ export function EmailCanvas({
       if (!frameDoc) return;
       const elements = frameDoc.querySelectorAll('[data-block-id]');
       for (const element of elements) {
-         element.removeAttribute('data-mailer-selected');
+         element.removeAttribute('data-postwren-selected');
       }
 
       const id = selectedIdRef.current;
       if (!id) return;
       const selected = findBlockElement(frameDoc, id);
-      selected?.setAttribute('data-mailer-selected', 'true');
+      selected?.setAttribute('data-postwren-selected', 'true');
    }
 
    function handleHistoryKeyDown(event: KeyboardEvent): boolean {
@@ -254,7 +254,7 @@ export function EmailCanvas({
          style.textContent = [
             '[data-block-id]{cursor:pointer;}',
             '[data-block-id]:hover{outline:1px dashed #94a3b8 !important;outline-offset:-1px;}',
-            '[data-block-id][data-mailer-selected]{outline:2px solid #0f766e !important;outline-offset:-2px;}',
+            '[data-block-id][data-postwren-selected]{outline:2px solid #0f766e !important;outline-offset:-2px;}',
          ].join('');
          frameDoc.head.appendChild(style);
       }

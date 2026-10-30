@@ -549,12 +549,12 @@ export const TOOLS: ToolDescriptor[] = [
       name: 'create_template',
       title: 'Create template',
       description:
-         'Create a template from an IR document. The document must be a valid mailer IR object.',
+         'Create a template from an IR document. The document must be a valid email IR object.',
       inputSchema: object(
          {
             name: str('Template name'),
             subject: str('Default subject line'),
-            irJson: { type: 'object', description: 'Mailer IR document' },
+            irJson: { type: 'object', description: 'Email IR document' },
          },
          ['name', 'subject', 'irJson'],
       ),
@@ -583,7 +583,7 @@ export const TOOLS: ToolDescriptor[] = [
             id: ID,
             name: str('Template name'),
             subject: str('Default subject line'),
-            irJson: { type: 'object', description: 'Mailer IR document' },
+            irJson: { type: 'object', description: 'Email IR document' },
             bumpRevision: bool('Whether to increment the template revision'),
          },
          ['id'],

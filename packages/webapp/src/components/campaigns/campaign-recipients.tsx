@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
-import { Alert, AlertDescription, Badge, Button } from '@mailer/ui';
+import { Alert, AlertDescription, Badge, Button } from '@postwren/ui';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';
 import { recipients as listRecipients } from '@/lib/api/campaigns';

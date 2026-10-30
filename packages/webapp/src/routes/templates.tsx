@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'preact-iso';
 import { Copy, FileText, Plus, Search, Trash2 } from 'lucide-react';
-import { Alert, AlertDescription, Badge, Button, Input } from '@mailer/ui';
-import { createDocument } from '@mailer/email/ir';
+import { Alert, AlertDescription, Badge, Button, Input } from '@postwren/ui';
+import { createDocument } from '@postwren/email/ir';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';

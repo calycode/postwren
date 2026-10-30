@@ -1,6 +1,6 @@
 {
    "$schema": "node_modules/wrangler/config-schema.json",
-   "name": "mailer-cloudflare",
+   "name": "postwren",
    "main": "packages/api/src/index.ts",
    "compatibility_date": "2026-09-01",
    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -8,19 +8,27 @@
       "directory": "packages/webapp/dist/client",
       "binding": "ASSETS",
       "not_found_handling": "single-page-application",
-      "run_worker_first": ["/api/*", "/t/*", "/u/*", "/media/*", "/mcp", "/oauth/*", "/.well-known/*"],
+      "run_worker_first": [
+         "/api/*",
+         "/t/*",
+         "/u/*",
+         "/media/*",
+         "/mcp",
+         "/oauth/*",
+         "/.well-known/*",
+      ],
    },
    "d1_databases": [
       {
          "binding": "DB",
-         "database_name": "mailer-cloudflare",
+         "database_name": "postwren",
          "migrations_dir": "migrations",
       },
    ],
    "r2_buckets": [
       {
          "binding": "MEDIA",
-         "bucket_name": "mailer-cloudflare-media",
+         "bucket_name": "postwren-media",
       },
    ],
    "kv_namespaces": [
@@ -30,14 +38,14 @@
       },
    ],
    "queues": {
-      "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "mailer-campaigns" }],
+      "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "postwren-campaigns" }],
       "consumers": [
          {
-            "queue": "mailer-campaigns",
+            "queue": "postwren-campaigns",
             "max_batch_size": 100,
             "max_batch_timeout": 10,
             "max_retries": 5,
-            "dead_letter_queue": "mailer-campaigns-dlq",
+            "dead_letter_queue": "postwren-campaigns-dlq",
          },
       ],
    },
@@ -49,9 +57,9 @@
       "enabled": true,
    },
    "vars": {
-      "APP_URL": "https://mailer.example.com",
+      "APP_URL": "https://postwren.example.com",
       "ENVIRONMENT": "production",
-      "EMAIL_FROM": "noreply@mailer.example.com",
+      "EMAIL_FROM": "noreply@postwren.example.com",
       "OWNER_EMAIL": "",
    },
 }

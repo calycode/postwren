@@ -12,7 +12,7 @@ import {
    CardTitle,
    Field,
    Input,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { requestMagicLink, verify } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
@@ -133,7 +133,9 @@ export function Login() {
                      aria-hidden="true"
                   />
                </div>
-               <CardTitle>{phase === 'sent' ? 'Check your email' : 'Sign in to Mailer'}</CardTitle>
+               <CardTitle>
+                  {phase === 'sent' ? 'Check your email' : 'Sign in to Postwren'}
+               </CardTitle>
                <CardDescription>
                   {phase === 'sent'
                      ? `We sent a sign-in link to ${email.trim()}. Open it to continue.`

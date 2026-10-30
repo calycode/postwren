@@ -12,7 +12,7 @@ import {
    TableHead,
    TableHeader,
    TableRow,
-} from '@mailer/ui';
+} from '@postwren/ui';
 
 export type DataTableColumn<Row> = {
    id: string;

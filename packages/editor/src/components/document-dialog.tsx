@@ -1,4 +1,4 @@
-import type { Document, DocumentSettings } from '@mailer/email/ir';
+import type { Document, DocumentSettings } from '@postwren/email/ir';
 import {
    Badge,
    Dialog,
@@ -7,7 +7,7 @@ import {
    DialogTitle,
    Field,
    Textarea,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { FONT_FAMILY_OPTIONS } from '../lib/block-schema';
 import { updateSettings } from '../lib/document-ops';
 import { HexInput, OptionSelect } from './field-controls';

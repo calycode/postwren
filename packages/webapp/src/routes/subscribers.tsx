@@ -29,7 +29,7 @@ import {
    SelectItem,
    SelectTrigger,
    SelectValue,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';

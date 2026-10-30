@@ -1,11 +1,11 @@
-import { signToken } from '@mailer/shared/tokens';
+import { signToken } from '@postwren/shared/tokens';
 import type { Env, CampaignJob } from '../env';
-import { parseDocument } from '@mailer/email/ir';
-import type { Block, Document } from '@mailer/email/ir';
-import { renderEmail } from '@mailer/email/render';
-import { applyMergeTags } from '@mailer/email/template';
-import type { MergeContext } from '@mailer/email/template';
-import { parseMetadataJson } from '@mailer/shared/metadata';
+import { parseDocument } from '@postwren/email/ir';
+import type { Block, Document } from '@postwren/email/ir';
+import { renderEmail } from '@postwren/email/render';
+import { applyMergeTags } from '@postwren/email/template';
+import type { MergeContext } from '@postwren/email/template';
+import { parseMetadataJson } from '@postwren/shared/metadata';
 import type { CampaignRow, MailSubscriberRow } from '../lib/rows';
 import { createCloudflareAdapter, errorCodeOf } from '../adapters/email';
 import { nowSeconds } from '../lib/time';

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { fail, ok } from '@mailer/worker-kit/envelope';
+import { fail, ok } from '@postwren/worker-kit/envelope';
 import type { AppEnv, Env } from './env';
 import { requestContext } from './middleware/context';
 import { onErrorHandler } from './middleware/error';

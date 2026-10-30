@@ -1,6 +1,6 @@
 {
    "$schema": "node_modules/wrangler/config-schema.json",
-   "name": "mailer-cloudflare-dev",
+   "name": "postwren-dev",
    "main": "packages/api/src/index.ts",
    "compatibility_date": "2026-09-01",
    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -8,12 +8,20 @@
       "directory": "packages/webapp/dist/client",
       "binding": "ASSETS",
       "not_found_handling": "single-page-application",
-      "run_worker_first": ["/api/*", "/t/*", "/u/*", "/media/*", "/mcp", "/oauth/*", "/.well-known/*"],
+      "run_worker_first": [
+         "/api/*",
+         "/t/*",
+         "/u/*",
+         "/media/*",
+         "/mcp",
+         "/oauth/*",
+         "/.well-known/*",
+      ],
    },
    "d1_databases": [
       {
          "binding": "DB",
-         "database_name": "mailer-cloudflare-dev",
+         "database_name": "postwren-dev",
          "database_id": "00000000-0000-0000-0000-000000000000",
          "migrations_dir": "migrations",
       },
@@ -21,7 +29,7 @@
    "r2_buckets": [
       {
          "binding": "MEDIA",
-         "bucket_name": "mailer-cloudflare-media-dev",
+         "bucket_name": "postwren-media-dev",
       },
    ],
    "kv_namespaces": [
@@ -31,14 +39,14 @@
       },
    ],
    "queues": {
-      "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "mailer-campaigns-dev" }],
+      "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "postwren-campaigns-dev" }],
       "consumers": [
          {
-            "queue": "mailer-campaigns-dev",
+            "queue": "postwren-campaigns-dev",
             "max_batch_size": 100,
             "max_batch_timeout": 5,
             "max_retries": 3,
-            "dead_letter_queue": "mailer-campaigns-dev-dlq",
+            "dead_letter_queue": "postwren-campaigns-dev-dlq",
          },
       ],
    },

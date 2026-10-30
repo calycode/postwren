@@ -1,5 +1,5 @@
 import { ArrowLeft, Copy, Eye, Save, Trash2 } from 'lucide-react';
-import { Badge, Button, Input, Label, buttonVariants, cn } from '@mailer/ui';
+import { Badge, Button, Input, Label, buttonVariants, cn } from '@postwren/ui';
 
 export type EditorHeaderProps = {
    name: string;

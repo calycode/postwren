@@ -1,4 +1,4 @@
-import type { MergeContext } from '@mailer/email/template';
+import type { MergeContext } from '@postwren/email/template';
 
 export const SAMPLE_UNSUBSCRIBE_URL = 'https://example.com/unsubscribe';
 

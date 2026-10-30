@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createId } from '@mailer/worker-kit/ids';
-import { ok } from '@mailer/worker-kit/envelope';
-import { AppError, NotFoundError } from '@mailer/worker-kit/errors';
+import { createId } from '@postwren/worker-kit/ids';
+import { ok } from '@postwren/worker-kit/envelope';
+import { AppError, NotFoundError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';

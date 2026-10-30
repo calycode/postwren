@@ -7,8 +7,8 @@ import type {
    HeadingBlock,
    SectionBlock,
    TextBlock,
-} from '@mailer/email/ir';
-import { defaultSettings, documentIssues } from '@mailer/email/ir';
+} from '@postwren/email/ir';
+import { defaultSettings, documentIssues } from '@postwren/email/ir';
 import {
    blockLabel,
    duplicateBlock,

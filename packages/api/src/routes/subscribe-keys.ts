@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { createId, randomToken, sha256Hex } from '@mailer/worker-kit/ids';
-import { ok } from '@mailer/worker-kit/envelope';
-import { NotFoundError } from '@mailer/worker-kit/errors';
-import { subscribeKeyInput } from '@mailer/shared/contracts';
+import { createId, randomToken, sha256Hex } from '@postwren/worker-kit/ids';
+import { ok } from '@postwren/worker-kit/envelope';
+import { NotFoundError } from '@postwren/worker-kit/errors';
+import { subscribeKeyInput } from '@postwren/shared/contracts';
 import type { AppEnv } from '../env';
 import { readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';

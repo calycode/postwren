@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
-import { UnauthorizedError, AppError } from '@mailer/worker-kit/errors';
-import { timingSafeEqual } from '@mailer/worker-kit/http';
+import { UnauthorizedError, AppError } from '@postwren/worker-kit/errors';
+import { timingSafeEqual } from '@postwren/worker-kit/http';
 import type { AppEnv } from '../env';
 import { CSRF_COOKIE, SESSION_COOKIE, findSessionUser } from '../auth/session';
 import { authenticateApiKey } from '../auth/bearer';

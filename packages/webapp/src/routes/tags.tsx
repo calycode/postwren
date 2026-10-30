@@ -15,7 +15,7 @@ import {
    DialogTitle,
    Field,
    Input,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';
 import { ConfirmDialog } from '@/components/confirm-dialog';

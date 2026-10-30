@@ -4,4 +4,5 @@ dist
 .wrangler
 .dev.vars
 *.local
+artifacts
 .DS_Store

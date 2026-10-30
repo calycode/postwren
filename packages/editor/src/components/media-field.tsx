@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Button, Field, Input } from '@mailer/ui';
+import { Button, Field, Input } from '@postwren/ui';
 import { Upload } from 'lucide-react';
 import { imageSrcIssue } from '../lib/controls';
 import type { ImageUploader } from '../lib/media';

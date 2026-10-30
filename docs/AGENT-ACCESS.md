@@ -1,6 +1,6 @@
 # Agent access
 
-Machine clients can drive this mailer in three ways:
+Machine clients can drive Postwren in three ways:
 
 1. **Scoped API keys** — a secret you paste into another project. Best for scripts, CI and server-to-server integrations.
 2. **OAuth 2.1** — Cloudflare's `@cloudflare/workers-oauth-provider` gives MCP hosts such as ChatGPT connectors or Claude-style clients their own short-lived tokens through a browser consent flow, DCR or CIMD.
@@ -61,7 +61,7 @@ curl -X POST http://localhost:8787/api/v1/settings/api-keys \
       "last_used_at": null,
       "expires_at": null,
       "revoked_at": null,
-      "key": "mlr_01j9xk2m4p_..."
+      "key": "pwr_01j9xk2m4p_..."
    },
    "error": null
 }
@@ -89,55 +89,55 @@ Revocation is immediate. `last_used_at` updates on every authenticated request.
 Send the secret as a bearer token. Bearer requests do **not** need a CSRF token.
 
 ```sh
-export MAILER_KEY=mlr_01j9xk2m4p_...
-export MAILER_URL=http://localhost:8787
+export POSTWREN_KEY=pwr_01j9xk2m4p_...
+export POSTWREN_URL=http://localhost:8787
 ```
 
 #### Subscribers
 
 ```sh
 # list, newest first
-curl "$MAILER_URL/api/v1/subscribers?limit=25" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/subscribers?limit=25" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
 # search and filter by tag
-curl "$MAILER_URL/api/v1/subscribers?q=ada&tag=news" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/subscribers?q=ada&tag=news" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
 # read one subscriber (and their tags)
-curl "$MAILER_URL/api/v1/subscribers/sub_..." \
-  -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/subscribers/sub_..." \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
 # create
-curl -X POST "$MAILER_URL/api/v1/subscribers" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/api/v1/subscribers" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"email":"ada@example.com","firstName":"Ada","lastName":"Lovelace"}'
 
 # update
-curl -X PATCH "$MAILER_URL/api/v1/subscribers/sub_..." \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X PATCH "$POSTWREN_URL/api/v1/subscribers/sub_..." \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"lastName":"King"}'
 
 # bulk tag
-curl -X POST "$MAILER_URL/api/v1/subscribers/bulk-tags" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/api/v1/subscribers/bulk-tags" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"subscriberIds":["sub_a","sub_b"],"add":["customers"],"remove":["trial"]}'
 
 # delete (soft delete + suppression)
-curl -X DELETE "$MAILER_URL/api/v1/subscribers/sub_..." \
-  -H "authorization: Bearer $MAILER_KEY"
+curl -X DELETE "$POSTWREN_URL/api/v1/subscribers/sub_..." \
+  -H "authorization: Bearer $POSTWREN_KEY"
 ```
 
 #### Tags
 
 ```sh
-curl "$MAILER_URL/api/v1/tags" -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/tags" -H "authorization: Bearer $POSTWREN_KEY"
 
-curl -X POST "$MAILER_URL/api/v1/tags" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/api/v1/tags" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"name":"newsletter"}'
 ```
@@ -145,15 +145,15 @@ curl -X POST "$MAILER_URL/api/v1/tags" \
 #### Campaigns
 
 ```sh
-curl "$MAILER_URL/api/v1/campaigns" -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/campaigns" -H "authorization: Bearer $POSTWREN_KEY"
 
 # count an audience before sending
-curl "$MAILER_URL/api/v1/audience/preview?q=tag:newsletter%20-tag:internal" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/audience/preview?q=tag:newsletter%20-tag:internal" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
 # create a draft (requires campaigns:write)
-curl -X POST "$MAILER_URL/api/v1/campaigns" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/api/v1/campaigns" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{
     "name": "October newsletter",
@@ -165,29 +165,29 @@ curl -X POST "$MAILER_URL/api/v1/campaigns" \
   }'
 
 # arm and send (requires send:write)
-curl -X POST "$MAILER_URL/api/v1/campaigns/cmp_.../send-now" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl -X POST "$POSTWREN_URL/api/v1/campaigns/cmp_.../send-now" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
-curl -X POST "$MAILER_URL/api/v1/campaigns/cmp_.../pause" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl -X POST "$POSTWREN_URL/api/v1/campaigns/cmp_.../pause" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
-curl -X POST "$MAILER_URL/api/v1/campaigns/cmp_.../resume" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl -X POST "$POSTWREN_URL/api/v1/campaigns/cmp_.../resume" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 
-curl "$MAILER_URL/api/v1/campaigns/cmp_.../stats" \
-  -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/campaigns/cmp_.../stats" \
+  -H "authorization: Bearer $POSTWREN_KEY"
 ```
 
 #### Templates
 
 ```sh
-curl "$MAILER_URL/api/v1/templates" -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/templates" -H "authorization: Bearer $POSTWREN_KEY"
 
-curl "$MAILER_URL/api/v1/templates/tpl_..." -H "authorization: Bearer $MAILER_KEY"
+curl "$POSTWREN_URL/api/v1/templates/tpl_..." -H "authorization: Bearer $POSTWREN_KEY"
 
 # render a preview (templates:read is enough)
-curl -X POST "$MAILER_URL/api/v1/templates/tpl_.../preview" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/api/v1/templates/tpl_.../preview" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"context":true}'
 ```
@@ -197,8 +197,8 @@ curl -X POST "$MAILER_URL/api/v1/templates/tpl_.../preview" \
 `media:write` only. Uploads are multipart form data with a `file` field (PNG, JPEG, GIF or WebP, 5 MB max).
 
 ```sh
-curl -X POST "$MAILER_URL/api/v1/media" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/api/v1/media" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -F "file=@./hero.png"
 ```
 
@@ -240,19 +240,19 @@ The protected-resource metadata URL is derived from the canonical resource path,
 
 ```json
 {
-   "resource": "https://mailer.example.com/mcp",
-   "authorization_servers": ["https://mailer.example.com"],
+   "resource": "https://postwren.example.com/mcp",
+   "authorization_servers": ["https://postwren.example.com"],
    "bearer_methods_supported": ["header"]
 }
 ```
 
 ```json
 {
-   "issuer": "https://mailer.example.com",
-   "authorization_endpoint": "https://mailer.example.com/oauth/authorize",
-   "token_endpoint": "https://mailer.example.com/oauth/token",
-   "registration_endpoint": "https://mailer.example.com/oauth/register",
-   "revocation_endpoint": "https://mailer.example.com/oauth/token",
+   "issuer": "https://postwren.example.com",
+   "authorization_endpoint": "https://postwren.example.com/oauth/authorize",
+   "token_endpoint": "https://postwren.example.com/oauth/token",
+   "registration_endpoint": "https://postwren.example.com/oauth/register",
+   "revocation_endpoint": "https://postwren.example.com/oauth/token",
    "response_types_supported": ["code"],
    "grant_types_supported": ["authorization_code", "refresh_token"],
    "code_challenge_methods_supported": ["S256"],
@@ -342,7 +342,7 @@ Clients that accept a remote MCP URL work the same way: point them at `${APP_URL
 Clients that only support static headers can use an API key instead. API keys are also accepted by `/mcp`, and are the only bearer credential accepted by `/api/v1`:
 
 ```
-Authorization: Bearer mlr_<prefix>_<secret>
+Authorization: Bearer pwr_<prefix>_<secret>
 ```
 
 ---
@@ -352,13 +352,13 @@ Authorization: Bearer mlr_<prefix>_<secret>
 `POST /mcp` speaks stateless Streamable HTTP JSON-RPC 2.0. It supports `initialize`, `notifications/initialized`, `ping`, `tools/list` and `tools/call`, including JSON-RPC batches.
 
 - Protocol version: `2025-06-18` (also accepts `2025-03-26`).
-- Server info: `mailer-cloudflare` `0.1.0`.
+- Server info: `postwren` `0.1.0`.
 - No `Mcp-Session-Id` is issued. There is no server-side session state, so there is nothing to resume; every request is authenticated on its own.
 - No SSE stream. `GET /mcp` returns `405` with `Allow: POST, OPTIONS`.
 - Unauthenticated requests return `401` with:
 
 ```
-WWW-Authenticate: Bearer resource_metadata="https://mailer.example.com/.well-known/oauth-protected-resource/mcp"
+WWW-Authenticate: Bearer resource_metadata="https://postwren.example.com/.well-known/oauth-protected-resource/mcp"
 ```
 
 Every `tools/call` result contains a text content block whose JSON is the same `{ data, error }` envelope as REST. On failure the result also carries `isError: true`. Secrets, hashes and tokens are never included in tool output.
@@ -399,19 +399,19 @@ Every `tools/call` result contains a text content block whose JSON is the same `
 
 ```sh
 # challenge
-curl -i -X POST "$MAILER_URL/mcp" \
+curl -i -X POST "$POSTWREN_URL/mcp" \
   -H "content-type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}'
 
 # with an API key
-curl -X POST "$MAILER_URL/mcp" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/mcp" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 
 # call a tool
-curl -X POST "$MAILER_URL/mcp" \
-  -H "authorization: Bearer $MAILER_KEY" \
+curl -X POST "$POSTWREN_URL/mcp" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
   -H "content-type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"preview_audience","arguments":{"query":"tag:newsletter -tag:internal"}}}'
 ```

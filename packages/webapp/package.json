@@ -1,5 +1,5 @@
 {
-   "name": "@mailer/webapp",
+   "name": "@postwren/webapp",
    "version": "0.1.0",
    "private": true,
    "type": "module",
@@ -11,10 +11,10 @@
       "test": "vitest run"
    },
    "dependencies": {
-      "@mailer/editor": "workspace:*",
-      "@mailer/email": "workspace:*",
-      "@mailer/shared": "workspace:*",
-      "@mailer/ui": "workspace:*",
+      "@postwren/editor": "workspace:*",
+      "@postwren/email": "workspace:*",
+      "@postwren/shared": "workspace:*",
+      "@postwren/ui": "workspace:*",
       "lucide-react": "^1.62.0",
       "preact": "^10.29.7",
       "preact-iso": "^2.12.2"

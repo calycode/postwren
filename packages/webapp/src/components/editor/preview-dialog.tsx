@@ -7,7 +7,7 @@ import {
    TabsContent,
    TabsList,
    TabsTrigger,
-} from '@mailer/ui';
+} from '@postwren/ui';
 
 export type EmailPreviewDialogProps = {
    open: boolean;

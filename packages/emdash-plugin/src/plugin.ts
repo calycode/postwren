@@ -1,7 +1,7 @@
 import { PluginRouteError, definePlugin } from 'emdash';
 import type { PluginContext } from 'emdash';
 import { SETTINGS_SCHEMA, normaliseWorkerUrl, readSettings } from './index';
-import type { MailerPluginOptions } from './index';
+import type { PostwrenPluginOptions } from './index';
 import { signupFormFragments } from './form';
 import { checkConnection, subscribe } from './signup';
 import type { FetchLike, SignupInput, SubscribeSettings } from './signup';
@@ -15,7 +15,7 @@ function fetchFor(ctx: PluginContext): FetchLike {
    if (http === undefined) {
       throw new PluginRouteError(
          'NETWORK_UNAVAILABLE',
-         'The mailer plugin needs the network:request capability.',
+         'The Postwren plugin needs the network:request capability.',
          500,
       );
    }
@@ -25,7 +25,7 @@ function fetchFor(ctx: PluginContext): FetchLike {
 
 function subscribeSettings(
    settings: Awaited<ReturnType<typeof readSettings>>,
-   options: MailerPluginOptions,
+   options: PostwrenPluginOptions,
 ): SubscribeSettings {
    return {
       workerUrl: settings.workerUrl,
@@ -35,8 +35,8 @@ function subscribeSettings(
    };
 }
 
-export function createPlugin(input: MailerPluginOptions) {
-   const options: MailerPluginOptions = {
+export function createPlugin(input: PostwrenPluginOptions) {
+   const options: PostwrenPluginOptions = {
       workerUrl: normaliseWorkerUrl(input.workerUrl),
       defaultTags: input.defaultTags ?? [],
    };
@@ -48,16 +48,16 @@ export function createPlugin(input: MailerPluginOptions) {
       });
 
    return definePlugin({
-      id: 'mailer',
+      id: 'postwren',
       version: '0.1.0',
       capabilities: ['network:request', 'hooks.page-fragments:register'],
       allowedHosts: [new URL(options.workerUrl).host],
       admin: { settingsSchema: SETTINGS_SCHEMA },
       routes: {
-        /**
-         * Public signup. The browser talks to this route so the publishable key stays
-         * on the server and the Worker sees a stable server-to-server request.
-         */
+         /**
+          * Public signup. The browser talks to this route so the publishable key stays
+          * on the server and the Worker sees a stable server-to-server request.
+          */
          signup: {
             public: true,
             methods: ['POST'],

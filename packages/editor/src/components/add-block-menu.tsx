@@ -1,10 +1,10 @@
-import type { BlockType } from '@mailer/email/ir';
+import type { BlockType } from '@postwren/email/ir';
 import {
    DropdownMenu,
    DropdownMenuContent,
    DropdownMenuItem,
    DropdownMenuTrigger,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { Plus, Sparkles } from 'lucide-react';
 import { BLOCK_PATTERNS } from '../lib/patterns';
 import type { BlockPattern } from '../lib/patterns';

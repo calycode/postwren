@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Document } from '@mailer/email/ir';
-import { defaultSettings, parseDocument } from '@mailer/email/ir';
+import type { Document } from '@postwren/email/ir';
+import { defaultSettings, parseDocument } from '@postwren/email/ir';
 import { flattenBlocks } from './document-ops';
 import { BLOCK_PATTERNS } from './patterns';
 

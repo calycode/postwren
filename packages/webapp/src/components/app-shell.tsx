@@ -22,7 +22,7 @@ import {
    DropdownMenuItem,
    DropdownMenuSeparator,
    DropdownMenuTrigger,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 import type { ThemeMode } from '@/lib/theme';
@@ -124,7 +124,7 @@ export function AppShell({ children }: { children: ComponentChildren }) {
    const [mobileOpen, setMobileOpen] = useState(false);
 
    const activeItem = NAV_ITEMS.find((item) => isActive(path, item.href));
-   const pageTitle = activeItem?.label ?? 'Mailer';
+   const pageTitle = activeItem?.label ?? 'Postwren';
    const themeIcon =
       resolved === 'dark' ? (
          <Moon
@@ -179,7 +179,7 @@ export function AppShell({ children }: { children: ComponentChildren }) {
                         aria-hidden="true"
                      />
                   </span>
-                  Mailer
+                  Postwren
                </a>
                <button
                   type="button"

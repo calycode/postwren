@@ -1,6 +1,6 @@
-import type { BlockType, Document } from '@mailer/email/ir';
-import { GMAIL_CLIP_BYTES } from '@mailer/email/render';
-import type { RenderWarning } from '@mailer/email/render';
+import type { BlockType, Document } from '@postwren/email/ir';
+import { GMAIL_CLIP_BYTES } from '@postwren/email/render';
+import type { RenderWarning } from '@postwren/email/render';
 import {
    Badge,
    Button,
@@ -9,7 +9,7 @@ import {
    DropdownMenuItem,
    DropdownMenuTrigger,
    Separator,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { Monitor, Redo2, Settings2, Smartphone, TriangleAlert, Undo2 } from 'lucide-react';
 import { blockLabel, findBlock } from '../lib/document-ops';
 import type { BlockPattern } from '../lib/patterns';

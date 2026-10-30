@@ -6,8 +6,8 @@ import type {
    ConsentDescription,
    OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider';
-import { timingSafeEqual } from '@mailer/worker-kit/http';
-import { AppError } from '@mailer/worker-kit/errors';
+import { timingSafeEqual } from '@postwren/worker-kit/http';
+import { AppError } from '@postwren/worker-kit/errors';
 import type { AppEnv, Env } from '../env';
 import { CSRF_COOKIE, SESSION_COOKIE, findSessionUser } from '../auth/session';
 import { DEFAULT_SCOPES, issuer } from './config';

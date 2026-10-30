@@ -1,4 +1,4 @@
-import { AppError } from '@mailer/worker-kit/errors';
+import { AppError } from '@postwren/worker-kit/errors';
 import { nowSeconds } from './time';
 
 export type RateLimit = { windowSeconds: number; max: number };

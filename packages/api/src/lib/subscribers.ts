@@ -1,7 +1,7 @@
-import { createId } from '@mailer/worker-kit/ids';
-import { ConflictError, ValidationError } from '@mailer/worker-kit/errors';
-import { MAX_METADATA_KEYS, mergeMetadata, metadataErrors } from '@mailer/shared/metadata';
-import type { MetadataRecord } from '@mailer/shared/metadata';
+import { createId } from '@postwren/worker-kit/ids';
+import { ConflictError, ValidationError } from '@postwren/worker-kit/errors';
+import { MAX_METADATA_KEYS, mergeMetadata, metadataErrors } from '@postwren/shared/metadata';
+import type { MetadataRecord } from '@postwren/shared/metadata';
 import { isUniqueViolation } from './validation';
 
 export type SubscriberUpsertInput = {

@@ -6,7 +6,7 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 export interface SubscribeSettings {
    workerUrl: string;
    siteKey: string;
-   /** Host fixed by `mailerPlugin({ workerUrl })`; EmDash refuses any other host. */
+   /** Host fixed by `postwrenPlugin({ workerUrl })`; EmDash refuses any other host. */
    allowedHost: string;
    defaultTags: string[];
 }
@@ -45,7 +45,14 @@ const MAX_METADATA_KEYS = 50;
 const MAX_METADATA_VALUE_LENGTH = 1024;
 const MAX_SOURCE_URL_LENGTH = 2048;
 const METADATA_KEY_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
-const RESERVED_METADATA_KEYS = new Set(['id', 'email', 'first_name', 'last_name', 'status', 'tags']);
+const RESERVED_METADATA_KEYS = new Set([
+   'id',
+   'email',
+   'first_name',
+   'last_name',
+   'status',
+   'tags',
+]);
 const EMAIL_PATTERN = /^[^\s@"<>]+@[^\s@"<>]+\.[^\s@"<>]{2,}$/;
 
 const NOT_CONFIGURED = 'Newsletter signup is not configured for this site.';
@@ -150,7 +157,10 @@ export function requireReachableWorker(settings: SubscribeSettings): string {
    return settings.workerUrl;
 }
 
-export function buildSubscribeBody(input: SignupInput, defaultTags: string[]): Record<string, unknown> {
+export function buildSubscribeBody(
+   input: SignupInput,
+   defaultTags: string[],
+): Record<string, unknown> {
    const body: Record<string, unknown> = {
       email: normaliseEmail(input.email),
       source: SIGNUP_SOURCE,
@@ -197,10 +207,7 @@ function upstreamFailure(status: number): PluginRouteError {
    );
 }
 
-export async function subscribe(
-   deps: SubscribeDeps,
-   input: SignupInput,
-): Promise<SubscribeResult> {
+export async function subscribe(deps: SubscribeDeps, input: SignupInput): Promise<SubscribeResult> {
    // A bot that fills the honeypot gets the same answer as a person, and we spend no request.
    if (isHoneypotTripped(input)) return { subscribed: true };
 
@@ -237,7 +244,11 @@ export async function checkConnection(deps: SubscribeDeps): Promise<ConnectionRe
    try {
       workerUrl = requireReachableWorker(deps.settings);
    } catch {
-      return { ok: false, status: 0, message: 'Set the Mailer Worker URL and subscribe key first.' };
+      return {
+         ok: false,
+         status: 0,
+         message: 'Set the Postwren Worker URL and subscribe key first.',
+      };
    }
 
    try {
@@ -247,12 +258,13 @@ export async function checkConnection(deps: SubscribeDeps): Promise<ConnectionRe
          signal: timeoutSignal(),
       });
 
-      if (response.status >= 200 && response.status < 300) return { ok: true, status: response.status };
+      if (response.status >= 200 && response.status < 300)
+         return { ok: true, status: response.status };
 
       return {
          ok: false,
          status: response.status,
-         message: `The Mailer Worker answered with status ${response.status}.`,
+         message: `The Postwren Worker answered with status ${response.status}.`,
       };
    } catch (error) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
@@ -260,8 +272,8 @@ export async function checkConnection(deps: SubscribeDeps): Promise<ConnectionRe
          ok: false,
          status: 0,
          message: timedOut
-            ? 'The Mailer Worker did not answer in time.'
-            : 'Could not reach the Mailer Worker. Check the URL and that the Worker is deployed.',
+            ? 'The Postwren Worker did not answer in time.'
+            : 'Could not reach the Postwren Worker. Check the URL and that the Worker is deployed.',
       };
    }
 }

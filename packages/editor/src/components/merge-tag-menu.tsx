@@ -12,7 +12,7 @@ import {
    SelectItem,
    SelectTrigger,
    SelectValue,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { Link2 } from 'lucide-react';
 import { MERGE_TAGS } from '../lib/block-schema';
 import { mergeTagInsertion, unsubscribeInsertion } from '../lib/controls';

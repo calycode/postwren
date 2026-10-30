@@ -1,20 +1,25 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createId } from '@mailer/worker-kit/ids';
-import { ok, paginated } from '@mailer/worker-kit/envelope';
-import { AppError, ConflictError, NotFoundError, ValidationError } from '@mailer/worker-kit/errors';
-import { campaignInput, paginationQuery } from '@mailer/shared/contracts';
+import { createId } from '@postwren/worker-kit/ids';
+import { ok, paginated } from '@postwren/worker-kit/envelope';
+import {
+   AppError,
+   ConflictError,
+   NotFoundError,
+   ValidationError,
+} from '@postwren/worker-kit/errors';
+import { campaignInput, paginationQuery } from '@postwren/shared/contracts';
 import {
    MAX_METADATA_KEYS,
    mergeMetadata,
    metadataPatch,
    parseMetadataJson,
    serialiseMetadata,
-} from '@mailer/shared/metadata';
-import type { MetadataRecord } from '@mailer/shared/metadata';
-import { parseDocument } from '@mailer/email/ir';
-import { renderEmail } from '@mailer/email/render';
-import { applyMergeTags } from '@mailer/email/template';
+} from '@postwren/shared/metadata';
+import type { MetadataRecord } from '@postwren/shared/metadata';
+import { parseDocument } from '@postwren/email/ir';
+import { renderEmail } from '@postwren/email/render';
+import { applyMergeTags } from '@postwren/email/template';
 import type { Env } from '../env';
 import type { AppEnv } from '../env';
 import type { CampaignRow, RecipientRow, TemplateRow } from '../lib/rows';

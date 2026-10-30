@@ -7,7 +7,7 @@
 In the admin UI open **Settings → Public subscribe keys**, or call the API with an owner session:
 
 ```sh
-curl -X POST https://mail.example.com/api/v1/subscribe-keys \
+curl -X POST https://postwren.example.com/api/v1/subscribe-keys \
   -H 'content-type: application/json' \
   -H 'cookie: sid=...; csrf=...' \
   -H 'x-csrf-token: ...' \
@@ -41,7 +41,7 @@ Store `key` in the marketing site's environment. Only a SHA-256 hash and the dis
 ## 2. Call it from a server or a form handler
 
 ```sh
-curl -X POST https://mail.example.com/api/public/subscribe \
+curl -X POST https://postwren.example.com/api/public/subscribe \
   -H 'authorization: Bearer pk_live_ab12cd34...' \
   -H 'content-type: application/json' \
   -d '{
@@ -70,7 +70,7 @@ The response is identical for a new and an existing address (`202 Accepted`). Th
 Browser requests must come from an origin listed in the key's `allowedOrigins`. The server checks the `Origin` header on the request itself, so a permissive preflight does not bypass it.
 
 ```js
-const response = await fetch('https://mail.example.com/api/public/subscribe', {
+const response = await fetch('https://postwren.example.com/api/public/subscribe', {
    method: 'POST',
    headers: {
       authorization: `Bearer ${import.meta.env.PUBLIC_SUBSCRIBE_KEY}`,
@@ -117,7 +117,7 @@ With a React or Preact form handler the shape is the same. Keep the publishable 
 document.querySelector('#newsletter').addEventListener('submit', async (event) => {
    event.preventDefault();
    const form = new FormData(event.currentTarget);
-   const response = await fetch('https://mail.example.com/api/public/subscribe', {
+   const response = await fetch('https://postwren.example.com/api/public/subscribe', {
       method: 'POST',
       headers: {
          authorization: `Bearer ${PUBLIC_SUBSCRIBE_KEY}`,
@@ -170,7 +170,7 @@ Failures use the same envelope as the rest of the API:
 ## Revoke a key
 
 ```sh
-curl -X DELETE https://mail.example.com/api/v1/subscribe-keys/sk_... \
+curl -X DELETE https://postwren.example.com/api/v1/subscribe-keys/sk_... \
   -H 'cookie: sid=...; csrf=...' \
   -H 'x-csrf-token: ...'
 ```

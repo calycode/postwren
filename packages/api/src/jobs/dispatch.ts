@@ -1,7 +1,7 @@
-import { createId } from '@mailer/worker-kit/ids';
+import { createId } from '@postwren/worker-kit/ids';
 import type { Env } from '../env';
 import type { CampaignRow } from '../lib/rows';
-import { compileAudience } from '@mailer/shared/audience';
+import { compileAudience } from '@postwren/shared/audience';
 import { countAudience } from '../lib/audience';
 import { nowSeconds } from '../lib/time';
 

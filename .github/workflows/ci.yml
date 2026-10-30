@@ -32,6 +32,8 @@ jobs:
          - run: pnpm check-types
          - run: pnpm test
          - run: pnpm build:all
+         - run: pnpm pack:email
+         - run: tar -tzf artifacts/*.tgz
 
          - run: pnpm exec wrangler deploy --dry-run --config wrangler.jsonc --outdir .wrangler/dry
            env:

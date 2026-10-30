@@ -14,8 +14,8 @@ import type {
    SocialLink,
    SocialNetwork,
    Spacing,
-} from '@mailer/email/ir';
-import { createBlock } from '@mailer/email/ir';
+} from '@postwren/email/ir';
+import { createBlock } from '@postwren/email/ir';
 import {
    Badge,
    Button,
@@ -28,7 +28,7 @@ import {
    Input,
    Label,
    Textarea,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { Check, Copy, Plus, Trash, X } from 'lucide-react';
 import {
    ALIGN_OPTIONS,

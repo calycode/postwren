@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { AppError } from '@mailer/worker-kit/errors';
+import { AppError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 
 export async function readJson(c: Context<AppEnv>): Promise<unknown> {

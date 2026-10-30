@@ -1,4 +1,4 @@
-import { AppError } from '@mailer/worker-kit/errors';
+import { AppError } from '@postwren/worker-kit/errors';
 
 function encodeBase64Url(value: string): string {
    return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');

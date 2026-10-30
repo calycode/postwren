@@ -1,8 +1,8 @@
 import type { ErrorHandler } from 'hono';
 import { ZodError } from 'zod';
-import { DocumentError } from '@mailer/email/ir';
-import { fail } from '@mailer/worker-kit/envelope';
-import { isAppError } from '@mailer/worker-kit/errors';
+import { DocumentError } from '@postwren/email/ir';
+import { fail } from '@postwren/worker-kit/envelope';
+import { isAppError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 
 function requestIdOf(c: Parameters<ErrorHandler<AppEnv>>[1]): string | undefined {

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Button, Skeleton } from '@mailer/ui';
+import { Alert, AlertDescription, AlertTitle, Button, Skeleton } from '@postwren/ui';
 import { formatNumber } from '@/lib/format';
 import type { CampaignStatsView } from './model';
 

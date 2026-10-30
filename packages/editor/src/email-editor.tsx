@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { BlockType, Document } from '@mailer/email/ir';
-import { createBlock } from '@mailer/email/ir';
-import { renderEmail } from '@mailer/email/render';
-import type { RenderWarning } from '@mailer/email/render';
-import { applyMergeTags } from '@mailer/email/template';
-import type { MergeContext } from '@mailer/email/template';
-import { cn } from '@mailer/ui';
+import type { BlockType, Document } from '@postwren/email/ir';
+import { createBlock } from '@postwren/email/ir';
+import { renderEmail } from '@postwren/email/render';
+import type { RenderWarning } from '@postwren/email/render';
+import { applyMergeTags } from '@postwren/email/template';
+import type { MergeContext } from '@postwren/email/template';
+import { cn } from '@postwren/ui';
 import { DocumentDialog } from './components/document-dialog';
 import { EditorToolbar } from './components/editor-toolbar';
 import { EmailCanvas } from './components/email-canvas';

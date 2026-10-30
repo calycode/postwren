@@ -18,7 +18,7 @@ Vocabulary and seams for this repo. Read before changing code.
 | **Metadata**         | Custom key/value pairs. Subscribers store one row per key in `subscriber_metadata`; campaigns store a flat string map in `campaigns.metadata_json`. Keys match `^[a-z][a-z0-9_]{0,63}$`. Keys `id`, `email`, `first_name`, `last_name`, `status` and `tags` are reserved.                                                            |
 | **Subscribe key**    | A publishable `pk_live_…` credential for the public subscribe endpoint. Only a SHA-256 hash and a display prefix are stored; the secret is shown once.                                                                                                                                                                               |
 | **Public ingestion** | `POST /api/public/subscribe`, authenticated by a subscribe key rather than a session. Browser origins are restricted per key.                                                                                                                                                                                                        |
-| **OAuth provider**   | `@cloudflare/workers-oauth-provider` owns MCP authorization: discovery, DCR/CIMD, PKCE, codes and token rotation. Grants and hashed tokens live in the `OAUTH_KV` namespace; `mlr_` API keys stay in D1. |
+| **OAuth provider**   | `@cloudflare/workers-oauth-provider` owns MCP authorization: discovery, DCR/CIMD, PKCE, codes and token rotation. Grants and hashed tokens live in the `OAUTH_KV` namespace; `pwr_` API keys stay in D1.                                                                                                                             |
 | **link_id**          | A block `id`, used as the click-analytics key.                                                                                                                                                                                                                                                                                       |
 | **Suppression**      | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                                                                                                                                                                                                                                   |
 
@@ -26,22 +26,22 @@ Vocabulary and seams for this repo. Read before changing code.
 
 Deep modules: small interface, large implementation. Tests cross these seams only.
 
-| Module                    | Interface                                                                      | Owns                                                   |
-| ------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| `@mailer/email/ir`        | `createDocument()`, `parseDocument()`, `migrateDocument()`, `documentIssues()` | Schema, defaults, versioning, migration chain          |
-| `@mailer/email/render`    | `renderEmail(doc, opts)`                                                       | HTML, plain text, warnings, byte budget, client quirks |
-| `@mailer/email/template`  | `applyMergeTags(doc, ctx)`, `validateTemplate(text)`, `findMergeTags(text)`    | Merge grammar, escaping, filter semantics              |
-| `@mailer/shared/audience` | `compileAudience(query)`                                                       | Grammar, parameterisation, SQL generation              |
-| `@mailer/shared/metadata` | `metadataKeyError()`, `metadataRecord`, `mergeMetadata()`                      | Key grammar, reserved keys, JSON map helpers           |
-| `@mailer/shared/tokens`   | `signToken()`, `verifyToken()`                                                 | HMAC, TTL, purpose separation                          |
-| `@mailer/shared/csv`      | `parseSubscriberCsv(text)`                                                     | Delimiter/quote handling, per-row errors               |
-| `@mailer/api`             | `createApp(env)`, queue handler, scheduled handler                             | Routing, auth, campaigns, adapters                     |
-| `@mailer/editor`          | `<EmailEditor value onChange />`                                               | Block list, property panel, preview, keyboard reorder  |
+| Module                      | Interface                                                                      | Owns                                                   |
+| --------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `@postwren/email/ir`        | `createDocument()`, `parseDocument()`, `migrateDocument()`, `documentIssues()` | Schema, defaults, versioning, migration chain          |
+| `@postwren/email/render`    | `renderEmail(doc, opts)`                                                       | HTML, plain text, warnings, byte budget, client quirks |
+| `@postwren/email/template`  | `applyMergeTags(doc, ctx)`, `validateTemplate(text)`, `findMergeTags(text)`    | Merge grammar, escaping, filter semantics              |
+| `@postwren/shared/audience` | `compileAudience(query)`                                                       | Grammar, parameterisation, SQL generation              |
+| `@postwren/shared/metadata` | `metadataKeyError()`, `metadataRecord`, `mergeMetadata()`                      | Key grammar, reserved keys, JSON map helpers           |
+| `@postwren/shared/tokens`   | `signToken()`, `verifyToken()`                                                 | HMAC, TTL, purpose separation                          |
+| `@postwren/shared/csv`      | `parseSubscriberCsv(text)`                                                     | Delimiter/quote handling, per-row errors               |
+| `@postwren/api`             | `createApp(env)`, queue handler, scheduled handler                             | Routing, auth, campaigns, adapters                     |
+| `@postwren/editor`          | `<EmailEditor value onChange />`                                               | Block list, property panel, preview, keyboard reorder  |
 
 Rules:
 
-- `@mailer/email` imports nothing but `zod`. No React, no DOM, no `hono`, no app code (lint-enforced).
-- The editor receives an `onUploadImage` callback from its host; uploads go to R2 and are served from `/media/*`. `@mailer/editor` imports no API code.
+- `@postwren/email` imports nothing but `zod`. No React, no DOM, no `hono`, no app code (lint-enforced).
+- The editor receives an `onUploadImage` callback from its host; uploads go to R2 and are served from `/media/*`. `@postwren/editor` imports no API code.
 - Callers never construct HTML, SQL, or signed tokens themselves.
 - Errors are values where the caller must branch (`RenderWarning`, CSV row errors); exceptions for genuine faults.
 
@@ -82,7 +82,7 @@ Subscribers and campaigns both carry dynamic key/value metadata, but they are st
 - **Subscribers are audience rows.** Their metadata lives in `subscriber_metadata`, one row per `(subscriber_id, key)`, with an index on `(key, value)`. Audience queries must filter on individual keys (`meta:plan=pro`), and a normalised table keeps those filters parameterised, indexed and free of JSON parsing inside SQL. `subscriber_metadata` cascades with the subscriber.
 - **Campaigns are content.** Their metadata is a flat string map in `campaigns.metadata_json`. Campaigns are read as a whole row when rendering, never filtered by metadata key, so a JSON map avoids a join and matches the existing frozen-campaign model. When a campaign is pinned, `metadata_snapshot` copies `metadata_json` next to `ir_snapshot`; the queue consumer and preview read the snapshot, so editing metadata after scheduling cannot change an in-flight send.
 
-Shared rules live in `@mailer/shared/metadata`:
+Shared rules live in `@postwren/shared/metadata`:
 
 - Keys match `^[a-z][a-z0-9_]{0,63}$`.
 - At most 50 keys per subscriber, value at most 1024 characters.

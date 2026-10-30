@@ -1,9 +1,9 @@
 {
-   "name": "@mailer/emdash",
+   "name": "@postwren/emdash",
    "version": "0.1.0",
    "private": true,
    "type": "module",
-   "description": "Native EmDash plugin that forwards newsletter signups to a Mailer Cloudflare Worker",
+   "description": "Native EmDash plugin that forwards newsletter signups to a Postwren Worker",
    "license": "MIT",
    "exports": {
       ".": "./src/index.ts",

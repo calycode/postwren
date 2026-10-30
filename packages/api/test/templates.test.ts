@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDocument } from '@mailer/email/ir';
+import { createDocument } from '@postwren/email/ir';
 import {
    authHeaders,
    baseEnv,

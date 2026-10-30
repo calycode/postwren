@@ -44,13 +44,13 @@ importers:
       '@cloudflare/workers-oauth-provider':
         specifier: ^1.2.4
         version: 1.2.4
-      '@mailer/email':
+      '@postwren/email':
         specifier: workspace:*
         version: link:../email
-      '@mailer/shared':
+      '@postwren/shared':
         specifier: workspace:*
         version: link:../shared
-      '@mailer/worker-kit':
+      '@postwren/worker-kit':
         specifier: workspace:*
         version: link:../worker-kit
       hono:
@@ -78,10 +78,10 @@ importers:
 
   packages/editor:
     dependencies:
-      '@mailer/email':
+      '@postwren/email':
         specifier: workspace:*
         version: link:../email
-      '@mailer/ui':
+      '@postwren/ui':
         specifier: workspace:*
         version: link:../ui
       lucide-react:
@@ -169,16 +169,16 @@ importers:
 
   packages/webapp:
     dependencies:
-      '@mailer/editor':
+      '@postwren/editor':
         specifier: workspace:*
         version: link:../editor
-      '@mailer/email':
+      '@postwren/email':
         specifier: workspace:*
         version: link:../email
-      '@mailer/shared':
+      '@postwren/shared':
         specifier: workspace:*
         version: link:../shared
-      '@mailer/ui':
+      '@postwren/ui':
         specifier: workspace:*
         version: link:../ui
       lucide-react:

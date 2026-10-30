@@ -36,7 +36,7 @@ describe('signupFormFragments', () => {
 
       expect(html).toContain('type="email"');
       expect(html).toContain('autocomplete="email"');
-      expect(html).toContain('for="mailer-signup-email"');
+      expect(html).toContain('for="postwren-signup-email"');
       expect(html).toContain('role="status"');
       expect(html).toContain('aria-live="polite"');
    });
@@ -67,7 +67,7 @@ describe('signupFormFragments', () => {
    it('scopes its styles to its own class prefix', () => {
       const { html } = collect();
 
-      expect(html).toContain('.mailer-signup{');
-      expect(html).toMatch(/^<section class="mailer-signup"/);
+      expect(html).toContain('.postwren-signup{');
+      expect(html).toMatch(/^<section class="postwren-signup"/);
    });
 });

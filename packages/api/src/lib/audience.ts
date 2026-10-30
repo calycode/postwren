@@ -1,5 +1,5 @@
-import { compileAudience, AudienceError } from '@mailer/shared/audience';
-import { AppError } from '@mailer/worker-kit/errors';
+import { compileAudience, AudienceError } from '@postwren/shared/audience';
+import { AppError } from '@postwren/worker-kit/errors';
 
 export function assertAudienceQuery(query: string): void {
    try {

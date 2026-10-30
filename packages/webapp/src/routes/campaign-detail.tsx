@@ -22,7 +22,7 @@ import {
    Field,
    Input,
    Skeleton,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeader } from '@/components/page-header';
 import { CampaignFields } from '@/components/campaigns/campaign-fields';

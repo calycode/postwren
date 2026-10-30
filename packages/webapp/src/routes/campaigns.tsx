@@ -21,7 +21,7 @@ import {
    TableHead,
    TableHeader,
    TableRow,
-} from '@mailer/ui';
+} from '@postwren/ui';
 import { PageHeader } from '@/components/page-header';
 import { list as listCampaigns } from '@/lib/api/campaigns';
 import type { CampaignStatus } from '@/lib/api/types';

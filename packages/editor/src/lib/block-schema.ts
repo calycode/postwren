@@ -1,4 +1,4 @@
-import type { BlockType } from '@mailer/email/ir';
+import type { BlockType } from '@postwren/email/ir';
 
 export type FieldKind =
    'text' | 'textarea' | 'number' | 'range' | 'hex' | 'select' | 'align' | 'spacing' | 'boolean';
