@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDocument } from '@mailer/email/ir';
 import type { Template } from '@/lib/api/types';
-import { formatBytes, parseTemplateDocument } from './template-document';
+import { parseTemplateDocument } from './template-document';
 
 function templateWith(fields: Record<string, unknown>): Template {
    return {
@@ -48,13 +48,5 @@ describe('parseTemplateDocument', () => {
 
       expect(parsed.doc).toBeNull();
       expect(parsed.issues.length).toBeGreaterThan(0);
-   });
-});
-
-describe('formatBytes', () => {
-   it('formats small and large rendered sizes', () => {
-      expect(formatBytes(512)).toBe('512 B');
-      expect(formatBytes(1536)).toBe('1.5 KB');
-      expect(formatBytes(102_400)).toBe('100 KB');
    });
 });

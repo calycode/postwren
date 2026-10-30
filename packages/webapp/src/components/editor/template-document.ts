@@ -41,10 +41,3 @@ export function parseTemplateDocument(template: Template): ParsedTemplateDocumen
       };
    }
 }
-
-export function formatBytes(bytes: number): string {
-   if (!Number.isFinite(bytes) || bytes < 0) return '—';
-   if (bytes < 1024) return `${Math.round(bytes)} B`;
-   const kib = bytes / 1024;
-   return `${kib >= 10 ? Math.round(kib) : kib.toFixed(1)} KB`;
-}

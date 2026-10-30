@@ -1,6 +1,5 @@
 import { ArrowLeft, Copy, Eye, Save, Trash2 } from 'lucide-react';
 import { Badge, Button, Input, Label, buttonVariants, cn } from '@mailer/ui';
-import { formatBytes } from './template-document';
 
 export type EditorHeaderProps = {
    name: string;
@@ -11,9 +10,6 @@ export type EditorHeaderProps = {
    saving: boolean;
    fieldsDisabled: boolean;
    saveDisabled: boolean;
-   bytes: number | null;
-   byteBudgetExceeded: boolean;
-   warningCount: number;
    duplicateBusy: boolean;
    deleteBusy: boolean;
    previewDisabled: boolean;
@@ -34,9 +30,6 @@ export function EditorHeader({
    saving,
    fieldsDisabled,
    saveDisabled,
-   bytes,
-   byteBudgetExceeded,
-   warningCount,
    duplicateBusy,
    deleteBusy,
    previewDisabled,
@@ -58,7 +51,7 @@ export function EditorHeader({
                Templates
             </a>
 
-            <div className="flex min-w-40 flex-1 items-center gap-2">
+            <div className="flex min-w-24 flex-1 items-center gap-2">
                <label
                   htmlFor="template-name"
                   className="sr-only"
@@ -69,17 +62,22 @@ export function EditorHeader({
                   id="template-name"
                   value={name}
                   disabled={fieldsDisabled}
-                  className="h-8 w-full max-w-sm border-transparent bg-transparent px-2 font-heading text-base font-semibold shadow-none focus-visible:border-input"
+                  className="h-8 min-w-0 flex-1 max-w-sm border-transparent bg-transparent px-2 font-heading text-base font-semibold shadow-none focus-visible:border-input"
                   onInput={(event) => onNameChange(event.currentTarget.value)}
                />
-               <Badge variant="secondary">v{revision}</Badge>
+               <Badge
+                  variant="secondary"
+                  className="shrink-0"
+               >
+                  v{revision}
+               </Badge>
             </div>
 
             <span
                role="status"
                aria-live="polite"
                className={cn(
-                  'text-xs font-medium',
+                  'shrink-0 text-xs font-medium',
                   statusError ? 'text-destructive' : 'text-muted-foreground',
                )}
             >
@@ -141,21 +139,6 @@ export function EditorHeader({
                className="h-8 min-w-0 flex-1"
                onInput={(event) => onSubjectChange(event.currentTarget.value)}
             />
-            <div className="flex items-center gap-1.5">
-               {warningCount > 0 && (
-                  <Badge variant="warning">
-                     {warningCount} warning{warningCount === 1 ? '' : 's'}
-                  </Badge>
-               )}
-               {bytes !== null && (
-                  <Badge
-                     variant={byteBudgetExceeded ? 'warning' : 'outline'}
-                     title={`${bytes} bytes. Email clients clip messages above 102 KB.`}
-                  >
-                     {formatBytes(bytes)}
-                  </Badge>
-               )}
-            </div>
          </div>
       </div>
    );

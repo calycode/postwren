@@ -3,7 +3,6 @@ import { useLocation, useRoute } from 'preact-iso';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { documentIssues } from '@mailer/email/ir';
 import type { Document } from '@mailer/email/ir';
-import type { RenderWarning } from '@mailer/email/render';
 import { EmailEditor } from '@mailer/editor';
 import {
    Alert,
@@ -18,7 +17,8 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EditorHeader } from '@/components/editor/editor-header';
 import { EmailPreviewDialog } from '@/components/editor/preview-dialog';
 import { issuesFromDetails } from '@/components/editor/server-issues';
-import { formatBytes, parseTemplateDocument } from '@/components/editor/template-document';
+import { parseTemplateDocument } from '@/components/editor/template-document';
+import { upload } from '@/lib/api/media';
 import {
    duplicate as duplicateTemplate,
    get as getTemplate,
@@ -32,12 +32,15 @@ import { errorMessage } from '@/lib/form-errors';
 type RenderResult = {
    html: string;
    text: string;
-   bytes: number;
-   warnings: RenderWarning[];
+};
+
+type PersistOptions = {
+   bumpRevision: boolean;
+   surfaceIssues?: boolean;
+   keepalive?: boolean;
 };
 
 const AUTOSAVE_DELAY_MS = 2000;
-const BYTE_BUDGET_BYTES = 90 * 1024;
 const WORKBENCH_HEIGHT =
    'h-[calc(100dvh_-_5.5rem)] sm:h-[calc(100dvh_-_6.5rem)] lg:h-[calc(100dvh_-_7.5rem)]';
 
@@ -76,11 +79,11 @@ export function TemplateDetail() {
    const subjectRef = useRef('');
    const savedNameRef = useRef('');
    const savedSubjectRef = useRef('');
-   const saveInFlightRef = useRef(false);
-   const pendingSaveRef = useRef(false);
-   const inflightValuesRef = useRef<{ doc: Document; name: string; subject: string } | null>(null);
+   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+   const queuedSavesRef = useRef(0);
    const autosaveTimerRef = useRef<number | null>(null);
    const mountedRef = useRef(true);
+   const skipUnmountSaveRef = useRef(false);
    const saveRef = useRef<(manual: boolean) => void>(() => {});
 
    function clearAutosave() {
@@ -108,32 +111,17 @@ export function TemplateDetail() {
       );
    }
 
-   async function persist(manual: boolean) {
-      if (saveInFlightRef.current) {
-         const inflight = inflightValuesRef.current;
-         const current = docRef.current;
-         if (
-            current !== null &&
-            inflight !== null &&
-            (current !== inflight.doc ||
-               nameRef.current !== inflight.name ||
-               subjectRef.current !== inflight.subject)
-         ) {
-            pendingSaveRef.current = true;
-         }
-         return;
-      }
-
+   async function performSave(options: PersistOptions): Promise<boolean> {
       const current = docRef.current;
-      if (current === null || !isDirtyNow()) return;
+      if (current === null || !isDirtyNow()) return true;
 
       const currentIssues = documentIssues(current);
       if (currentIssues.length > 0) {
-         if (manual && mountedRef.current) {
+         if (options.surfaceIssues && mountedRef.current) {
             setSaveError('This document needs attention before it can be saved.');
             setSaveIssues(currentIssues);
          }
-         return;
+         return false;
       }
 
       clearAutosave();
@@ -141,69 +129,114 @@ export function TemplateDetail() {
       const snapshotName = nameRef.current;
       const snapshotSubject = subjectRef.current;
 
-      saveInFlightRef.current = true;
-      inflightValuesRef.current = { doc: current, name: snapshotName, subject: snapshotSubject };
-      setSaving(true);
-      setSaveError(null);
-      setSaveIssues([]);
+      if (mountedRef.current) {
+         setSaving(true);
+         setSaveError(null);
+         setSaveIssues([]);
+      }
 
       try {
-         const updated = await updateTemplate(targetId, {
-            name: snapshotName,
-            subject: snapshotSubject,
-            irJson: current,
-         });
-         if (!mountedRef.current || idRef.current !== targetId) return;
-
-         setTemplate(updated);
-         setSavedDoc(current);
-         savedDocRef.current = current;
-
-         if (nameRef.current === snapshotName) {
-            setName(updated.name);
-            nameRef.current = updated.name;
-         }
-         setSavedName(updated.name);
-         savedNameRef.current = updated.name;
-
-         if (subjectRef.current === snapshotSubject) {
-            setSubject(updated.subject);
-            subjectRef.current = updated.subject;
-         }
-         setSavedSubject(updated.subject);
-         savedSubjectRef.current = updated.subject;
-      } catch (cause) {
-         if (!mountedRef.current || idRef.current !== targetId) return;
-         setSaveError(errorMessage(cause, 'Could not save the template'));
-         setSaveIssues(
-            cause instanceof ApiError && cause.status === 422
-               ? issuesFromDetails(cause.details)
-               : [],
+         const updated = await updateTemplate(
+            targetId,
+            { name: snapshotName, subject: snapshotSubject, irJson: current },
+            { bumpRevision: options.bumpRevision, keepalive: options.keepalive },
          );
-      } finally {
-         saveInFlightRef.current = false;
-         inflightValuesRef.current = null;
-         if (mountedRef.current) setSaving(false);
-         if (mountedRef.current && pendingSaveRef.current) {
-            pendingSaveRef.current = false;
-            void persist(false);
+
+         if (idRef.current !== targetId) return false;
+
+         savedDocRef.current = current;
+         if (nameRef.current === snapshotName) {
+            nameRef.current = updated.name;
+            if (mountedRef.current) setName(updated.name);
          }
+         savedNameRef.current = updated.name;
+         if (subjectRef.current === snapshotSubject) {
+            subjectRef.current = updated.subject;
+            if (mountedRef.current) setSubject(updated.subject);
+         }
+         savedSubjectRef.current = updated.subject;
+
+         if (mountedRef.current) {
+            setTemplate(updated);
+            setSavedDoc(current);
+            setSavedName(updated.name);
+            setSavedSubject(updated.subject);
+         }
+
+         return true;
+      } catch (cause) {
+         if (mountedRef.current && idRef.current === targetId) {
+            setSaveError(errorMessage(cause, 'Could not save the template'));
+            setSaveIssues(
+               cause instanceof ApiError && cause.status === 422
+                  ? issuesFromDetails(cause.details)
+                  : [],
+            );
+         }
+         return false;
       }
    }
 
+   function persist(options: PersistOptions): Promise<boolean> {
+      if (!isDirtyNow()) return Promise.resolve(true);
+
+      queuedSavesRef.current += 1;
+      const run = saveQueueRef.current.then(async () => {
+         try {
+            return await performSave(options);
+         } finally {
+            queuedSavesRef.current = Math.max(0, queuedSavesRef.current - 1);
+            if (queuedSavesRef.current === 0 && mountedRef.current) setSaving(false);
+         }
+      });
+
+      saveQueueRef.current = run.then(
+         () => undefined,
+         () => undefined,
+      );
+
+      return run;
+   }
+
+   async function flush(options: PersistOptions): Promise<boolean> {
+      clearAutosave();
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+         await saveQueueRef.current;
+         if (!isDirtyNow()) return true;
+         if (!(await persist(options))) return false;
+      }
+      return !isDirtyNow();
+   }
+
    saveRef.current = (manual) => {
-      void persist(manual);
+      void persist({ bumpRevision: manual, surfaceIssues: manual });
    };
 
    const handleRender = useCallback((result: RenderResult) => {
       setRender(result);
    }, []);
 
+   const handleUploadImage = useCallback(async (file: File) => {
+      const asset = await upload(file);
+      return { url: asset.url, alt: file.name.replace(/\.[^.]+$/, '') };
+   }, []);
+
    useEffect(() => {
       mountedRef.current = true;
+
+      function flushBeforeUnload() {
+         if (!isDirtyNow()) return;
+         void flush({ bumpRevision: false, keepalive: true });
+      }
+
+      window.addEventListener('pagehide', flushBeforeUnload);
       return () => {
+         window.removeEventListener('pagehide', flushBeforeUnload);
          mountedRef.current = false;
          clearAutosave();
+         if (!skipUnmountSaveRef.current && isDirtyNow()) {
+            void flush({ bumpRevision: false, keepalive: true });
+         }
       };
    }, []);
 
@@ -289,11 +322,6 @@ export function TemplateDetail() {
    const statusError = saveError !== null || documentUnavailable;
    const fieldsDisabled = doc === null;
    const saveDisabled = !dirty || saving || doc === null || liveIssues.length > 0;
-   const warnings = render?.warnings ?? [];
-   const byteBudgetExceeded = render !== null && render.bytes > BYTE_BUDGET_BYTES;
-   const sizeWarning = byteBudgetExceeded
-      ? `The rendered email is ${formatBytes(render.bytes)}, above the 90 KB budget.`
-      : null;
 
    useEffect(() => {
       if (!dirty) return;
@@ -353,13 +381,16 @@ export function TemplateDetail() {
 
    function handleManualSave() {
       clearAutosave();
-      void persist(true);
+      void persist({ bumpRevision: true, surfaceIssues: true });
    }
 
    async function handleDuplicate() {
       setActionError(null);
       setDuplicateBusy(true);
       try {
+         const flushed = await flush({ bumpRevision: false, surfaceIssues: true });
+         if (!flushed) return;
+
          const copy = await duplicateTemplate(idRef.current);
          route(`/templates/${copy.id}`);
       } catch (cause) {
@@ -377,6 +408,7 @@ export function TemplateDetail() {
       try {
          await removeTemplate(idRef.current);
          clearAutosave();
+         skipUnmountSaveRef.current = true;
          setDeleteOpen(false);
          route('/templates');
       } catch (cause) {
@@ -441,9 +473,6 @@ export function TemplateDetail() {
             saving={saving}
             fieldsDisabled={fieldsDisabled}
             saveDisabled={saveDisabled}
-            bytes={render?.bytes ?? null}
-            byteBudgetExceeded={byteBudgetExceeded}
-            warningCount={warnings.length}
             duplicateBusy={duplicateBusy}
             deleteBusy={deleteBusy}
             previewDisabled={render === null}
@@ -476,7 +505,7 @@ export function TemplateDetail() {
                <AlertTitle>Could not save the template</AlertTitle>
                <AlertDescription>
                   <p>{saveError}</p>
-                  {saveIssues.length > 0 && (
+                  {saveIssues.length > 0 && liveIssues.length === 0 && (
                      <ul className="mt-2 list-disc pl-4">
                         {saveIssues.map((issue, index) => (
                            <li key={`${index}-${issue}`}>{issue}</li>
@@ -513,35 +542,26 @@ export function TemplateDetail() {
                {liveIssues.length > 0 && (
                   <Alert
                      variant="destructive"
-                     className="max-h-32 shrink-0 overflow-y-auto"
+                     className="max-h-40 shrink-0 overflow-y-auto"
                   >
                      <AlertTitle>This document needs attention before it can be saved</AlertTitle>
                      <AlertDescription>
-                        <ul className="list-disc pl-4">
-                           {liveIssues.map((issue, index) => (
-                              <li key={`${index}-${issue}`}>{issue}</li>
-                           ))}
-                        </ul>
-                     </AlertDescription>
-                  </Alert>
-               )}
-
-               {(sizeWarning !== null || warnings.length > 0) && (
-                  <Alert
-                     variant="warning"
-                     className="max-h-32 shrink-0 overflow-y-auto"
-                  >
-                     <AlertTitle>Render notices</AlertTitle>
-                     <AlertDescription>
-                        <ul className="list-disc pl-4">
-                           {sizeWarning !== null && <li>{sizeWarning}</li>}
-                           {warnings.map((warning, index) => (
-                              <li key={`${warning.code}-${warning.blockId ?? 'document'}-${index}`}>
-                                 {warning.message}
-                                 {warning.blockId !== undefined ? ` (${warning.blockId})` : ''}
-                              </li>
-                           ))}
-                        </ul>
+                        <p>
+                           Something in the email is incomplete, so autosave is paused. Quotes, code
+                           blocks and links need text, images need an absolute URL, and a section
+                           holds at most 20 blocks. Fill in the flagged fields and saving resumes on
+                           its own.
+                        </p>
+                        <details className="mt-2">
+                           <summary className="cursor-pointer text-xs font-medium">
+                              Technical details
+                           </summary>
+                           <ul className="mt-1 list-disc pl-4 font-mono text-xs">
+                              {liveIssues.map((issue, index) => (
+                                 <li key={`${index}-${issue}`}>{issue}</li>
+                              ))}
+                           </ul>
+                        </details>
                      </AlertDescription>
                   </Alert>
                )}
@@ -551,6 +571,7 @@ export function TemplateDetail() {
                      value={doc}
                      onChange={handleDocChange}
                      onRender={handleRender}
+                     onUploadImage={handleUploadImage}
                      className="h-full min-h-0"
                   />
                </div>

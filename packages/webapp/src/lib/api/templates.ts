@@ -9,6 +9,13 @@ export type TemplateInput = {
 
 export type TemplatePatch = Partial<TemplateInput>;
 
+export type TemplateUpdateOptions = {
+   /** Autosave keeps the saved revision; an explicit save advances it. */
+   bumpRevision?: boolean;
+   /** Lets the request outlive a page unload when the caller cannot await it. */
+   keepalive?: boolean;
+};
+
 export function list(): Promise<Template[]> {
    return apiFetch<Template[]>('/api/v1/templates');
 }
@@ -21,10 +28,20 @@ export function create(input: TemplateInput): Promise<Template> {
    return apiFetch<Template>('/api/v1/templates', { method: 'POST', body: input });
 }
 
-export function update(id: string, input: TemplatePatch): Promise<Template> {
+export function update(
+   id: string,
+   input: TemplatePatch,
+   options: TemplateUpdateOptions = {},
+): Promise<Template> {
+   const body: TemplatePatch & { bumpRevision?: boolean } = { ...input };
+   if (options.bumpRevision !== undefined) {
+      body.bumpRevision = options.bumpRevision;
+   }
+
    return apiFetch<Template>(`/api/v1/templates/${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      body: input,
+      body,
+      keepalive: options.keepalive,
    });
 }
 
