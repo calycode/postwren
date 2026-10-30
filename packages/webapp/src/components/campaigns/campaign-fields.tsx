@@ -11,6 +11,7 @@ import {
 } from '@mailer/ui';
 import type { SenderAddress, Template } from '@/lib/api/types';
 import type { FieldErrors } from '@/lib/form-errors';
+import { MetadataEditor } from '@/components/metadata-editor';
 import { AudienceField } from './audience-field';
 import { SenderSelect } from './sender-select';
 import type { CampaignFormState } from './form';
@@ -253,6 +254,30 @@ export function CampaignFields({
             hint={audienceHint}
             preview={audiencePreview}
          />
+
+         <div className="grid gap-2">
+            <h3 className="text-sm font-medium">Custom fields</h3>
+            <p className="text-xs text-muted-foreground">
+               Campaign-wide values available to this campaign&apos;s content as{' '}
+               <code className="rounded bg-muted px-1 py-0.5">{'{{ campaign.meta.key }}'}</code>.
+               They are stored on the campaign, not the template.
+            </p>
+            <MetadataEditor
+               idPrefix={`${idPrefix}-metadata`}
+               scope="campaign"
+               rows={form.metadata}
+               onChange={(metadata) => onChange({ metadata })}
+               disabled={disabled}
+            />
+            {errors.metadata !== undefined && (
+               <p
+                  role="alert"
+                  className="text-xs font-medium text-destructive"
+               >
+                  {errors.metadata}
+               </p>
+            )}
+         </div>
 
          <details className="rounded-lg border border-border p-4">
             <summary className="cursor-pointer text-sm font-medium text-foreground">

@@ -4,6 +4,14 @@ import { createId } from '@mailer/worker-kit/ids';
 import { ok, paginated } from '@mailer/worker-kit/envelope';
 import { AppError, ConflictError, NotFoundError, ValidationError } from '@mailer/worker-kit/errors';
 import { campaignInput, paginationQuery } from '@mailer/shared/contracts';
+import {
+   MAX_METADATA_KEYS,
+   mergeMetadata,
+   metadataPatch,
+   parseMetadataJson,
+   serialiseMetadata,
+} from '@mailer/shared/metadata';
+import type { MetadataRecord } from '@mailer/shared/metadata';
 import { parseDocument } from '@mailer/email/ir';
 import { renderEmail } from '@mailer/email/render';
 import { applyMergeTags } from '@mailer/email/template';
@@ -61,6 +69,7 @@ const campaignPatch = z
       utmSource: z.string().trim().min(1).max(100).optional(),
       utmMedium: z.string().trim().min(1).max(100).optional(),
       utmCampaign: z.string().trim().min(1).max(191).optional(),
+      metadata: metadataPatch.optional(),
    })
    .strict();
 
@@ -90,12 +99,19 @@ async function requireTemplate(db: D1Database, id: string): Promise<TemplateRow>
    return template;
 }
 
-async function findCampaign(db: D1Database, id: string): Promise<CampaignRow> {
+export type CampaignResource = Omit<CampaignRow, 'metadata_json'> & { metadata: MetadataRecord };
+
+function campaignResource(row: CampaignRow): CampaignResource {
+   const { metadata_json, ...rest } = row;
+   return { ...rest, metadata: parseMetadataJson(metadata_json) };
+}
+
+async function findCampaign(db: D1Database, id: string): Promise<CampaignResource> {
    const campaign = await loadCampaign(db, id);
    if (campaign === null) {
       throw new NotFoundError('Campaign not found');
    }
-   return campaign;
+   return campaignResource(campaign);
 }
 
 async function pinAudience(
@@ -120,7 +136,7 @@ campaignRoutes.get('/', async (c) => {
       'SELECT * FROM campaigns ORDER BY created_at DESC, id DESC',
    ).all<CampaignRow>();
 
-   return ok(rows.results, { requestId: c.get('requestId') });
+   return ok(rows.results.map(campaignResource), { requestId: c.get('requestId') });
 });
 
 campaignRoutes.post('/', async (c) => {
@@ -136,8 +152,8 @@ campaignRoutes.post('/', async (c) => {
       `INSERT INTO campaigns
        (id, template_id, template_revision, name, subject, from_name, from_email, reply_to,
         audience_query, scheduled_at, status, utm_source, utm_medium, utm_campaign,
-        created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`,
+        metadata_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`,
    )
       .bind(
          id,
@@ -153,6 +169,7 @@ campaignRoutes.post('/', async (c) => {
          body.utmSource ?? '',
          body.utmMedium ?? '',
          body.utmCampaign ?? '',
+         serialiseMetadata(body.metadata ?? {}),
          now,
          now,
       )
@@ -198,6 +215,15 @@ campaignRoutes.patch('/:id', async (c) => {
    assign('utm_source', body.utmSource);
    assign('utm_medium', body.utmMedium);
    assign('utm_campaign', body.utmCampaign);
+
+   if (body.metadata !== undefined) {
+      const merged = mergeMetadata(existing.metadata, body.metadata);
+      if (Object.keys(merged).length > MAX_METADATA_KEYS) {
+         throw new ValidationError(`At most ${MAX_METADATA_KEYS} metadata keys are allowed`);
+      }
+      sets.push('metadata_json = ?');
+      params.push(serialiseMetadata(merged));
+   }
 
    if (body.templateId !== undefined) {
       const template = await requireTemplate(c.env.DB, body.templateId);
@@ -302,6 +328,7 @@ campaignRoutes.post('/:id/test', async (c) => {
          id: campaign.id,
          subject: campaign.subject,
          utm_campaign: campaign.utm_campaign,
+         meta: campaign.metadata,
       }),
    );
    const rendered = renderEmail(merged, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
@@ -369,6 +396,7 @@ campaignRoutes.get('/:id/preview', async (c) => {
       sampleMergeContext({
          subject: campaign.subject,
          utm_campaign: campaign.utm_campaign,
+         meta: campaign.metadata,
       }),
    );
    const result = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });

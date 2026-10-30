@@ -7,11 +7,13 @@ export type MergeContext = {
       first_name: string | null;
       last_name: string | null;
       tags: string[];
+      meta: Record<string, string>;
    };
    campaign: {
       id: string;
       subject: string;
       utm_campaign: string;
+      meta: Record<string, string>;
    };
    links: {
       unsubscribe: string;
@@ -39,9 +41,24 @@ const FILTERS = new Set(['default', 'upper', 'lower', 'trim', 'date']);
 const TAG = /\{\{([\s\S]*?)\}\}/g;
 const FILTER_SYNTAX =
    /^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')\s*\))?$/;
+const META_KEY = /^[a-z][a-z0-9_]{0,63}$/;
+const SUBSCRIBER_META_PREFIX = 'subscriber.meta.';
+const CAMPAIGN_META_PREFIX = 'campaign.meta.';
 
 type Filter = { name: string; arg?: string };
 type Parsed = { path: string; filters: Filter[] } | { error: string };
+
+function metaKeyOf(path: string): string | null {
+   if (path.startsWith(SUBSCRIBER_META_PREFIX)) {
+      const key = path.slice(SUBSCRIBER_META_PREFIX.length);
+      return META_KEY.test(key) ? key : null;
+   }
+   if (path.startsWith(CAMPAIGN_META_PREFIX)) {
+      const key = path.slice(CAMPAIGN_META_PREFIX.length);
+      return META_KEY.test(key) ? key : null;
+   }
+   return null;
+}
 
 function unescapeArgument(value: string): string {
    return value.replace(/\\(["'\\])/g, '$1');
@@ -52,7 +69,9 @@ function parseExpression(expression: string): Parsed {
    const path = segments[0] ?? '';
 
    if (path.length === 0) return { error: 'Missing merge path' };
-   if (!PATHS.has(path)) return { error: `Unknown merge path "${path}"` };
+   if (!PATHS.has(path) && metaKeyOf(path) === null) {
+      return { error: `Unknown merge path "${path}"` };
+   }
 
    const filters: Filter[] = [];
    for (const segment of segments.slice(1)) {
@@ -81,6 +100,13 @@ function parseExpression(expression: string): Parsed {
 }
 
 function readPath(ctx: MergeContext, path: string): string {
+   if (path.startsWith(SUBSCRIBER_META_PREFIX)) {
+      return ctx.subscriber.meta[path.slice(SUBSCRIBER_META_PREFIX.length)] ?? '';
+   }
+   if (path.startsWith(CAMPAIGN_META_PREFIX)) {
+      return ctx.campaign.meta[path.slice(CAMPAIGN_META_PREFIX.length)] ?? '';
+   }
+
    switch (path) {
       case 'subscriber.id':
          return ctx.subscriber.id;

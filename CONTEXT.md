@@ -4,19 +4,22 @@ Vocabulary and seams for this repo. Read before changing code.
 
 ## Domain
 
-| Term               | Meaning                                                                                                                                                                                                                                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **IR**             | The email document: `{ version, settings, preheader?, children: Block[] }`. Source of truth. Never HTML.                                                                                                                                                                                                                             |
-| **Block**          | One of 16 types: `heading`, `text`, `button`, `image`, `divider`, `spacer`, `columns`, `social`, `list`, `quote`, `code`, `link`, `avatar`, `gallery`, `table`, `section`. Every block has a stable, immutable `id`. `columns` and `section` are containers: 2-3 columns, or a section with at most 20 leaf children and no nesting. |
-| **Render**         | Pure transformation `IR -> { html, text, bytes, warnings }`. Table-only markup.                                                                                                                                                                                                                                                      |
-| **Preview parity** | The browser preview and the sent message are produced by the same `renderEmail` call. Only `resolveLink` differs.                                                                                                                                                                                                                    |
-| **Campaign**       | A pinned `template_revision` plus an audience query, sender, schedule, UTMs.                                                                                                                                                                                                                                                         |
-| **Recipient**      | One `(campaign, subscriber)` row owning a unique `message_id`.                                                                                                                                                                                                                                                                       |
-| **Dispatch**       | Cron-driven, resumable creation of recipient rows and queue jobs.                                                                                                                                                                                                                                                                    |
-| **Send**           | Queue-driven, idempotent rendering and delivery for one batch of recipient IDs.                                                                                                                                                                                                                                                      |
-| **Audience query** | `tag:a -tag:b` grammar compiled to parameterised SQL.                                                                                                                                                                                                                                                                                |
-| **link_id**        | A block `id`, used as the click-analytics key.                                                                                                                                                                                                                                                                                       |
-| **Suppression**    | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                                                                                                                                                                                                                                   |
+| Term                 | Meaning                                                                                                                                                                                                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **IR**               | The email document: `{ version, settings, preheader?, children: Block[] }`. Source of truth. Never HTML.                                                                                                                                                                                                                             |
+| **Block**            | One of 16 types: `heading`, `text`, `button`, `image`, `divider`, `spacer`, `columns`, `social`, `list`, `quote`, `code`, `link`, `avatar`, `gallery`, `table`, `section`. Every block has a stable, immutable `id`. `columns` and `section` are containers: 2-3 columns, or a section with at most 20 leaf children and no nesting. |
+| **Render**           | Pure transformation `IR -> { html, text, bytes, warnings }`. Table-only markup.                                                                                                                                                                                                                                                      |
+| **Preview parity**   | The browser preview and the sent message are produced by the same `renderEmail` call. Only `resolveLink` differs.                                                                                                                                                                                                                    |
+| **Campaign**         | A pinned `template_revision` plus an audience query, sender, schedule, UTMs.                                                                                                                                                                                                                                                         |
+| **Recipient**        | One `(campaign, subscriber)` row owning a unique `message_id`.                                                                                                                                                                                                                                                                       |
+| **Dispatch**         | Cron-driven, resumable creation of recipient rows and queue jobs.                                                                                                                                                                                                                                                                    |
+| **Send**             | Queue-driven, idempotent rendering and delivery for one batch of recipient IDs.                                                                                                                                                                                                                                                      |
+| **Audience query**   | `tag:a -tag:b` plus `meta:key=value` / `-meta:key=value` grammar compiled to parameterised SQL.                                                                                                                                                                                                                                      |
+| **Metadata**         | Custom key/value pairs. Subscribers store one row per key in `subscriber_metadata`; campaigns store a flat string map in `campaigns.metadata_json`. Keys match `^[a-z][a-z0-9_]{0,63}$`. Keys `id`, `email`, `first_name`, `last_name`, `status` and `tags` are reserved.                                                            |
+| **Subscribe key**    | A publishable `pk_live_…` credential for the public subscribe endpoint. Only a SHA-256 hash and a display prefix are stored; the secret is shown once.                                                                                                                                                                               |
+| **Public ingestion** | `POST /api/public/subscribe`, authenticated by a subscribe key rather than a session. Browser origins are restricted per key.                                                                                                                                                                                                        |
+| **link_id**          | A block `id`, used as the click-analytics key.                                                                                                                                                                                                                                                                                       |
+| **Suppression**      | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                                                                                                                                                                                                                                   |
 
 ## Modules and their seams
 
@@ -28,6 +31,7 @@ Deep modules: small interface, large implementation. Tests cross these seams onl
 | `@mailer/email/render`    | `renderEmail(doc, opts)`                                                       | HTML, plain text, warnings, byte budget, client quirks |
 | `@mailer/email/template`  | `applyMergeTags(doc, ctx)`, `validateTemplate(text)`, `findMergeTags(text)`    | Merge grammar, escaping, filter semantics              |
 | `@mailer/shared/audience` | `compileAudience(query)`                                                       | Grammar, parameterisation, SQL generation              |
+| `@mailer/shared/metadata` | `metadataKeyError()`, `metadataRecord`, `mergeMetadata()`                      | Key grammar, reserved keys, JSON map helpers           |
 | `@mailer/shared/tokens`   | `signToken()`, `verifyToken()`                                                 | HMAC, TTL, purpose separation                          |
 | `@mailer/shared/csv`      | `parseSubscriberCsv(text)`                                                     | Delimiter/quote handling, per-row errors               |
 | `@mailer/api`             | `createApp(env)`, queue handler, scheduled handler                             | Routing, auth, campaigns, adapters                     |
@@ -69,6 +73,45 @@ Test at these, not at internals:
 - Cursor pagination is opaque; clients never construct a cursor.
 - Campaigns freeze their content: `campaigns.ir_snapshot` is written when a campaign is scheduled or sent, and the queue consumer renders that snapshot, not the live template row.
 - A template's `revision` increments only on an explicit save. Autosave updates content and `updated_at` without bumping it; campaigns pin a revision.
+
+## Custom metadata
+
+Subscribers and campaigns both carry dynamic key/value metadata, but they are stored differently on purpose.
+
+- **Subscribers are audience rows.** Their metadata lives in `subscriber_metadata`, one row per `(subscriber_id, key)`, with an index on `(key, value)`. Audience queries must filter on individual keys (`meta:plan=pro`), and a normalised table keeps those filters parameterised, indexed and free of JSON parsing inside SQL. `subscriber_metadata` cascades with the subscriber.
+- **Campaigns are content.** Their metadata is a flat string map in `campaigns.metadata_json`. Campaigns are read as a whole row when rendering, never filtered by metadata key, so a JSON map avoids a join and matches the existing frozen-campaign model. The queue consumer reads metadata from the campaign row it already loads, not from the live template.
+
+Shared rules live in `@mailer/shared/metadata`:
+
+- Keys match `^[a-z][a-z0-9_]{0,63}$`.
+- At most 50 keys per subscriber, value at most 1024 characters.
+- Reserved keys that duplicate real subscriber columns are rejected: `id`, `email`, `first_name`, `last_name`, `status`, `tags`.
+- A missing key renders as an empty string.
+
+Content uses `{{ subscriber.meta.<key> }}` and `{{ campaign.meta.<key> }}`. All existing filters (`default`, `upper`, `lower`, `trim`, `date`) apply. In hrefs, a merged value must still resolve to an absolute `https://` URL at send time.
+
+## Public subscription
+
+`POST /api/public/subscribe` is the only unauthenticated write path. It accepts a publishable subscribe key as `Authorization: Bearer pk_live_…` or `X-Subscribe-Key: pk_live_…`. The key's `allowed_origins` list controls browser CORS and is enforced on the request, not just advertised in the preflight. A non-empty `website` field is a honeypot and returns a successful no-op.
+
+The body is camelCase:
+
+```json
+{
+   "email": "ada@example.com",
+   "firstName": "Ada",
+   "lastName": "Lovelace",
+   "tags": ["newsletter"],
+   "metadata": { "signup_source": "emdash" },
+   "source": "emdash-form",
+   "sourceUrl": "https://example.com/newsletter",
+   "website": ""
+}
+```
+
+The endpoint is idempotent: an existing email gains tags and metadata, keeps its status (an unsubscribed or bounced subscriber is never revived), and records `source` / `source_url`. `subscribe_keys.default_tags` are added to every signup. Requests are rate limited with `RATE_LIMITS.publicSubscribe` against `rate_limits`.
+
+Keys are managed under `/api/v1/subscribe-keys` with a normal session. `POST` returns the secret once; `GET` lists prefix, origins and default tags; `DELETE` revokes.
 
 ## Local development
 

@@ -14,6 +14,7 @@ export type Subscriber = {
    last_name: string | null;
    status: SubscriberStatus;
    tags: Tag[];
+   metadata: Record<string, string>;
    created_at: number;
    updated_at: number;
 };
@@ -43,6 +44,7 @@ export type Campaign = {
    audienceQuery: string;
    status: CampaignStatus;
    scheduledAt: number | null;
+   metadata: Record<string, string>;
    created_at: number;
    updated_at: number;
 };
@@ -151,4 +153,15 @@ export type SenderSettings = {
    addresses: SenderAddress[];
    domains: string[];
    defaultFrom: string;
+};
+
+export type SubscribeKey = {
+   id: string;
+   name: string;
+   prefix: string;
+   allowed_origins: string[];
+   default_tags: string[];
+   created_at: number;
+   revoked_at: number | null;
+   key?: string;
 };

@@ -7,7 +7,8 @@
       "./audience": "./src/audience/index.ts",
       "./tokens": "./src/tokens/index.ts",
       "./csv": "./src/csv/index.ts",
-      "./contracts": "./src/contracts/index.ts"
+      "./contracts": "./src/contracts/index.ts",
+      "./metadata": "./src/metadata/index.ts"
    },
    "scripts": {
       "test": "vitest run",

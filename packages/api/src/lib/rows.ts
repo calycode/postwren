@@ -13,6 +13,7 @@ export type CampaignRow = {
    utm_source: string;
    utm_medium: string;
    utm_campaign: string;
+   metadata_json: string;
    audience_count: number | null;
    dispatch_cursor: string | null;
    ir_snapshot: string | null;

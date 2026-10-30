@@ -301,7 +301,7 @@ export function CampaignDetail() {
       setFieldErrors({});
 
       try {
-         const updated = await updateCampaign(campaign.id, campaignFormToPatch(form));
+         const updated = await updateCampaign(campaign.id, campaignFormToPatch(form, savedForm));
          applyCampaign(updated);
          setNotice('Changes saved.');
       } catch (cause) {
@@ -689,6 +689,14 @@ export function CampaignDetail() {
                            <SummaryItem
                               label="Updated"
                               value={formatDateTime(campaign.updated_at)}
+                           />
+                           <SummaryItem
+                              label="Custom fields"
+                              value={
+                                 Object.entries(campaign.metadata)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(' · ') || '—'
+                              }
                            />
                         </CardContent>
                      </Card>

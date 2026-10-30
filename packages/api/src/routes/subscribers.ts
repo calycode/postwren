@@ -1,14 +1,23 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createId } from '@mailer/worker-kit/ids';
 import { ok, paginated } from '@mailer/worker-kit/envelope';
-import { ConflictError, NotFoundError } from '@mailer/worker-kit/errors';
+import { ConflictError, NotFoundError, ValidationError } from '@mailer/worker-kit/errors';
 import { paginationQuery, subscriberInput, subscriberPatch } from '@mailer/shared/contracts';
 import { parseSubscriberCsv } from '@mailer/shared/csv';
+import { MAX_METADATA_KEYS, mergeMetadata } from '@mailer/shared/metadata';
+import type { MetadataRecord } from '@mailer/shared/metadata';
 import type { AppEnv } from '../env';
 import { decodeKeysetCursor, encodeKeysetCursor } from '../lib/cursor';
 import { isUniqueViolation, likePattern, readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';
+import {
+   attachTag,
+   ensureTag,
+   loadSubscriberMetadata,
+   loadSubscriberMetadataFor,
+   upsertSubscriber,
+   writeSubscriberMetadata,
+} from '../lib/subscribers';
 
 type SubscriberRow = {
    id: string;
@@ -17,6 +26,7 @@ type SubscriberRow = {
    last_name: string | null;
    status: string;
    source: string | null;
+   source_url: string | null;
    created_at: number;
    unsubscribed_at: number | null;
    deleted_at: number | null;
@@ -72,34 +82,12 @@ async function loadTagsFor(db: D1Database, ids: string[]): Promise<Map<string, S
 async function findSubscriber(db: D1Database, id: string): Promise<SubscriberRow | null> {
    return db
       .prepare(
-         `SELECT id, email, first_name, last_name, status, source, created_at,
+         `SELECT id, email, first_name, last_name, status, source, source_url, created_at,
                  unsubscribed_at, deleted_at
           FROM subscribers WHERE id = ? AND deleted_at IS NULL`,
       )
       .bind(id)
       .first<SubscriberRow>();
-}
-
-async function ensureTag(db: D1Database, name: string, now: number): Promise<string> {
-   const normalised = name.trim().toLowerCase();
-   await db
-      .prepare(
-         `INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)
-         ON CONFLICT(name) DO NOTHING`,
-      )
-      .bind(createId('tag'), normalised, now)
-      .run();
-
-   const row = await db
-      .prepare('SELECT id FROM tags WHERE name = ?')
-      .bind(normalised)
-      .first<{ id: string }>();
-
-   if (row === null) {
-      throw new NotFoundError('Tag not found');
-   }
-
-   return row.id;
 }
 
 async function tagIdByValue(
@@ -108,27 +96,18 @@ async function tagIdByValue(
    now: number,
    create: boolean,
 ): Promise<string | null> {
-   const byId = await db
-      .prepare('SELECT id FROM tags WHERE id = ?')
-      .bind(value)
-      .first<{ id: string }>();
+   const byId = await db.prepare('SELECT id FROM tags WHERE id = ?').bind(value).first<{
+      id: string;
+   }>();
    if (byId !== null) return byId.id;
 
    const normalised = value.trim().toLowerCase();
-   const byName = await db
-      .prepare('SELECT id FROM tags WHERE name = ?')
-      .bind(normalised)
-      .first<{ id: string }>();
+   const byName = await db.prepare('SELECT id FROM tags WHERE name = ?').bind(normalised).first<{
+      id: string;
+   }>();
    if (byName !== null) return byName.id;
 
    return create ? ensureTag(db, normalised, now) : null;
-}
-
-async function attachTag(db: D1Database, subscriberId: string, tagId: string): Promise<void> {
-   await db
-      .prepare('INSERT OR IGNORE INTO subscriber_tags (subscriber_id, tag_id) VALUES (?, ?)')
-      .bind(subscriberId, tagId)
-      .run();
 }
 
 function csvCell(value: string | null): string {
@@ -137,6 +116,18 @@ function csvCell(value: string | null): string {
       return `"${text.replace(/"/g, '""')}"`;
    }
    return text;
+}
+
+async function subscriberResource(
+   db: D1Database,
+   row: SubscriberRow,
+   tags?: SubscriberTag[],
+   metadata?: MetadataRecord,
+): Promise<SubscriberRow & { tags: SubscriberTag[]; metadata: MetadataRecord }> {
+   const resolvedTags = tags ?? (await loadTagsFor(db, [row.id])).get(row.id) ?? [];
+   const resolvedMetadata = metadata ?? (await loadSubscriberMetadata(db, row.id));
+
+   return { ...row, tags: resolvedTags, metadata: resolvedMetadata };
 }
 
 subscriberRoutes.get('/', async (c) => {
@@ -171,7 +162,7 @@ subscriberRoutes.get('/', async (c) => {
    }
 
    const rows = await c.env.DB.prepare(
-      `SELECT s.id, s.email, s.first_name, s.last_name, s.status, s.source,
+      `SELECT s.id, s.email, s.first_name, s.last_name, s.status, s.source, s.source_url,
               s.created_at, s.unsubscribed_at, s.deleted_at
        FROM subscribers s
        WHERE ${clauses.join(' AND ')}
@@ -184,12 +175,15 @@ subscriberRoutes.get('/', async (c) => {
    const hasMore = rows.results.length > query.limit;
    const page = hasMore ? rows.results.slice(0, query.limit) : rows.results;
    const last = page[page.length - 1];
-   const tags = await loadTagsFor(
-      c.env.DB,
-      page.map((row) => row.id),
-   );
+   const ids = page.map((row) => row.id);
+   const tags = await loadTagsFor(c.env.DB, ids);
+   const metadata = await loadSubscriberMetadataFor(c.env.DB, ids);
 
-   const data = page.map((row) => ({ ...row, tags: tags.get(row.id) ?? [] }));
+   const data = page.map((row) => ({
+      ...row,
+      tags: tags.get(row.id) ?? [],
+      metadata: metadata.get(row.id) ?? {},
+   }));
 
    return paginated(data, {
       nextCursor:
@@ -202,28 +196,30 @@ subscriberRoutes.get('/', async (c) => {
 subscriberRoutes.post('/', async (c) => {
    const body = subscriberInput.parse(await readJson(c));
    const now = nowSeconds();
-   const id = createId('sub');
 
-   try {
-      await c.env.DB.prepare(
-         `INSERT INTO subscribers (id, email, first_name, last_name, status, source, created_at)
-          VALUES (?, ?, ?, ?, 'subscribed', 'manual', ?)`,
-      )
-         .bind(id, body.email, body.firstName ?? null, body.lastName ?? null, now)
-         .run();
-   } catch (error) {
-      if (isUniqueViolation(error)) {
-         throw new ConflictError('A subscriber with that email already exists');
-      }
-      throw error;
-   }
+   const result = await upsertSubscriber(
+      c.env.DB,
+      {
+         email: body.email,
+         firstName: body.firstName ?? null,
+         lastName: body.lastName ?? null,
+         status: 'subscribed',
+         source: 'manual',
+         metadata: body.metadata ?? {},
+         createOnly: true,
+      },
+      now,
+   );
 
-   const row = await findSubscriber(c.env.DB, id);
+   const row = await findSubscriber(c.env.DB, result.id);
    if (row === null) {
       throw new NotFoundError('Subscriber not found');
    }
 
-   return ok({ ...row, tags: [] }, { status: 201, requestId: c.get('requestId') });
+   return ok(await subscriberResource(c.env.DB, row, []), {
+      status: 201,
+      requestId: c.get('requestId'),
+   });
 });
 
 subscriberRoutes.post('/import', async (c) => {
@@ -247,38 +243,21 @@ subscriberRoutes.post('/import', async (c) => {
       }
       seen.add(row.email);
 
-      const existing = await c.env.DB.prepare('SELECT id FROM subscribers WHERE email = ?')
-         .bind(row.email)
-         .first<{ id: string }>();
+      const result = await upsertSubscriber(
+         c.env.DB,
+         {
+            email: row.email,
+            firstName: row.first_name,
+            lastName: row.last_name,
+            source: 'import',
+            tags: [...bodyTags, ...row.tags],
+            metadata: row.metadata,
+         },
+         now,
+      );
 
-      let subscriberId: string;
-
-      if (existing === null) {
-         subscriberId = createId('sub');
-         await c.env.DB.prepare(
-            `INSERT INTO subscribers (id, email, first_name, last_name, status, source, created_at)
-             VALUES (?, ?, ?, ?, 'subscribed', 'import', ?)`,
-         )
-            .bind(subscriberId, row.email, row.first_name, row.last_name, now)
-            .run();
-         imported += 1;
-      } else {
-         subscriberId = existing.id;
-         await c.env.DB.prepare(
-            `UPDATE subscribers
-             SET first_name = COALESCE(?, first_name), last_name = COALESCE(?, last_name)
-             WHERE id = ?`,
-         )
-            .bind(row.first_name, row.last_name, subscriberId)
-            .run();
-         updated += 1;
-      }
-
-      const tagNames = [...new Set([...bodyTags, ...row.tags])];
-      for (const name of tagNames) {
-         const tagId = await ensureTag(c.env.DB, name, now);
-         await attachTag(c.env.DB, subscriberId, tagId);
-      }
+      if (result.created) imported += 1;
+      else updated += 1;
    }
 
    const errors = parsed.errors.filter((error) => !error.message.startsWith('Duplicate email:'));
@@ -291,7 +270,10 @@ subscriberRoutes.get('/export', async (c) => {
       `SELECT s.email, s.first_name, s.last_name, s.status, s.created_at,
               (SELECT GROUP_CONCAT(t.name, ';')
                FROM subscriber_tags st JOIN tags t ON t.id = st.tag_id
-               WHERE st.subscriber_id = s.id) AS tags
+               WHERE st.subscriber_id = s.id) AS tags,
+              (SELECT GROUP_CONCAT(m.key || '=' || m.value, ';')
+               FROM subscriber_metadata m
+               WHERE m.subscriber_id = s.id) AS metadata
        FROM subscribers s
        WHERE s.deleted_at IS NULL
        ORDER BY s.created_at DESC, s.id DESC`,
@@ -302,9 +284,10 @@ subscriberRoutes.get('/export', async (c) => {
       status: string;
       created_at: number;
       tags: string | null;
+      metadata: string | null;
    }>();
 
-   const header = 'email,first_name,last_name,tags,status,created_at';
+   const header = 'email,first_name,last_name,tags,metadata,status,created_at';
    const body = rows.results
       .map((row) =>
          [
@@ -312,6 +295,7 @@ subscriberRoutes.get('/export', async (c) => {
             csvCell(row.first_name),
             csvCell(row.last_name),
             csvCell(row.tags),
+            csvCell(row.metadata),
             csvCell(row.status),
             String(row.created_at),
          ].join(','),
@@ -326,6 +310,15 @@ subscriberRoutes.get('/export', async (c) => {
          'cache-control': 'no-store',
       },
    });
+});
+
+subscriberRoutes.get('/:id', async (c) => {
+   const row = await findSubscriber(c.env.DB, c.req.param('id'));
+   if (row === null) {
+      throw new NotFoundError('Subscriber not found');
+   }
+
+   return ok(await subscriberResource(c.env.DB, row));
 });
 
 subscriberRoutes.post('/bulk-tags', async (c) => {
@@ -403,13 +396,30 @@ subscriberRoutes.patch('/:id', async (c) => {
       }
    }
 
+   if (body.metadata !== undefined) {
+      const current = await loadSubscriberMetadata(c.env.DB, id);
+      const merged = mergeMetadata(current, body.metadata);
+
+      if (Object.keys(merged).length > MAX_METADATA_KEYS) {
+         throw new ValidationError(`At most ${MAX_METADATA_KEYS} metadata keys are allowed`);
+      }
+
+      const updates: MetadataRecord = {};
+      const deletes: string[] = [];
+      for (const [key, value] of Object.entries(body.metadata)) {
+         if (value === null) deletes.push(key);
+         else updates[key] = value;
+      }
+
+      await writeSubscriberMetadata(c.env.DB, id, updates, deletes);
+   }
+
    const row = await findSubscriber(c.env.DB, id);
    if (row === null) {
       throw new NotFoundError('Subscriber not found');
    }
 
-   const tags = await loadTagsFor(c.env.DB, [id]);
-   return ok({ ...row, tags: tags.get(id) ?? [] });
+   return ok(await subscriberResource(c.env.DB, row));
 });
 
 subscriberRoutes.delete('/:id', async (c) => {

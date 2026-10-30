@@ -67,6 +67,28 @@ function nestedNumber(
    return nested === null ? null : numberOf(nested, ...keys);
 }
 
+function metadataOf(source: Record<string, unknown>): Record<string, string> {
+   const direct = recordOf(source.metadata);
+   if (direct !== null) {
+      const metadata: Record<string, string> = {};
+      for (const [key, value] of Object.entries(direct)) {
+         if (typeof value === 'string') metadata[key] = value;
+      }
+      return metadata;
+   }
+
+   const json = stringOf(source, 'metadata_json', 'metadataJson');
+   if (json !== null) {
+      try {
+         return metadataOf({ metadata: JSON.parse(json) });
+      } catch {
+         return {};
+      }
+   }
+
+   return {};
+}
+
 export function toCampaignView(value: unknown): CampaignView {
    const source = recordOf(value) ?? {};
    const status = isCampaignStatus(source.status) ? source.status : 'draft';
@@ -87,6 +109,7 @@ export function toCampaignView(value: unknown): CampaignView {
       audienceQuery: stringOf(source, 'audienceQuery', 'audience_query') ?? '',
       status,
       scheduledAt,
+      metadata: metadataOf(source),
       created_at: numberOf(source, 'created_at', 'createdAt') ?? 0,
       updated_at: numberOf(source, 'updated_at', 'updatedAt') ?? 0,
       audienceCount,

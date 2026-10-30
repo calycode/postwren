@@ -55,9 +55,11 @@ export async function resetDb(db: D1Database = env.DB): Promise<void> {
       db.prepare('DELETE FROM campaign_recipients'),
       db.prepare('DELETE FROM campaigns'),
       db.prepare('DELETE FROM templates'),
+      db.prepare('DELETE FROM subscriber_metadata'),
       db.prepare('DELETE FROM subscriber_tags'),
       db.prepare('DELETE FROM tags'),
       db.prepare('DELETE FROM subscribers'),
+      db.prepare('DELETE FROM subscribe_keys'),
       db.prepare('DELETE FROM sessions'),
       db.prepare('DELETE FROM magic_links'),
       db.prepare('DELETE FROM rate_limits'),
@@ -124,6 +126,7 @@ export async function seedSubscribers(
       status?: string;
       first_name?: string;
       last_name?: string;
+      metadata?: Record<string, string>;
       createdAt?: number;
    }>,
 ): Promise<string[]> {
@@ -153,6 +156,14 @@ export async function seedSubscribers(
             'INSERT OR IGNORE INTO subscriber_tags (subscriber_id, tag_id) VALUES (?, ?)',
          )
             .bind(id, tagId)
+            .run();
+      }
+
+      for (const [key, value] of Object.entries(entry.metadata ?? {})) {
+         await target.DB.prepare(
+            'INSERT INTO subscriber_metadata (subscriber_id, key, value) VALUES (?, ?, ?)',
+         )
+            .bind(id, key, value)
             .run();
       }
    }
@@ -197,6 +208,7 @@ export async function seedCampaign(
       utmCampaign?: string;
       templateRevision?: number;
       name?: string;
+      metadata?: Record<string, string>;
    },
 ): Promise<string> {
    const id = createId('cmp');
@@ -206,8 +218,8 @@ export async function seedCampaign(
       `INSERT INTO campaigns
        (id, template_id, template_revision, name, subject, from_name, from_email, reply_to,
         audience_query, scheduled_at, status, utm_source, utm_medium, utm_campaign,
-        created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        metadata_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
    )
       .bind(
          id,
@@ -223,6 +235,7 @@ export async function seedCampaign(
          options.utmSource ?? '',
          options.utmMedium ?? '',
          options.utmCampaign ?? '',
+         JSON.stringify(options.metadata ?? {}),
          createdAt,
          createdAt,
       )
