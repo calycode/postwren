@@ -17,6 +17,8 @@ export function baseEnv(overrides: Partial<Env> = {}): Env {
       ASSETS: real.ASSETS,
       CAMPAIGN_QUEUE: real.CAMPAIGN_QUEUE,
       EMAIL: real.EMAIL,
+      OAUTH_KV: real.OAUTH_KV,
+      ...(real.OAUTH_PROVIDER === undefined ? {} : { OAUTH_PROVIDER: real.OAUTH_PROVIDER }),
       SESSION_SECRET: real.SESSION_SECRET,
       TOKEN_SECRET: real.TOKEN_SECRET,
       APP_URL: real.APP_URL,

@@ -23,6 +23,12 @@
          "bucket_name": "mailer-cloudflare-media",
       },
    ],
+   "kv_namespaces": [
+      {
+         "binding": "OAUTH_KV",
+         "id": "00000000000000000000000000000000",
+      },
+   ],
    "queues": {
       "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "mailer-campaigns" }],
       "consumers": [

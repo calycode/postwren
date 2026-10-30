@@ -1,3 +1,4 @@
+import type { ConsentDescription } from '@cloudflare/workers-oauth-provider';
 import type { Scope } from '../auth/scopes';
 
 export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
@@ -13,15 +14,11 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
    'send:write': 'Schedule, send, pause and resume campaigns',
 };
 
-export type ConsentParams = {
-   client_id: string;
-   redirect_uri: string;
-   response_type: string;
-   scope: string;
-   state?: string;
-   code_challenge: string;
-   code_challenge_method: string;
-   resource?: string;
+export type ConsentInput = {
+   details: ConsentDescription;
+   handle: string;
+   csrf: string;
+   username: string;
 };
 
 function escapeHtml(value: string): string {
@@ -33,48 +30,36 @@ function escapeHtml(value: string): string {
       .replace(/'/g, '&#39;');
 }
 
-function hidden(name: string, value: string | undefined): string {
-   if (value === undefined) return '';
-   return `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`;
+function scopeDescription(scope: string): string {
+   return SCOPE_DESCRIPTIONS[scope as Scope] ?? scope;
 }
 
-export function renderConsentPage(input: {
-   clientName: string;
-   clientId: string;
-   username: string;
-   scopes: Scope[];
-   params: ConsentParams;
-   csrf: string;
-}): string {
-   const { clientName, clientId, username, scopes, params, csrf } = input;
+export function renderConsentPage(input: ConsentInput): string {
+   const { details, handle, csrf, username } = input;
 
-   const scopeItems = scopes
+   const scopeItems = details.scope
       .map(
          (scope) =>
             `<li><code>${escapeHtml(scope)}</code><span>${escapeHtml(
-               SCOPE_DESCRIPTIONS[scope],
+               scopeDescription(scope),
             )}</span></li>`,
       )
       .join('');
 
-   const fields = [
-      hidden('csrf', csrf),
-      hidden('client_id', params.client_id),
-      hidden('redirect_uri', params.redirect_uri),
-      hidden('response_type', params.response_type),
-      hidden('scope', params.scope),
-      hidden('state', params.state),
-      hidden('code_challenge', params.code_challenge),
-      hidden('code_challenge_method', params.code_challenge_method),
-      hidden('resource', params.resource),
-   ].join('');
+   const domain = details.clientDomain
+      ? `<dt>Client domain</dt><dd>${escapeHtml(details.clientDomain)}</dd>`
+      : '';
+
+   const loopback = details.redirectIsLoopback
+      ? '<p class="warning">The redirect goes to a local app. Any process on that machine could receive the authorization code.</p>'
+      : '';
 
    return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authorize ${escapeHtml(clientName)}</title>
+<title>Authorize ${escapeHtml(details.clientName)}</title>
 <style>
 :root { color-scheme: light dark; }
 * { box-sizing: border-box; }
@@ -85,6 +70,7 @@ main { width: 100%; max-width: 460px; border: 1px solid color-mix(in srgb, Canva
   border-radius: 14px; padding: 28px; }
 h1 { margin: 0 0 6px; font-size: 20px; line-height: 1.25; }
 p { margin: 0 0 16px; opacity: .8; }
+.warning { padding: 10px 12px; border-radius: 9px; background: color-mix(in srgb, #b45309 14%, transparent); }
 dl { margin: 0 0 18px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
 dt { font-weight: 600; }
 dd { margin: 0; overflow-wrap: anywhere; opacity: .85; }
@@ -103,18 +89,21 @@ button[value="deny"] { background: transparent; color: inherit;
 </head>
 <body>
 <main>
-<h1>Authorize ${escapeHtml(clientName)}</h1>
+<h1>Authorize ${escapeHtml(details.clientName)}</h1>
 <p>Signed in as <span class="username">${escapeHtml(username)}</span>.</p>
 <p>This client is asking for API access to your mailer. It will act with the scopes below
 until you revoke its grant.</p>
+${loopback}
 <dl>
-<dt>Client</dt><dd>${escapeHtml(clientName)}</dd>
-<dt>Client ID</dt><dd><code>${escapeHtml(clientId)}</code></dd>
-<dt>Redirect</dt><dd>${escapeHtml(params.redirect_uri)}</dd>
+<dt>Client</dt><dd>${escapeHtml(details.clientName)}</dd>
+${domain}
+<dt>Client ID</dt><dd><code>${escapeHtml(details.clientId)}</code></dd>
+<dt>Redirect</dt><dd>${escapeHtml(details.redirectUri)}</dd>
 </dl>
 <ul>${scopeItems}</ul>
 <form method="post" action="/oauth/authorize">
-${fields}
+<input type="hidden" name="handle" value="${escapeHtml(handle)}">
+<input type="hidden" name="csrf" value="${escapeHtml(csrf)}">
 <div class="actions">
 <button type="submit" name="decision" value="deny">Deny</button>
 <button type="submit" name="decision" value="approve">Allow access</button>

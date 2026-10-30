@@ -1,4 +1,6 @@
 import type { Env } from '../env';
+import type { Scope } from '../auth/scopes';
+import { signServiceToken } from '../auth/service-token';
 
 export type ApiEnvelope = {
    data: unknown;
@@ -8,7 +10,7 @@ export type ApiEnvelope = {
 
 export type ToolCallContext = {
    env: Env;
-   authorization: string;
+   scopes: readonly Scope[];
 };
 
 export type ApiCallResult = {
@@ -24,8 +26,8 @@ function isEnvelope(value: unknown): value is ApiEnvelope {
 
 /**
  * Runs the tool against the public REST surface instead of re-implementing
- * subscriber/campaign/template SQL. The caller's bearer credential is forwarded
- * unchanged, so scopes are enforced a second time by the API middleware.
+ * subscriber/campaign/template SQL. A short-lived signed credential carries the
+ * caller's scopes, so the one scope gate applies to the internal call too.
  */
 export async function callApi(
    context: ToolCallContext,
@@ -39,8 +41,11 @@ export async function callApi(
       {
          method,
          headers: {
-            authorization: context.authorization,
             'content-type': 'application/json',
+            'x-mailer-service-token': await signServiceToken(
+               context.env.TOKEN_SECRET,
+               context.scopes,
+            ),
          },
          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       },

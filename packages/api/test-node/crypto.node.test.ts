@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { apiKeyHash, generateApiKey, parseApiKey } from '../src/auth/api-key';
-import { pkceChallenge, verifyPkce } from '../src/oauth/pkce';
+import { signServiceToken, verifyServiceToken } from '../src/auth/service-token';
 
 describe('API key format', () => {
    it('generates a prefix and a secret that survive parsing', () => {
@@ -27,19 +27,30 @@ describe('API key format', () => {
    });
 });
 
-describe('PKCE S256', () => {
-   it('matches the RFC 7636 test vector', async () => {
-      const verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
-      await expect(pkceChallenge(verifier)).resolves.toBe(
-         'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+describe('MCP service token', () => {
+   it('round-trips scopes and rejects a tampered signature', async () => {
+      const token = await signServiceToken(
+         'test-secret',
+         ['tags:read', 'subscribers:write'],
+         60,
+         1000,
       );
+      await expect(verifyServiceToken('test-secret', token, 1001)).resolves.toEqual([
+         'tags:read',
+         'subscribers:write',
+      ]);
+
+      const [body, signature] = token.split('.');
+      await expect(
+         verifyServiceToken('test-secret', `${body}.${signature?.slice(0, -1)}x`, 1001),
+      ).resolves.toBeNull();
+      await expect(verifyServiceToken('other-secret', token, 1001)).resolves.toBeNull();
    });
 
-   it('rejects a wrong verifier and non-S256 methods', async () => {
-      const challenge = await pkceChallenge('a'.repeat(48));
+   it('expires and refuses unknown scopes', async () => {
+      const token = await signServiceToken('test-secret', ['tags:read'], 60, 1000);
 
-      await expect(verifyPkce('a'.repeat(48), challenge, 'S256')).resolves.toBe(true);
-      await expect(verifyPkce('b'.repeat(48), challenge, 'S256')).resolves.toBe(false);
-      await expect(verifyPkce('a'.repeat(48), challenge, 'plain')).resolves.toBe(false);
+      await expect(verifyServiceToken('test-secret', token, 1061)).resolves.toBeNull();
+      await expect(verifyServiceToken('test-secret', 'not-a-token', 1001)).resolves.toBeNull();
    });
 });

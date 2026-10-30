@@ -4,7 +4,8 @@ import { UnauthorizedError, AppError } from '@mailer/worker-kit/errors';
 import { timingSafeEqual } from '@mailer/worker-kit/http';
 import type { AppEnv } from '../env';
 import { CSRF_COOKIE, SESSION_COOKIE, findSessionUser } from '../auth/session';
-import { authenticateBearer } from '../auth/bearer';
+import { authenticateApiKey } from '../auth/bearer';
+import { SERVICE_TOKEN_HEADER, verifyServiceToken } from '../auth/service-token';
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 const BEARER_PATTERN = /^Bearer\s+(\S+)$/i;
@@ -15,11 +16,27 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
       return;
    }
 
+   const serviceToken = c.req.header(SERVICE_TOKEN_HEADER);
+   if (serviceToken !== undefined && serviceToken.length > 0) {
+      const scopes = await verifyServiceToken(c.env.TOKEN_SECRET, serviceToken);
+      if (scopes === null) {
+         throw new UnauthorizedError('Invalid or expired service credential');
+      }
+
+      c.set('authKind', 'service');
+      c.set('authScopes', scopes);
+      c.set('credentialId', null);
+      c.set('userId', null);
+
+      await next();
+      return;
+   }
+
    const authorization = c.req.header('authorization');
    const bearer = authorization === undefined ? null : BEARER_PATTERN.exec(authorization.trim());
 
    if (bearer !== null) {
-      const credential = await authenticateBearer(c.env, bearer[1] ?? '');
+      const credential = await authenticateApiKey(c.env, bearer[1] ?? '');
       if (credential === null) {
          throw new UnauthorizedError('Invalid or expired credential');
       }
@@ -27,7 +44,7 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
       c.set('authKind', credential.kind);
       c.set('authScopes', credential.scopes);
       c.set('credentialId', credential.id);
-      c.set('userId', credential.kind === 'oauth' ? credential.userId : null);
+      c.set('userId', null);
 
       await next();
       return;
@@ -58,7 +75,7 @@ export const requireCsrf: MiddlewareHandler<AppEnv> = async (c, next) => {
    }
 
    const kind = c.get('authKind');
-   if (kind === 'api_key' || kind === 'oauth') {
+   if (kind === 'api_key' || kind === 'service') {
       await next();
       return;
    }

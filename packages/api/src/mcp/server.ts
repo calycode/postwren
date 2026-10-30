@@ -1,14 +1,12 @@
-import { Hono } from 'hono';
-import type { AppEnv, Env } from '../env';
-import { authenticateBearer } from '../auth/bearer';
-import { mcpResource, protectedResourceMetadataUrl } from '../oauth/config';
+import type { Env } from '../env';
+import type { Scope } from '../auth/scopes';
+import { isScope } from '../auth/scopes';
 import type { ToolCallContext } from './client';
 import { callTool, findTool, toolDefinitions } from './tools';
 
 const LATEST_PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set(['2025-06-18', '2025-03-26']);
 const SERVER_INFO = { name: 'mailer-cloudflare', version: '0.1.0' };
-const BEARER_PATTERN = /^Bearer\s+(\S+)$/i;
 
 type JsonRpcId = string | number | null;
 
@@ -23,42 +21,27 @@ type HandleResult = {
    responded: boolean;
 };
 
-export const mcpRoutes = new Hono<AppEnv>();
+export type McpAuth = {
+   scopes: readonly string[];
+};
 
-mcpRoutes.options('/mcp', (c) =>
-   c.body(null, 204, {
-      allow: 'POST, OPTIONS',
-      'access-control-allow-methods': 'POST, OPTIONS',
-      'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version',
-   }),
-);
-
-mcpRoutes.all('/mcp', async (c) => {
-   const authorization = c.req.header('authorization') ?? '';
-   const matched = BEARER_PATTERN.exec(authorization.trim());
-   const raw = matched?.[1] ?? '';
-   const credential = raw.length === 0 ? null : await authenticateBearer(c.env, raw);
-
-   if (credential === null) {
-      return unauthorized(c.env);
+export async function handleMcpRequest(
+   request: Request,
+   env: Env,
+   auth: McpAuth,
+): Promise<Response> {
+   if (request.method !== 'POST') {
+      return new Response(null, { status: 405, headers: { allow: 'POST, OPTIONS' } });
    }
 
-   if (
-      credential.kind === 'oauth' &&
-      credential.audience.replace(/\/+$/, '') !== mcpResource(c.env).replace(/\/+$/, '')
-   ) {
-      return unauthorized(c.env);
-   }
-
-   if (c.req.method !== 'POST') {
-      return c.body(null, 405, { allow: 'POST, OPTIONS' });
-   }
-
-   const context: ToolCallContext = { env: c.env, authorization: `Bearer ${raw}` };
+   const context: ToolCallContext = {
+      env,
+      scopes: auth.scopes.filter((scope): scope is Scope => isScope(scope)),
+   };
 
    let payload: unknown;
    try {
-      payload = await c.req.json<unknown>();
+      payload = await request.json();
    } catch {
       return rpcResponse(errorBody(null, -32700, 'Parse error'));
    }
@@ -70,39 +53,21 @@ mcpRoutes.all('/mcp', async (c) => {
 
       const results: unknown[] = [];
       for (const message of payload) {
-         const result = await handleMessage(message, context, credential.scopes);
+         const result = await handleMessage(message, context, auth.scopes);
          if (result.responded) results.push(result.body);
       }
 
       if (results.length === 0) {
-         return c.body(null, 202);
+         return new Response(null, { status: 202 });
       }
       return rpcResponse(results);
    }
 
-   const result = await handleMessage(payload, context, credential.scopes);
+   const result = await handleMessage(payload, context, auth.scopes);
    if (!result.responded) {
-      return c.body(null, 202);
+      return new Response(null, { status: 202 });
    }
    return rpcResponse(result.body);
-});
-
-function unauthorized(env: Env): Response {
-   return new Response(
-      JSON.stringify({
-         jsonrpc: '2.0',
-         id: null,
-         error: { code: -32001, message: 'Unauthorized' },
-      }),
-      {
-         status: 401,
-         headers: {
-            'content-type': 'application/json; charset=utf-8',
-            'www-authenticate': `Bearer resource_metadata="${protectedResourceMetadataUrl(env)}"`,
-            'cache-control': 'no-store',
-         },
-      },
-   );
 }
 
 function rpcResponse(body: unknown): Response {
@@ -208,10 +173,7 @@ async function handleMessage(
 
          const tool = findTool(name);
          if (tool === null) {
-            return {
-               responded: true,
-               body: errorBody(id, -32602, `Unknown tool: ${name}`),
-            };
+            return { responded: true, body: errorBody(id, -32602, `Unknown tool: ${name}`) };
          }
 
          const rawArguments = paramsObject['arguments'];
