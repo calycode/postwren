@@ -1,20 +1,20 @@
 # EmDash plugin packaging
 
-Decision document for making this repo installable inside an EmDash site. Two phases: ship the
-email layer as a dependency (phase 1), then absorb the Worker into a native plugin (phase 2).
+Decision document for making this repo installable inside an EmDash site. Phase 1 is shipped:
+`packages/emdash-plugin` (`@mailer/emdash`) forwards newsletter signups to the standalone Worker.
+Phase 2 — absorbing the Worker — remains a port, not a repackage.
 
-Evidence base: EmDash 1.3.1 as bundled in `alfatours-emdash` (`package.json`, `astro.config.mjs`,
-`wrangler.jsonc`, `node_modules/emdash/dist`, `node_modules/@emdash-cms/{cloudflare,admin,auth}`)
-and the working native plugins in `alfatours-emdash/src/plugins/*`. Every claim about EmDash below
-was read from that source, not from prose docs, unless marked _documented_. Section 7 lists the
-open questions.
+Evidence base: EmDash 1.3.1 as bundled in `alfatours-emdash` and, for phase 1, the published
+`emdash@1.3.1` types installed in `packages/emdash-plugin` (`node_modules/emdash/dist`). Every claim
+about EmDash below was read from that source, not from prose docs, unless marked _documented_.
+Section 8 lists what is verified where.
 
 ## 1. Verdict
 
-**Phase 1 — yes, and cheap.** A native plugin is a trusted site dependency: a descriptor factory
-plus a module that exports `createPlugin(options)`. It can register admin API routes, an admin page,
-public routes, hooks and settings. Our Worker stays standalone; the plugin is a thin adapter that
-proxies signup and links out to the existing admin.
+**Phase 1 — shipped.** A native plugin is a trusted site dependency: a descriptor factory plus a
+module exporting `createPlugin(options)`. It registers a public signup route, two private status
+routes, a settings form and an opt-in page-fragment form. The Worker stays standalone and owns
+everything durable — subscribers, keys, rate limits, CORS, sending. See §5.
 
 **Phase 2 — possible, but it is a port, not a repackage.** Three EmDash properties decide the
 architecture:
@@ -215,22 +215,23 @@ Plan:
 
 ```
 packages/
-  email/          unchanged, published (phase 1 prerequisite)
+  email/          unchanged; not yet publishable (see §7)
   shared/         unchanged
   editor/         unchanged
   ui/             unchanged
   worker-kit/     unchanged
-  api/            routes return `{ data, error }` values instead of Responses (phase 2)
-  webapp/         base path + auth + transport injected via a host adapter (phase 2)
-  emdash-plugin/  NEW — descriptor, plugin definition, migrations, worker exports  (phase 1+2)
+  api/            unchanged in phase 1; phase 2 makes responses transport-injectable
+  webapp/         unchanged in phase 1; phase 2 injects base path, auth, transport
+  emdash-plugin/  @mailer/emdash — phase 1 ships index/plugin/signup/form + tests
 ```
 
-`packages/emdash-plugin` is the only new package. It never imports `@mailer/api` at module scope in a
-way that pulls worker-only code into the admin bundle: the admin entry imports `webapp` + `editor`;
-the plugin entry imports `api` + `shared` + `email`. Keep them in separate export conditions:
+`packages/emdash-plugin` is the only new package and it depends on nothing inside the monorepo: the
+signup proxy touches no Worker code, so a site can install it without `@mailer/api` or `@mailer/email`.
+Phase 2 changes that, and then the admin entry (`webapp` + `editor`) and the plugin entry
+(`api` + `shared` + `email`) must stay in separate export conditions:
 
 ```jsonc
-// packages/emdash-plugin/package.json
+// packages/emdash-plugin/package.json — phase 1 in bold, phase 2 additions in comments
 {
   "name": "@mailer/emdash",
   "private": true,
@@ -238,132 +239,78 @@ the plugin entry imports `api` + `shared` + `email`. Keep them in separate expor
   "exports": {
     ".": "./src/index.ts",            // mailerPlugin(): PluginDescriptor   (astro.config)
     "./plugin": "./src/plugin.ts",     // createPlugin(): ResolvedPlugin     (runtime)
-    "./admin": "./src/admin.tsx",      // pages/widgets                      (browser)
-    "./components": "./src/components.ts", // blockComponents                (Astro SSR)
-    "./pages": "./src/pages/index.ts", // click redirect, unsubscribe, signup page bodies
-    "./worker": "./src/worker.ts",     // queue handler for src/worker.ts
-    "./sql/*": "./sql/*"
+    "./signup": "./src/signup.ts"      // pure forward logic, testable without EmDash
+    // "./admin": "./src/admin.tsx",          phase 2: pages/widgets    (browser)
+    // "./components": "./src/components.ts", phase 2: blockComponents  (Astro SSR)
+    // "./pages": "./src/pages/index.ts",     phase 2: click/unsubscribe bodies
+    // "./worker": "./src/worker.ts",         phase 2: queue handler for src/worker.ts
+    // "./sql/*": "./sql/*"                   phase 2: mailer_* migrations
   }
 }
 ```
 
-### Phase 1 — standalone Worker stays, plugin adapts
+### Phase 1 — implemented
 
-```ts
-// packages/emdash-plugin/src/index.ts
-import type { PluginDescriptor } from "emdash";
+`packages/emdash-plugin` (`@mailer/emdash`) is a native plugin that forwards signups to the
+standalone Worker. It registers no admin page and exports no React: EmDash renders the settings form
+from `settingsSchema`, and two private routes answer status calls. That is a deliberate choice — an
+admin entry would mean shipping the Preact SPA and its transport/identity adapter for a page that
+would only show one status line.
 
-export interface MailerPluginOptions {
-  /** Base URL of the standalone Worker, e.g. "https://mailer.example.com". */
-  workerUrl: string;
-  /** Shown in the admin page; the site admin pastes it from the Worker's settings. */
-  siteKey?: string;
-}
-
-export function mailerPlugin(options: MailerPluginOptions): PluginDescriptor<MailerPluginOptions> {
-  return {
-    id: "mailer",
-    version: "0.1.0",
-    format: "native",
-    entrypoint: "@mailer/emdash/plugin",
-    adminEntry: "@mailer/emdash/admin",
-    componentsEntry: "@mailer/emdash/components",
-    options,
-    capabilities: ["network:request", "hooks.page-fragments:register"],
-    allowedHosts: [new URL(options.workerUrl).host],
-    adminPages: [{ path: "/overview", label: "Mailer", icon: "mail" }],
-    settingsSchema: {
-      workerUrl: { type: "url", label: "Mailer URL", default: options.workerUrl },
-      siteKey: { type: "secret", label: "Site key" },
-      formId: { type: "string", label: "Signup form id", default: "newsletter" },
-    },
-  };
-}
+```
+packages/emdash-plugin/
+  package.json          @mailer/emdash, private, emdash ^1.3.1 peer + 1.3.1 dev
+  src/index.ts          mailerPlugin(): PluginDescriptor, settings schema, settings reads
+  src/plugin.ts         createPlugin(options): routes + page:fragments hook
+  src/signup.ts         pure forward logic (validation, tag merge, error mapping)
+  src/form.ts           accessible inline form + script for page:fragments
+  test/*.test.ts        forward contract, error mapping, descriptor, form
 ```
 
 ```ts
-// packages/emdash-plugin/src/plugin.ts
-import { definePlugin, PluginRouteError } from "emdash";
-import type { MailerPluginOptions } from "./index";
-
-export function createPlugin(options: MailerPluginOptions) {
-  return definePlugin({
-    id: "mailer",
-    version: "0.1.0",
-    capabilities: ["network:request", "hooks.page-fragments:register"],
-    allowedHosts: [new URL(options.workerUrl).host],
-    admin: {
-      entry: "@mailer/emdash/admin",
-      pages: [{ path: "/overview", label: "Mailer", icon: "mail" }],
-    },
-    routes: {
-      // Public signup, forwarded to the Worker with the site key. Rate limiting and
-      // honeypot live on the Worker so a compromised site cannot bypass the quota.
-      signup: {
-        public: true,
-        methods: ["POST"],
-        request: { body: "json", maxBytes: 8 * 1024 },
-        handler: async (ctx) => {
-          const body = ctx.input as { email?: unknown; formId?: unknown };
-          if (typeof body.email !== "string" || !body.email.includes("@")) {
-            throw new PluginRouteError("INVALID_EMAIL", "A valid email is required", 422);
-          }
-          const res = await ctx.http!.fetch(`${options.workerUrl}/api/v1/public/subscribe`, {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-site-key": options.siteKey ?? "" },
-            body: JSON.stringify({ email: body.email, formId: body.formId }),
-          });
-          if (!res.ok) throw new PluginRouteError("SUBSCRIBE_FAILED", "Signup failed", 502);
-          return { subscribed: true };
-        },
-      },
-      overview: {
-        permission: "plugins:read",
-        methods: ["GET"],
-        handler: async (ctx) => ({ workerUrl: options.workerUrl, configured: Boolean(options.siteKey) }),
-      },
-    },
-    hooks: {
-      // Optional: inject the form into every public page without site template edits.
-      // Native only (capability "hooks.page-fragments:register"). The script is inline
-      // because a plugin route cannot serve .js (see R8).
-      "page:fragments": async () => [
-        {
-          kind: "html",
-          placement: "body:end",
-          html: '<form id="mailer-signup"><input name="email" type="email" required></form>',
-        },
-        {
-          kind: "inline-script",
-          placement: "body:end",
-          code: `document.getElementById("mailer-signup").addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const email = new FormData(event.target).get("email");
-            await fetch("/_emdash/api/plugins/mailer/signup", {
-              method: "POST",
-              headers: { "content-type": "application/json", "X-EmDash-Request": "1" },
-              body: JSON.stringify({ email }),
-            });
-            event.target.reset();
-          });`,
-        },
-      ],
-    },
-  });
-}
+// astro.config.mjs (site side)
+import { mailerPlugin } from "@mailer/emdash";
+emdash({ plugins: [mailerPlugin({ workerUrl: "https://mail.example.com" })] });
 ```
 
-Repo changes required for phase 1:
-
-| Change | File | Why |
+| Route | Access | Behaviour |
 | --- | --- | --- |
-| Publish a public subscribe endpoint | `packages/api/src/routes/subscribers.ts` + `app.ts` | None exists: every `/api/v1/*` route is behind `requireAuth`. Needs `POST /api/v1/public/subscribe`, `x-site-key` check, honeypot, rate limit. Test through `createApp`. |
-| Publish `@mailer/email` properly | `packages/email/package.json` | Subpath exports point at `./src/*.ts` while `files` is `["dist"]` — consumers get TS or nothing. Point at `dist`, add `publishConfig`, run `pnpm pack` + a typecheck against the packed artifact. |
-| Site key storage | `migrations/0004_site_keys.sql` | One row per site, hashed key, created_at. Additive. |
-| New package | `packages/emdash-plugin/*` | Above. |
-| No auth changes | — | The standalone Worker keeps its own magic-link session. |
+| `/_emdash/api/plugins/mailer/signup` | public, `POST`, JSON ≤ 8 KiB | validates the email, drops honeypot hits, forwards to `POST {workerUrl}/api/public/subscribe` with `Authorization: Bearer <pk_live_ key from settings>` |
+| `/_emdash/api/plugins/mailer/overview` | `plugins:read`, `GET` | `{ workerUrl, configured, defaultTags }`, never the key |
+| `/_emdash/api/plugins/mailer/testConnection` | `plugins:manage`, `POST` | calls `{workerUrl}/api/health`, returns `{ ok, status, message? }` |
 
-Leave out of phase 1: any admin UI beyond a status card, any shared storage, any EmDash email usage.
+Settings (all read through `ctx.settings`, with the descriptor defaults applied in code because
+EmDash does not materialise them): `workerUrl` (url), `siteKey` (secret), `defaultTags`
+(comma-separated), `signupFormEnabled` (boolean, default false), `signupFormHeading` (default
+"Newsletter"). `page:fragments` injects the form only when enabled, with
+`errorPolicy: "continue"` so a form can never take a public page down, and requires the template to
+render `<EmDashBodyEnd />`.
+
+Upstream mapping: `429 → RATE_LIMITED/429`, `401|403 → WORKER_NOT_CONFIGURED/502`,
+`422 → INVALID_EMAIL/422`, everything else (including network and timeout) `→ SUBSCRIBE_FAILED/502`.
+No error message contains the key or the upstream body. `created` is never read.
+
+Constraints accepted for phase 1:
+
+- `allowedHosts` is fixed at build time from `workerUrl`, so changing the Worker host means editing
+  `astro.config.mjs` and redeploying. A mismatched settings URL fails closed as
+  `WORKER_NOT_CONFIGURED` rather than reaching an arbitrary host.
+- `settingsSchema` has no `required` flag, so "required" is enforced at runtime, not in the form.
+- The Worker rate-limits per client IP. A server-to-server call from the site's Worker may present a
+  single egress IP for every visitor, so a busy site can hit the 10/minute budget. The plugin maps
+  that to a friendly 429; raising it is a Worker-side change.
+
+Repo changes that phase 1 needed, all already merged on `master`:
+
+| Change | Where | Note |
+| --- | --- | --- |
+| Public subscribe endpoint | `packages/api/src/routes/public.ts` | `POST /api/public/subscribe`, `Authorization: Bearer pk_live_…` or `X-Subscribe-Key`, per-key CORS allowlist, honeypot, rate limit, idempotent upsert. Documented in `docs/PUBLIC-SUBSCRIBE.md`. |
+| Key storage | `migrations/0004_custom_metadata.sql`, `0005_agent_access.sql` | The subscribe-key table landed in `0005`. `0004` is taken by custom metadata — do not reuse that number. |
+| Publish `@mailer/email` properly | `packages/email/package.json` | Still open: subpath exports point at `./src/*.ts` while `files` is `["dist"]`, so consumers get TypeScript sources or nothing. Not needed by phase 1. |
+| No auth changes | — | The standalone Worker keeps its magic-link session; the plugin uses EmDash's identity for its private routes. |
+
+Left out of phase 1: any admin UI, shared storage, EmDash email usage, subscriber import, and
+click/unsubscribe handling (those URLs stay on the Worker).
 
 ### Phase 2 — full plugin
 
@@ -423,44 +370,48 @@ What must not change: `renderEmail`, the IR, `applyMergeTags`, `compileAudience`
 | R12 | Wire-format collision: our `{ data, error }` vs EmDash's `{ success, data }` | Injectable transport (section 5). Do not ship two envelopes. |
 | R13 | Native plugins are trusted code with the site's authority: a bug in our send loop can read the site's content tables | Accept, minimise: no `content:*` capability unless a feature needs it, no `network:request:unrestricted`, `allowedHosts` limited to the Worker origin in phase 1. |
 | R14 | Someone will ask for registry install | Won't work: native plugins are excluded from `sandboxed: []` and the registry. If that is a requirement, the product must become a standard/sandboxed plugin — which means Block Kit admin UI and no raw DB, i.e. a different product. |
-| R15 | Our migration numbering (`0001`–`0003`) collides with EmDash core's migrations if both live in one `migrations_dir` | Rename to `mailer_0001_…` when copied into a site, or keep them in `node_modules/@mailer/emdash/sql/` and use `wrangler d1 execute --file`. |
+| R15 | Our migration numbering (`0001`–`0005`) collides with EmDash core's migrations if both live in one `migrations_dir` | Rename to `mailer_0001_…` when copied into a site, or keep them in `node_modules/@mailer/emdash/sql/` and use `wrangler d1 execute --file`. |
+| R16 | `allowedHosts` is fixed at build time from `workerUrl`, so the settings value cannot point anywhere else | Phase 1 fails closed with `WORKER_NOT_CONFIGURED` when the hosts differ, and the setting's description says to redeploy after changing it. A per-tenant host would need `network:request:unrestricted`, which is too much authority for a signup proxy. |
+| R17 | The Worker rate-limits per client IP; all traffic from one site's Worker may share an egress IP | Accepted for phase 1: the plugin maps 429 to a friendly message. Raising the budget is a Worker-side change (`RATE_LIMITS.publicSubscribe`). |
 
-## 7. First milestones
+## 7. Milestones
 
-Each is verifiable on its own and leaves the repo green.
+Phase 1 as built:
 
 1. **Doc** — this file. *(done)*
-2. **`@mailer/email` publishable** — subpath exports point at `dist`; `pnpm pack` then typecheck and
-   render a fixture from the tarball in a scratch dir. Gate: `renderEmail` output byte-identical to
-   the in-repo build.
-3. **Public subscribe endpoint** — `POST /api/v1/public/subscribe` with `x-site-key`, honeypot and
-   rate limit; test through `createApp` (401 without key, 429 on burst, 200 idempotent on repeat).
-4. **Adapter skeleton** — `packages/emdash-plugin` with descriptor + `createPlugin` + the `signup`
-   route proxying to the Worker. Gate: `pnpm check-types` and `pnpm lint` pass with `emdash` added as
-   a dev dependency only.
-5. **Prove it in a real site** — add the plugin to `alfatours-emdash`, submit the signup form from a
-   page, see the subscriber in the standalone Worker. Gate: one real subscriber row, one log line.
-6. **Signup block** — `componentsEntry` exporting `blockComponents` for a newsletter block, plus the
-   `page:fragments` script. Gate: block renders on a published page.
-7. **Admin page mounting** — React wrapper, hash routing, transport adapter, `useCurrentUser`.
-   Gate: the SPA loads, lists templates, saves one, in the real admin; no double envelope; no
-   history desync on refresh.
-8. **Storage port** — `MailerDb` seam in `@mailer/api`, `mailer_*` migrations, schema sentinel.
-   Gate: subscribers/templates/campaigns CRUD against a real D1 inside EmDash, existing API tests
-   still green in workerd.
-9. **Dispatch and send inside the plugin** — `cron` hook for dispatch, exported queue consumer, own
-   `send_email` usage with `List-Unsubscribe`. Gate: a 3-recipient campaign sends through the site's
-   binding, replaying the batch sends nothing.
-10. **Identity and settings cutover** — drop `users`/`sessions`/`magic_links`, move secrets to
+2. **Public subscribe endpoint** — shipped on `master` as `POST /api/public/subscribe` with
+   `Authorization: Bearer pk_live_…`, per-key CORS, honeypot, rate limit, idempotent upsert;
+   covered by `packages/api/test/public.test.ts` inside workerd. *(done)*
+3. **Plugin package** — `packages/emdash-plugin`: descriptor, `createPlugin`, pure forward logic,
+   inline form, 57 unit tests, `emdash@1.3.1` as peer + dev. *(done)*
+4. **Prove it in a real site** — add the plugin to `alfatours-emdash`, submit the form, see the
+   subscriber in the Worker. **Not done: needs a live site and a real `pk_live_` key.**
+5. **Prove the injected form** — enable `signupFormEnabled` on a site whose template renders
+   `<EmDashBodyEnd />`, submit, confirm the subscriber and that no other page output changed.
+   **Not done, same reason.**
+
+Phase 2, unchanged and not started:
+
+6. **`@mailer/email` publishable** — subpath exports point at `dist`; `pnpm pack`, then typecheck and
+   render a fixture from the tarball. Gate: `renderEmail` output byte-identical.
+7. **Signup block** — `componentsEntry` exporting `blockComponents`, so signup can be placed as a
+   Portable Text block instead of a footer injection.
+8. **Admin page mounting** — React wrapper, hash routing, transport adapter, `useCurrentUser`.
+9. **Storage port** — `MailerDb` seam in `@mailer/api`, `mailer_*` migrations, schema sentinel.
+10. **Dispatch and send inside the plugin** — `cron` hook, exported queue consumer, own `send_email`
+    usage with `List-Unsubscribe`. Gate: a 3-recipient campaign sends; replaying the batch sends
+    nothing.
+11. **Identity and settings cutover** — drop `users`/`sessions`/`magic_links`, move secrets to
     `settingsSchema`, delete `SESSION_SECRET`/`TOKEN_SECRET`/`APP_URL`/`EMAIL_FROM` reads.
-    Gate: activation fails closed without `tokenSecret`; admin operations authorised by
-    `plugins:manage`.
 
 ## 8. Verified from source vs taken from docs
 
 | Claim | Source |
 | --- | --- |
 | `createPlugin` entrypoint, `format: "native"`, native-only `plugins: []` | `emdash/dist/virtual-modules-CU29aip9.mjs`, `emdash/dist/astro/index.mjs` (config validation) |
+| Route handler arity, `ctx.input`, `ctx.settings.get`, `ctx.http.fetch`, `PluginRouteError(code, message, status)` | `emdash@1.3.1` `dist/types-*.d.mts`, `dist/config-*.d.mts`; the phase-1 tests run `definePlugin` for real |
+| Settings come from `admin.settingsSchema` at runtime, not the descriptor field | `emdash/dist/api-C_LxFnOm.mjs` (`settingsSchemaForPlugin`), `dist/context-ErV7UdQY.mjs` |
+| Settings defaults are not materialised; unset reads return `null` | `emdash/dist/settings-yIqoN-Ok.mjs` (`getPluginSettingsWithDb`) |
 | Route prefix, auth order, CSRF, `405`, body modes, raw allowlist and blocked types | `emdash/dist/astro/routes/api/plugins/[pluginId]/[...path]`, `dist/http-route-dispatch-*.mjs`, `dist/route-wire-*.mjs`, `dist/astro/middleware/auth.mjs` |
 | Admin page URL, exact-path resolution, no props | `@emdash-cms/admin/dist/index.js` (`PluginPage`, `resolvePluginPagePath`, nav builder) |
 | Admin entry bundled by Vite | `emdash/dist/virtual-modules-CU29aip9.mjs` (`generateAdminRegistryModule`) |
@@ -469,13 +420,16 @@ Each is verifiable on its own and leaves the repo green.
 | Cron + `withEmDashRuntime` for queue consumers | `@emdash-cms/cloudflare/dist/worker.mjs`, `emdash/dist/astro/middleware.d.mts` |
 | Media file URL is public | `PUBLIC_API_PREFIXES` in `dist/astro/middleware/auth.mjs` |
 | Permissions and role levels | `@emdash-cms/auth/dist/index.mjs` |
-| Hook list, capability gates, `page:fragments` native-only | `emdash/dist/types-*.d.mts` (`PluginHooks`), `dist/plugin-types.d.mts` |
-| Docs only: Block Kit forms, registry publishing, `settingsSchema` rendering details | `creating-plugins` skill references (`admin-ui.md`, `api-routes.md`, `storage.md`, `publishing.md`) |
+| Hook list, capability gates, `page:fragments` native-only, `errorPolicy` | `emdash/dist/types-*.d.mts` (`PluginHooks`, `HookConfig`), `dist/plugin-types.d.mts` |
+| Worker contract (`/api/public/subscribe`, headers, honeypot, status codes) | `packages/api/src/routes/public.ts`, `docs/PUBLIC-SUBSCRIBE.md`, `packages/api/test/public.test.ts` |
+| Docs only: Block Kit forms, registry publishing, admin settings-form rendering | `creating-plugins` skill references (`admin-ui.md`, `api-routes.md`, `storage.md`, `publishing.md`) |
 
-Not verified, therefore untested: the whole plugin running inside a real site end to end; CSS
-collection from an admin entry; whether `send_email` accepts every header we need beyond what
-`packages/api/src/adapters/email.ts` already sends; EmDash 1.x compatibility guarantees across minor
-versions.
+Not verified, therefore untested: the plugin running inside a real site end to end (no deploy was
+made); whether EmDash's settings form renders `url`/`secret` fields as expected; `page:fragments`
+appearing under a real template's `<EmDashBodyEnd />`; whether the Worker sees the visitor IP or the
+site Worker's egress IP for rate limiting; CSS collection from an admin entry; whether `send_email`
+accepts every header we need beyond what `packages/api/src/adapters/email.ts` already sends; EmDash
+1.x compatibility across minor versions.
 
 ## 9. Deliberately out of scope
 
