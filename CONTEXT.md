@@ -4,19 +4,19 @@ Vocabulary and seams for this repo. Read before changing code.
 
 ## Domain
 
-| Term               | Meaning                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| **IR**             | The email document: `{ version, settings, preheader?, children: Block[] }`. Source of truth. Never HTML.                         |
-| **Block**          | One of `heading`, `text`, `button`, `image`, `divider`, `spacer`, `columns`, `social`. Every block has a stable, immutable `id`. |
-| **Render**         | Pure transformation `IR -> { html, text, bytes, warnings }`. Table-only markup.                                                  |
-| **Preview parity** | The browser preview and the sent message are produced by the same `renderEmail` call. Only `resolveLink` differs.                |
-| **Campaign**       | A pinned `template_revision` plus an audience query, sender, schedule, UTMs.                                                     |
-| **Recipient**      | One `(campaign, subscriber)` row owning a unique `message_id`.                                                                   |
-| **Dispatch**       | Cron-driven, resumable creation of recipient rows and queue jobs.                                                                |
-| **Send**           | Queue-driven, idempotent rendering and delivery for one batch of recipient IDs.                                                  |
-| **Audience query** | `tag:a -tag:b` grammar compiled to parameterised SQL.                                                                            |
-| **link_id**        | A block `id`, used as the click-analytics key.                                                                                   |
-| **Suppression**    | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                               |
+| Term               | Meaning                                                                                                                                                                                                                                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **IR**             | The email document: `{ version, settings, preheader?, children: Block[] }`. Source of truth. Never HTML.                                                                                                                                                                                                                             |
+| **Block**          | One of 16 types: `heading`, `text`, `button`, `image`, `divider`, `spacer`, `columns`, `social`, `list`, `quote`, `code`, `link`, `avatar`, `gallery`, `table`, `section`. Every block has a stable, immutable `id`. `columns` and `section` are containers: 2-3 columns, or a section with at most 20 leaf children and no nesting. |
+| **Render**         | Pure transformation `IR -> { html, text, bytes, warnings }`. Table-only markup.                                                                                                                                                                                                                                                      |
+| **Preview parity** | The browser preview and the sent message are produced by the same `renderEmail` call. Only `resolveLink` differs.                                                                                                                                                                                                                    |
+| **Campaign**       | A pinned `template_revision` plus an audience query, sender, schedule, UTMs.                                                                                                                                                                                                                                                         |
+| **Recipient**      | One `(campaign, subscriber)` row owning a unique `message_id`.                                                                                                                                                                                                                                                                       |
+| **Dispatch**       | Cron-driven, resumable creation of recipient rows and queue jobs.                                                                                                                                                                                                                                                                    |
+| **Send**           | Queue-driven, idempotent rendering and delivery for one batch of recipient IDs.                                                                                                                                                                                                                                                      |
+| **Audience query** | `tag:a -tag:b` grammar compiled to parameterised SQL.                                                                                                                                                                                                                                                                                |
+| **link_id**        | A block `id`, used as the click-analytics key.                                                                                                                                                                                                                                                                                       |
+| **Suppression**    | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                                                                                                                                                                                                                                   |
 
 ## Modules and their seams
 
@@ -36,6 +36,7 @@ Deep modules: small interface, large implementation. Tests cross these seams onl
 Rules:
 
 - `@mailer/email` imports nothing but `zod`. No React, no DOM, no `hono`, no app code (lint-enforced).
+- The editor receives an `onUploadImage` callback from its host; uploads go to R2 and are served from `/media/*`. `@mailer/editor` imports no API code.
 - Callers never construct HTML, SQL, or signed tokens themselves.
 - Errors are values where the caller must branch (`RenderWarning`, CSV row errors); exceptions for genuine faults.
 
@@ -67,6 +68,7 @@ Test at these, not at internals:
 - Every response is `{ data, error }`, plus `meta` when paginated. Failures are `{ data: null, error: { code, message, details? } }`.
 - Cursor pagination is opaque; clients never construct a cursor.
 - Campaigns freeze their content: `campaigns.ir_snapshot` is written when a campaign is scheduled or sent, and the queue consumer renders that snapshot, not the live template row.
+- A template's `revision` increments only on an explicit save. Autosave updates content and `updated_at` without bumping it; campaigns pin a revision.
 
 ## Local development
 
