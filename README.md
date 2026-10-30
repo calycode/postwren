@@ -4,6 +4,8 @@ Self-hosted email marketing on a single Cloudflare Worker: visual block editor, 
 
 Deliberately narrow: no automation builder, no A/B testing, no multi-tenant billing.
 
+Beyond the admin UI, the Worker exposes three integration surfaces: a public subscribe endpoint for marketing sites, scoped API keys for scripts, and an OAuth-protected MCP server for agent clients such as ChatGPT or Claude.
+
 ## Why the email layer is its own package
 
 `@mailer/email` is a versioned IR plus a renderer that emits **only** `table`/`tr`/`td` layout with inline styles and MSO conditional comments, because Outlook on Windows renders with Microsoft Word's engine. There is no `div`, no flex, no `max-width` outside the root table. The same pure function renders the editor preview and the sent message, so what you see is what goes out. It has no React, no DOM, and no Node APIs, and it is the piece worth publishing on its own.
@@ -28,6 +30,15 @@ packages/
   worker-kit/  envelope, errors, ids, request context
 migrations/    numbered SQL
 ```
+
+## Integrations
+
+- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
+- **Scripts and external apps** — scoped `mlr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
+- **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
+- **EmDash sites** — a native plugin that proxies signups to the Worker and renders its settings in the EmDash admin. See [packages/emdash-plugin](packages/emdash-plugin) once installed.
+
+Subscribers and campaigns both carry custom key/value metadata, rendered as `{{ subscriber.meta.key }}` and `{{ campaign.meta.key }}`, and subscriber metadata is filterable with `meta:key=value` in audience queries.
 
 ## Local development
 
