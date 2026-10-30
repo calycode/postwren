@@ -106,6 +106,31 @@ describe('ir', () => {
       }
    });
 
+   it('accepts https image sources and locally served http media', () => {
+      const image = (src: string) => ({
+         id: 'image-1',
+         type: 'image',
+         src,
+         alt: 'Preview',
+         width: 600,
+         align: 'center',
+         padding,
+      });
+
+      const local = image('http://localhost:8787/media/photo.png');
+      expect(parseDocument(documentOf([local]))).toEqual(documentOf([local]));
+      expect(() =>
+         parseDocument(documentOf([image('http://127.0.0.1:8787/media/photo.png')])),
+      ).not.toThrow();
+      expect(() =>
+         parseDocument(documentOf([image('https://cdn.example.com/photo.png')])),
+      ).not.toThrow();
+      expect(() => parseDocument(documentOf([image('http://example.com/photo.png')]))).toThrow(
+         DocumentError,
+      );
+      expect(() => parseDocument(documentOf([image('/media/photo.png')]))).toThrow(DocumentError);
+   });
+
    it('rejects empty and duplicate ids, including across columns', () => {
       expect(() => parseDocument(documentOf([textBlock({ id: '' })]))).toThrow(DocumentError);
 

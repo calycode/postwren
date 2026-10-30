@@ -36,6 +36,19 @@ function isHttpsUrl(value: string): boolean {
    }
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
+
+function isAllowedImageUrl(value: string): boolean {
+   try {
+      const url = new URL(value);
+      if (url.hostname.length === 0) return false;
+      if (url.protocol === 'https:') return true;
+      return url.protocol === 'http:' && LOCAL_HOSTS.has(url.hostname);
+   } catch {
+      return false;
+   }
+}
+
 function isAllowedHref(value: string): boolean {
    if (value.startsWith('mailto:')) {
       const address = value.slice('mailto:'.length).split('?')[0] ?? '';
@@ -52,7 +65,9 @@ function isAllowedHrefOrTemplate(value: string): boolean {
 }
 
 export const hexSchema = z.string().regex(HEX, 'Expected a six digit hex colour');
-const httpsUrlSchema = z.string().refine(isHttpsUrl, 'Expected an absolute https URL');
+const httpsUrlSchema = z
+   .string()
+   .refine(isAllowedImageUrl, 'Expected an absolute https URL (http is allowed for localhost)');
 const hrefSchema = z
    .string()
    .refine(isAllowedHrefOrTemplate, 'Expected an absolute https or mailto URL');
