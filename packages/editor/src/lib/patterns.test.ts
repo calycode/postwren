@@ -13,12 +13,18 @@ function documentOf(children: Document['children']): Document {
 }
 
 describe('BLOCK_PATTERNS', () => {
-   it('exposes four named patterns', () => {
+   it('exposes a named pattern per react.email component family', () => {
       expect(BLOCK_PATTERNS.map((pattern) => pattern.id)).toEqual([
          'feature',
          'stats',
          'testimonial',
          'article',
+         'header',
+         'footer',
+         'pricing',
+         'product',
+         'rating',
+         'bento',
       ]);
    });
 
