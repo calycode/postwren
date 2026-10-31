@@ -2,6 +2,10 @@
 
 > Small bird. Loud voice. One Worker.
 
+[![Install with Appflare](https://appflare.dev/badge.svg)](https://appflare.dev/install/?repo=calycode/postwren)
+
+Appflare builds this repository in your own Cloudflare account, provisions D1, KV, R2 and the queues, and keeps the app updatable and removable. The install is not catalog-checked, and it needs Workers Paid and **Build in your account** turned on; see [docs/APPFLARE.md](docs/APPFLARE.md).
+
 Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, per-recipient rendering, open/click tracking, and one-click unsubscribe.
 
 Deliberately narrow: no automation builder, no A/B testing, no multi-tenant billing.
@@ -73,7 +77,7 @@ pnpm deploy
 ## Shipping
 
 1. **Workers Paid** is required: Queues and sending to arbitrary recipients are not on the free plan.
-2. Create the resources, then deploy:
+2. Deploy it with [Appflare](docs/APPFLARE.md), or create the resources yourself and deploy with wrangler. Manual setup:
 
 ```sh
 pnpm exec wrangler d1 create postwren
@@ -83,7 +87,7 @@ pnpm exec wrangler queues create postwren-campaigns-dlq
 pnpm exec wrangler kv namespace create OAUTH_KV
 ```
 
-3. Put the returned ids into `wrangler.jsonc` (they are intentionally omitted so the Deploy button can provision them; replace the all-zero `OAUTH_KV` placeholder with the real KV id), then:
+3. Put the returned ids into `wrangler.jsonc`: `database_id` on `DB`, and the real KV id in place of the all-zero `OAUTH_KV` placeholder. Appflare and the Deploy button create both themselves, so this step is only for a manual deploy. Then:
 
 ```sh
 pnpm exec wrangler secret put SESSION_SECRET
@@ -112,6 +116,7 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 ## Project
 
 - [Brand and naming](docs/BRANDING.md)
+- [Appflare deployment](docs/APPFLARE.md)
 - [Release and remote checklist](docs/RELEASING.md)
 - [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
 - [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)

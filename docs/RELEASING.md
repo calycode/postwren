@@ -24,8 +24,10 @@ pnpm build:worker
 
 - No secrets are committed. `.dev.vars` is ignored; production secrets are set with
   `wrangler secret put`.
-- `wrangler.jsonc` still contains placeholder resource ids on purpose. Create the D1 database, R2
-  bucket, queues and the `OAUTH_KV` namespace only when you actually deploy.
+- `wrangler.jsonc` keeps placeholder resource ids on purpose (an omitted `DB.database_id`, the
+  all-zero `OAUTH_KV.id`), so Appflare and the Cloudflare Deploy button provision them. Create the
+  D1 database, R2 bucket, queues and the `OAUTH_KV` namespace only when you actually deploy; add the
+  returned ids for a manual wrangler deploy. See `docs/APPFLARE.md`.
 - The repo is pre-release. Version `0.1.0` everywhere; do not tag a release before the npm phase.
 
 ## npm: phased release

@@ -4,6 +4,11 @@
    "main": "packages/api/src/index.ts",
    "compatibility_date": "2026-09-01",
    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+   // A deploy builds the admin SPA before wrangler bundles the Worker. Appflare,
+   // the Deploy button and `wrangler deploy` all run this; no extra step to pick.
+   "build": {
+      "command": "pnpm build",
+   },
    "assets": {
       "directory": "packages/webapp/dist/client",
       "binding": "ASSETS",
@@ -31,6 +36,9 @@
          "bucket_name": "postwren-media",
       },
    ],
+   // All-zero placeholder on purpose: Appflare and the Deploy button create the
+   // namespace and bind their own id. For a manual deploy, run `wrangler kv
+   // namespace create OAUTH_KV` and put the returned id here.
    "kv_namespaces": [
       {
          "binding": "OAUTH_KV",
@@ -56,6 +64,11 @@
    "observability": {
       "enabled": true,
    },
+   "secrets": {
+      "required": ["SESSION_SECRET", "TOKEN_SECRET"],
+   },
+   // Settings the installer changes for their own deployment: Appflare's install
+   // form lists these, and app settings edit them later.
    "vars": {
       "APP_URL": "https://postwren.example.com",
       "ENVIRONMENT": "production",

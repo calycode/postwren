@@ -1,5 +1,12 @@
-# Copy to `.dev.vars` for a production-like local Worker.
-# `wrangler dev` reads this file and overrides vars from wrangler.dev.jsonc.
+# Signs session cookies and magic-link tokens. 32 or more random bytes.
 SESSION_SECRET=replace-with-32-plus-random-bytes
+
+# Signs open/click pixels, unsubscribe links and API service tokens. 32 or more
+# random bytes. Rotating it invalidates links and keys already in the wild.
 TOKEN_SECRET=replace-with-32-plus-random-bytes
-OWNER_EMAIL=you@example.com
+
+# Copy this file to `.dev.vars` for a production-like local Worker. `wrangler dev`
+# reads it and overrides vars from wrangler.dev.jsonc. Appflare reads this file too:
+# each NAME= line becomes a secret in the install form, with the comment above it as
+# help. OWNER_EMAIL is a var in wrangler.dev.jsonc (dev@example.com); add
+# `OWNER_EMAIL=you@example.com` above to override it locally.

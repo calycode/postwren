@@ -119,5 +119,5 @@ Keys are managed under `/api/v1/subscribe-keys` with a normal session. `POST` re
 - Worker on `:8787`, Vite on `:5173` (proxy). Override the Worker port with `--port`; `APP_URL` in `wrangler.dev.jsonc` must match if you rely on generated links.
 - There is no `send_email` binding locally. `createCloudflareAdapter` falls back to a log-only sink (`email_dev_sink`) outside production, returning a `dev-*` provider id, so the queue consumer, campaign stats, and resend paths are exercisable without a sending domain.
 - `wrangler dev` does not fire cron automatically; trigger it with `curl http://127.0.0.1:<port>/cdn-cgi/local/scheduled`.
-- `OAUTH_KV` is a local namespace under `wrangler dev`; production needs a real KV namespace id in `wrangler.jsonc`.
+- `OAUTH_KV` is a local namespace under `wrangler dev`; a manual production deploy needs a real KV namespace id in `wrangler.jsonc`, while Appflare and the Deploy button create the namespace themselves (see `docs/APPFLARE.md`).
 - API tests run inside workerd via `@cloudflare/vitest-pool-workers` with real D1 and the migrations applied per run. Pure logic tests belong in `shared`, `worker-kit`, or `email`, which run in Node.
