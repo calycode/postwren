@@ -38,6 +38,7 @@ function collectLinks(document: Document): LinkTarget[] {
             return;
          case 'heading':
          case 'text':
+         case 'markdown':
             for (const match of block.text.matchAll(INLINE_LINK)) {
                const href = match[1];
                if (href !== undefined) targets.push({ href, linkId: block.id });

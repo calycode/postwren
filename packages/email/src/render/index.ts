@@ -5,11 +5,14 @@ import type {
    ButtonBlock,
    Document,
    GalleryBlock,
+   MarkdownBlock,
    SectionBlock,
    SocialNetwork,
    Spacing,
    TableBlock,
 } from '../ir/types';
+import { parseMarkdown } from './markdown';
+import type { MarkdownSegment } from './markdown';
 import { escapeHtml, inlineToHtml, inlineToText, parseInline } from './markup';
 
 export type ResolveLink = (href: string, linkId: string) => string;
@@ -575,6 +578,112 @@ function renderLink(context: Context, block: Extract<Block, { type: 'link' }>): 
    };">${escapeHtml(block.text)}</a></td></tr>`;
 }
 
+const MARKDOWN_CODE_BACKGROUND = '#f4f4f5';
+const MARKDOWN_RULE_COLOR = '#e4e4e7';
+
+function markdownHeadingSize(block: MarkdownBlock, level: 1 | 2 | 3): number {
+   const bump = level === 1 ? 14 : level === 2 ? 8 : 4;
+   return Math.min(72, block.fontSize + bump);
+}
+
+function renderMarkdownSegment(
+   context: Context,
+   block: MarkdownBlock,
+   segment: MarkdownSegment,
+   color: string,
+): string {
+   const inline = (text: string) =>
+      inlineToHtml(text, {
+         link: linkStyle(context),
+         resolve: (href) => resolve(context, href, block.id),
+      });
+
+   switch (segment.type) {
+      case 'heading': {
+         const size = markdownHeadingSize(block, segment.level);
+         const lineHeight = Math.min(120, Math.round(size * 1.3));
+         warnInlineLinkContrast(context, segment.text, block.id);
+         const tag = `h${segment.level}`;
+         return `<${tag} style="margin:0;font-family:${context.font};font-size:${size}px;line-height:${lineHeight}px;color:${color};">${inline(
+            segment.text,
+         )}</${tag}>`;
+      }
+      case 'paragraph':
+         warnInlineLinkContrast(context, segment.text, block.id);
+         return inline(segment.text);
+      case 'list': {
+         const rows = segment.items
+            .map((item, index) => {
+               warnInlineLinkContrast(context, item, block.id);
+               const bottom = index === segment.items.length - 1 ? 0 : 4;
+               const marker = segment.ordered ? `${index + 1}.` : '•';
+               return `<tr><td width="24" valign="top" style="width:24px;padding-bottom:${bottom}px;${fontStyle(
+                  context,
+                  block.fontSize,
+                  block.lineHeight,
+                  color,
+               )}">${marker}</td><td valign="top" style="padding-bottom:${bottom}px;${fontStyle(
+                  context,
+                  block.fontSize,
+                  block.lineHeight,
+                  color,
+               )}">${inline(item)}</td></tr>`;
+            })
+            .join('');
+         return `<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody>${rows}</tbody></table>`;
+      }
+      case 'quote':
+         warnInlineLinkContrast(context, segment.text, block.id);
+         return `<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody><tr>
+<td width="3" bgcolor="${context.linkColor}" style="width:3px;background-color:${
+            context.linkColor
+         };font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td>
+<td style="${fontStyle(context, block.fontSize, block.lineHeight, color)}padding-left:16px;">${inline(
+            segment.text,
+         )}</td>
+</tr></tbody></table>`;
+      case 'code':
+         return `<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody><tr>
+<td bgcolor="${MARKDOWN_CODE_BACKGROUND}" style="background-color:${MARKDOWN_CODE_BACKGROUND};border-radius:6px;font-family:'Courier New',Courier,monospace;font-size:${
+            block.fontSize
+         }px;line-height:${block.lineHeight}px;color:${color};mso-line-height-rule:exactly;padding:12px;">${escapeHtml(
+            segment.text,
+         ).replace(/\n/g, '<br>')}</td>
+</tr></tbody></table>`;
+      case 'divider':
+         return `<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody><tr><td height="1" bgcolor="${MARKDOWN_RULE_COLOR}" style="background-color:${MARKDOWN_RULE_COLOR};height:1px;font-size:1px;line-height:1px;mso-line-height-rule:exactly;">&nbsp;</td></tr></tbody></table>`;
+   }
+}
+
+function renderMarkdown(context: Context, block: MarkdownBlock): string {
+   const segments = parseMarkdown(block.text);
+   if (segments.length === 0) {
+      return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">&nbsp;</td></tr>`;
+   }
+
+   const color = block.color ?? context.textColor;
+   warnLowContrast(context, color, context.contentColor, block.id);
+
+   const rows = segments
+      .map((segment, index) => {
+         const gap = index === segments.length - 1 ? 0 : 12;
+         const style = `${fontStyle(context, block.fontSize, block.lineHeight, color)}${
+            gap > 0 ? `padding-bottom:${gap}px;` : ''
+         }`;
+         return `<tr><td style="${style}">${renderMarkdownSegment(
+            context,
+            block,
+            segment,
+            color,
+         )}</td></tr>`;
+      })
+      .join('');
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody>${rows}</tbody></table>
+</td></tr>`;
+}
+
 function renderBlock(context: Context, block: Block): string {
    const html = renderBlockMarkup(context, block);
    if (!context.opts.annotateBlocks || html.length === 0) return html;
@@ -607,6 +716,8 @@ function renderBlockMarkup(context: Context, block: Block): string {
          return renderCode(context, block);
       case 'link':
          return renderLink(context, block);
+      case 'markdown':
+         return renderMarkdown(context, block);
       case 'avatar':
          return renderAvatar(context, block);
       case 'gallery':
@@ -670,6 +781,28 @@ function plainTextBlock(block: Block): string[] {
          return [block.text];
       case 'link':
          return [`${block.text}: ${block.href}`];
+      case 'markdown':
+         return parseMarkdown(block.text).flatMap((segment) => {
+            switch (segment.type) {
+               case 'heading':
+               case 'paragraph':
+                  return [inlineToText(segment.text)];
+               case 'list':
+                  return segment.items.map(
+                     (item, index) =>
+                        `${segment.ordered ? `${index + 1}.` : '-'} ${inlineToText(item)}`,
+                  );
+               case 'quote':
+                  return segment.text
+                     .split('\n')
+                     .filter((line) => line.trim().length > 0)
+                     .map((line) => `> ${inlineToText(line)}`);
+               case 'code':
+                  return [segment.text];
+               case 'divider':
+                  return ['---'];
+            }
+         });
       case 'avatar': {
          const name = block.name?.trim();
          const caption = block.caption?.trim();

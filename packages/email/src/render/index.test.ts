@@ -244,6 +244,7 @@ describe('renderEmail', () => {
       'gallery',
       'table',
       'section',
+      'markdown',
       'composed',
    ])('golden output for %s', (name) => {
       it('matches the snapshot', () => {
@@ -680,5 +681,67 @@ describe('new blocks', () => {
       expect(result.html).toContain('A stray `tick stays');
       expect(result.html).not.toContain('<code');
       expect(result.text).toContain('A stray `tick stays');
+   });
+
+   it('renders markdown headings, lists, quotes, code and dividers', () => {
+      const result = renderEmail(fixture('markdown'));
+
+      expect(result.html).toContain('<h2');
+      expect(result.html).toContain('<h3');
+      expect(result.html).toContain('>•<');
+      expect(result.html).toContain('>1.<');
+      expect(result.html).toContain('width="3"');
+      expect(result.html).toContain("'Courier New'");
+      expect(result.html).toContain('background-color:#e4e4e7');
+      expect(result.html).toContain('<strong>bold</strong>');
+      expect(result.html).toContain('<code style=');
+      expect(result.text).toContain('Hello, this is my email template');
+      expect(result.text).toContain('- First item');
+      expect(result.text).toContain('1. One');
+      expect(result.text).toContain('> A quote worth repeating.');
+      expect(result.text).toContain('await resend.emails.send({});');
+      expect(result.text).not.toContain('##');
+   });
+
+   it('keeps an empty markdown block selectable in the editor', () => {
+      const document = fixture('markdown');
+      const block = document.children[0];
+      if (block?.type !== 'markdown') throw new Error('unexpected fixture shape');
+      block.text = '   ';
+
+      const html = renderEmail(document, { annotateBlocks: true }).html;
+
+      expect(html).toContain('data-block-id="markdown-1"');
+      expect(html).toContain('&nbsp;');
+   });
+
+   it('escapes raw html in markdown and routes links through resolveLink', () => {
+      const document = fixture('markdown');
+      const block = document.children[0];
+      if (block?.type !== 'markdown') throw new Error('unexpected fixture shape');
+
+      const calls: Array<[string, string]> = [];
+      const result = renderEmail(
+         {
+            ...document,
+            children: [
+               {
+                  ...block,
+                  text: 'A <script>alert(1)</script> paragraph with [a link](https://example.com/x).',
+               },
+            ],
+         },
+         {
+            resolveLink: (href, id) => {
+               calls.push([href, id]);
+               return `https://track.test/${id}`;
+            },
+         },
+      );
+
+      expect(result.html).toContain('&lt;script&gt;');
+      expect(result.html).not.toContain('<script>');
+      expect(result.html).toContain('https://track.test/markdown-1');
+      expect(calls).toEqual([['https://example.com/x', 'markdown-1']]);
    });
 });

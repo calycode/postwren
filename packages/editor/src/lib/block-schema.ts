@@ -27,6 +27,7 @@ export type FieldSpec = {
 export const BLOCK_TYPE_OPTIONS: readonly { type: BlockType; label: string }[] = [
    { type: 'heading', label: 'Heading' },
    { type: 'text', label: 'Text' },
+   { type: 'markdown', label: 'Markdown' },
    { type: 'button', label: 'Button' },
    { type: 'image', label: 'Image' },
    { type: 'divider', label: 'Divider' },
@@ -129,6 +130,18 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
       },
       { key: 'align', label: 'Alignment', kind: 'align' },
       { key: 'color', label: 'Colour', kind: 'hex', optional: true },
+      { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
+      { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
+      paddingField,
+   ],
+   markdown: [
+      {
+         key: 'text',
+         label: 'Markdown',
+         kind: 'textarea',
+         hint: 'Headings (##), **bold**, *italic*, `code`, [links](https://example.com), lists, quotes and fenced code.',
+      },
+      { key: 'color', label: 'Text colour', kind: 'hex', optional: true },
       { key: 'fontSize', label: 'Font size', kind: 'number', min: 8, max: 72 },
       { key: 'lineHeight', label: 'Line height', kind: 'number', min: 8, max: 120 },
       paddingField,

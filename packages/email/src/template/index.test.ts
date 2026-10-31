@@ -111,6 +111,18 @@ describe('applyMergeTags', () => {
       );
    });
 
+   it('substitutes merge tags inside markdown content', () => {
+      const markdown = createBlock('markdown');
+      if (markdown.type !== 'markdown') throw new Error('unexpected block shape');
+      markdown.text = '## Hi {{ subscriber.first_name }}\n\n{{ campaign.subject }}';
+
+      const result = applyMergeTags({ ...createDocument(), children: [markdown] }, context);
+
+      expect((result.children[0] as { text: string }).text).toBe(
+         '## Hi &lt;script&gt;Ada&lt;/script&gt;\n\nSpring news',
+      );
+   });
+
    it('substitutes button text, button href, image alt and image href', () => {
       const document = documentWith({
          buttonText: 'Hi {{ subscriber.first_name }}',

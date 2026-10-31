@@ -16,6 +16,7 @@ import type {
    ImageBlock,
    LinkBlock,
    ListBlock,
+   MarkdownBlock,
    QuoteBlock,
    SectionBlock,
    SocialBlock,
@@ -278,6 +279,18 @@ export const linkBlockSchema = z
    })
    .strict();
 
+export const markdownBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('markdown'),
+      text: z.string().min(1).max(20_000),
+      color: hexSchema.optional(),
+      fontSize: z.number().int().min(8).max(72),
+      lineHeight: z.number().int().min(8).max(120),
+      padding: spacingSchema,
+   })
+   .strict();
+
 export const avatarBlockSchema = z
    .object({
       id: idSchema,
@@ -358,6 +371,7 @@ export const leafBlockSchema = z.discriminatedUnion('type', [
    quoteBlockSchema,
    codeBlockSchema,
    linkBlockSchema,
+   markdownBlockSchema,
    avatarBlockSchema,
    galleryBlockSchema,
    tableBlockSchema,
@@ -607,6 +621,17 @@ export function createLinkBlock(): LinkBlock {
    };
 }
 
+export function createMarkdownBlock(): MarkdownBlock {
+   return {
+      id: randomId('markdown'),
+      type: 'markdown',
+      text: '## Hello, this is my email template\n\nThis is meant to be rendered as a paragraph.\n\n- First item\n- Second item\n\n`inline code` and [a link](https://example.com) work too.',
+      fontSize: 16,
+      lineHeight: 24,
+      padding: defaultPadding(),
+   };
+}
+
 export function createAvatarBlock(): AvatarBlock {
    return {
       id: randomId('avatar'),
@@ -691,6 +716,8 @@ export function createBlock(type: BlockType): Block {
          return createCodeBlock();
       case 'link':
          return createLinkBlock();
+      case 'markdown':
+         return createMarkdownBlock();
       case 'avatar':
          return createAvatarBlock();
       case 'gallery':

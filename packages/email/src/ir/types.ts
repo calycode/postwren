@@ -156,6 +156,15 @@ export type LinkBlock = BlockBase & {
    padding: Spacing;
 };
 
+export type MarkdownBlock = BlockBase & {
+   type: 'markdown';
+   text: string;
+   color?: Hex;
+   fontSize: number;
+   lineHeight: number;
+   padding: Spacing;
+};
+
 export type AvatarBlock = BlockBase & {
    type: 'avatar';
    src: string;
@@ -207,6 +216,7 @@ export type LeafBlock =
    | QuoteBlock
    | CodeBlock
    | LinkBlock
+   | MarkdownBlock
    | AvatarBlock
    | GalleryBlock
    | TableBlock;

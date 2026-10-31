@@ -1,0 +1,21 @@
+{
+   "version": 1,
+   "settings": {
+      "width": 600,
+      "backgroundColor": "#f4f4f5",
+      "contentColor": "#ffffff",
+      "textColor": "#18181b",
+      "linkColor": "#0f766e",
+      "fontFamily": "HELVETICA"
+   },
+   "children": [
+      {
+         "id": "markdown-1",
+         "type": "markdown",
+         "text": "## Hello, this is my email template\n\nThis is meant to be rendered as a paragraph with **bold**, *italic* and `inline code`. Read [the docs](https://example.com/docs).\n\n### What is inside\n\n- First item\n- Second item\n\n1. One\n2. Two\n\n> A quote worth repeating.\n\n```\nawait resend.emails.send({});\n```\n\n---",
+         "fontSize": 16,
+         "lineHeight": 24,
+         "padding": { "top": 0, "right": 24, "bottom": 16, "left": 24 }
+      }
+   ]
+}

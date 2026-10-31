@@ -423,6 +423,8 @@ export function blockLabel(block: Block): string {
          return 'Code';
       case 'link':
          return 'Link';
+      case 'markdown':
+         return 'Markdown';
       case 'avatar':
          return 'Avatar';
       case 'gallery':

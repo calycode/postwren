@@ -67,6 +67,7 @@ const TEXTAREA_CLASS =
 const MERGEABLE_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
    heading: ['text'],
    text: ['text'],
+   markdown: ['text'],
    button: ['text', 'href'],
    image: ['alt', 'href'],
    list: ['items'],
@@ -80,6 +81,7 @@ const MERGEABLE_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
 const CONTENT_FIELDS: Partial<Record<BlockType, readonly string[]>> = {
    heading: ['level', 'text'],
    text: ['text'],
+   markdown: ['text'],
    button: ['text', 'href'],
    image: ['src', 'alt', 'href'],
    spacer: ['height'],
@@ -202,7 +204,11 @@ function BlockProperties({
          block={block}
          settings={doc.settings}
          patch={patch}
-         textareaRef={spec.key === 'text' && block.type === 'text' ? textRef : undefined}
+         textareaRef={
+            spec.key === 'text' && (block.type === 'text' || block.type === 'markdown')
+               ? textRef
+               : undefined
+         }
          onUploadImage={onUploadImage}
       />
    );

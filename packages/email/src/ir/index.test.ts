@@ -297,6 +297,7 @@ describe('ir', () => {
          'spacer',
          'columns',
          'social',
+         'markdown',
          'avatar',
          'gallery',
          'table',

@@ -2,6 +2,7 @@ import type { BlockType } from '@postwren/email/ir';
 import {
    Code,
    Columns2,
+   FileText,
    Heading1,
    Image as ImageIcon,
    Images,
@@ -30,6 +31,13 @@ export function BlockIcon({ type, className }: { type: BlockType; className?: st
       case 'text':
          return (
             <Type
+               className={className}
+               aria-hidden="true"
+            />
+         );
+      case 'markdown':
+         return (
+            <FileText
                className={className}
                aria-hidden="true"
             />

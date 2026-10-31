@@ -19,6 +19,7 @@ const GROUPS: readonly {
       types: [
          { type: 'heading', label: 'Heading' },
          { type: 'text', label: 'Text' },
+         { type: 'markdown', label: 'Markdown' },
          { type: 'list', label: 'List' },
          { type: 'quote', label: 'Quote' },
          { type: 'code', label: 'Code' },

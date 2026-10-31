@@ -222,6 +222,7 @@ function applyToBlock(block: Block, ctx: MergeContext): void {
          block.text = substituteText(block.text, ctx);
          return;
       case 'text':
+      case 'markdown':
          block.text = substituteText(block.text, ctx);
          return;
       case 'button':
