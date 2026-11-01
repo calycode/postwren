@@ -425,6 +425,7 @@ curl -X POST "$POSTWREN_URL/mcp" \
 - **Expiry and revocation.** API keys can expire and can be revoked at any time. OAuth tokens expire on the schedule above. The provider supports RFC 7009 revocation at `POST /oauth/token` and purges expired KV records from the cron handler.
 - **CSRF.** Bearer requests skip CSRF because they do not ride on an ambient cookie. Session requests still require the double-submit token.
 - **Consent is CSRF-protected.** The consent form carries the session CSRF token and is rejected without it. The provider additionally binds the consent handle to the browser and makes it single-use.
+- **The consent CSP does not restrict `form-action`.** Browsers apply `form-action` to every hop of the navigation that starts with the consent POST, including the 302 to the client's callback. A `form-action 'self'` policy issues the code and then blocks the browser from delivering it, which clients report as a failed callback redirect. The page runs no script and its form posts to a fixed same-origin path.
 - **Least privilege.** Grant only the scopes a client needs. In particular do not grant `send:write` to a reporting or drafting agent.
 - **One scope gate.** OAuth and API-key scopes use the same names and the same `middleware/scopes.ts` mapping. MCP tools call REST with a short-lived HMAC credential carrying the caller's scopes, so the REST paths enforce the same rules again.
 - **No secrets in MCP output.** Tool results only contain resource envelopes. API key administration and sender settings are not exposed as tools.

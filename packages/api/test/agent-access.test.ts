@@ -471,6 +471,30 @@ describe('OAuth authorization code with PKCE', () => {
       expect(location.searchParams.get('next')).toContain('/oauth/authorize?');
    });
 
+   it('does not restrict form-action, so the browser can follow the callback redirect', async () => {
+      const client = await registerClient();
+      const owner = await seedOwner();
+      const params = new URLSearchParams({
+         response_type: 'code',
+         client_id: client.client_id,
+         redirect_uri: REDIRECT_URI,
+         scope: 'tags:read',
+         code_challenge: CHALLENGE,
+         code_challenge_method: 'S256',
+      });
+
+      const consent = await SELF.fetch(`${APP_URL}/oauth/authorize?${params.toString()}`, {
+         headers: { cookie: owner.cookie },
+         redirect: 'manual',
+      });
+
+      expect(consent.status).toBe(200);
+      // A form-action policy also governs the 302 that follows the consent POST.
+      // Restricting it to 'self' makes the browser drop the code instead of
+      // navigating to the client's callback.
+      expect(consent.headers.get('content-security-policy') ?? '').not.toContain('form-action');
+   });
+
    it('renders consent and exchanges a code for access and refresh tokens', async () => {
       const client = await registerClient();
       const approval = await approveConsent(client, { scopes: 'tags:read tags:write' });

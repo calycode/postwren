@@ -17,9 +17,13 @@ import { renderConsentError, renderConsentPage } from './consent';
 
 export const oauthRoutes = new Hono<AppEnv>();
 
+// No `form-action` on purpose: browsers apply it to every hop of the navigation
+// that follows the consent POST, including the 302 to the client's callback. A
+// `form-action 'self'` policy therefore issues the code and then blocks the
+// browser from delivering it, which looks like a dead callback to the client.
 const SECURITY_HEADERS: Record<string, string> = {
    'cache-control': 'no-store',
-   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
+   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
    'x-frame-options': 'DENY',
    'referrer-policy': 'no-referrer',
 };
