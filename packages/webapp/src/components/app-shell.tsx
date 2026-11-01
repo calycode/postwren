@@ -275,7 +275,8 @@ export function AppShell({ children }: { children: ComponentChildren }) {
                      title={compact ? (user?.email ?? 'Account') : undefined}
                      className={cn(
                         'h-auto w-full gap-2 px-2 py-2 text-left',
-                        compact && 'md:justify-center md:px-0',
+                        compact &&
+                           'md:mx-auto md:flex md:size-9 md:justify-center md:gap-0 md:border-transparent md:bg-transparent md:px-0 md:py-0',
                      )}
                   >
                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
@@ -310,14 +311,15 @@ export function AppShell({ children }: { children: ComponentChildren }) {
                   </DropdownMenuContent>
                </DropdownMenu>
 
-               <div className={cn('flex items-center gap-1', compact && 'md:flex-col')}>
+               <div className={cn('flex items-center gap-1', compact && 'md:flex-col md:gap-1.5')}>
                   <DropdownMenu className={cn(!compact && 'flex-1')}>
                      <DropdownMenuTrigger
                         aria-label={`Theme: ${themeLabel}`}
                         title="Theme"
                         className={cn(
                            'gap-1.5 px-2 text-xs',
-                           compact && 'md:w-full md:justify-center md:px-0',
+                           compact &&
+                              'md:size-9 md:justify-center md:gap-0 md:border-transparent md:bg-transparent md:px-0 md:py-0',
                         )}
                      >
                         {themeIcon}
@@ -349,7 +351,7 @@ export function AppShell({ children }: { children: ComponentChildren }) {
                      size="sm"
                      className={cn(
                         'shrink-0 gap-1.5 px-2',
-                        compact && 'md:w-full md:justify-center md:px-0',
+                        compact && 'md:size-9 md:justify-center md:gap-0 md:px-0',
                      )}
                      aria-label="Open the guided tour"
                      title="Guide"

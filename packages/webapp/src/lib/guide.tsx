@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocation } from 'preact-iso';
 import { ArrowLeft, ArrowRight, Sparkles, X } from 'lucide-react';
 import { Button, cn } from '@postwren/ui';
+import { list as listTemplates } from './api/templates';
 import { useAuth } from './auth';
 
 export const GUIDE_SEEN_KEY = 'postwren-guide-seen';
@@ -14,6 +15,11 @@ type GuideStep = {
    /** At least one of target/href. Without a target the card is centred. */
    target?: string;
    href?: string;
+   /** Opened instead of href: the most recent template, so the editor itself is on screen. */
+   template?: boolean;
+   /** Used when the account has no template to open. */
+   fallbackTarget?: string;
+   fallbackBody?: string;
 };
 
 const STEPS: readonly GuideStep[] = [
@@ -45,10 +51,13 @@ const STEPS: readonly GuideStep[] = [
       body: 'A template is the email design. Create one, then open it to use the editor.',
    },
    {
-      href: '/templates',
-      target: '[data-guide="templates-table"]',
+      template: true,
+      target: '[data-guide="editor"]',
+      fallbackTarget: '[data-guide="templates-actions"]',
       title: 'The editor, at a glance',
-      body: 'Inside the editor the left sidebar holds block types and the block tree, the middle is the live email, and the right sidebar edits the selected block. Drag blocks in the tree to reorder them.',
+      body: 'The left sidebar holds block types and the block tree, the middle is the live email, and the right sidebar edits the selected block. Drag blocks in the tree to reorder them.',
+      fallbackBody:
+         'Open a template to reach the editor. The left sidebar holds block types and the block tree, the middle is the live email, and the right sidebar edits the selected block. Create your first template to try it.',
    },
    {
       href: '/campaigns',
@@ -131,7 +140,9 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
    const [index, setIndex] = useState(0);
    const [rect, setRect] = useState<Rect | null>(null);
    const [ready, setReady] = useState(false);
+   const [fallback, setFallback] = useState(false);
    const autoStarted = useRef(false);
+   const templateHrefRef = useRef<{ value: string | null } | null>(null);
 
    const closeGuide = useCallback(() => {
       markSeen();
@@ -139,10 +150,26 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
    }, []);
 
    const openGuide = useCallback(() => {
+      templateHrefRef.current = null;
       setIndex(0);
       setRect(null);
       setReady(false);
       setActive(true);
+   }, []);
+
+   const resolveTemplateHref = useCallback(async (): Promise<string | null> => {
+      if (templateHrefRef.current !== null) return templateHrefRef.current.value;
+
+      try {
+         const templates = await listTemplates();
+         const first = templates[0];
+         const value = first === undefined ? null : `/templates/${first.id}`;
+         templateHrefRef.current = { value };
+         return value;
+      } catch {
+         // A failed lookup only means the tour stays on the templates list.
+         return null;
+      }
    }, []);
 
    useEffect(() => {
@@ -155,28 +182,27 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
    }, [status]);
 
    const step = STEPS[index];
+   const usingFallback = fallback && step?.fallbackTarget !== undefined;
+   const target = usingFallback ? step?.fallbackTarget : step?.target;
+   const body = usingFallback ? (step?.fallbackBody ?? step?.body) : step?.body;
 
    useEffect(() => {
       if (!active || step === undefined) return;
 
-      if (step.href !== undefined && path !== step.href) {
-         route(step.href);
-         return;
-      }
-
+      let cancelled = false;
       let frame = 0;
       let attempts = 0;
       setReady(false);
+      setFallback(false);
 
-      const measure = () => {
-         if (step.target === undefined) {
+      const measure = (selector: string | undefined) => {
+         if (selector === undefined) {
             setRect(null);
             setReady(true);
             return;
          }
 
-         const element = document.querySelector(step.target);
-         const next = visibleRect(element);
+         const next = visibleRect(document.querySelector(selector));
          if (next !== null) {
             setRect(next);
             setReady(true);
@@ -184,23 +210,59 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
          }
 
          attempts += 1;
-         if (attempts < 90) {
-            frame = window.requestAnimationFrame(measure);
+         if (attempts < 300) {
+            frame = window.requestAnimationFrame(() => measure(selector));
          } else {
             setRect(null);
             setReady(true);
          }
       };
 
-      measure();
-      return () => window.cancelAnimationFrame(frame);
-   }, [active, index, path, route, step]);
+      const start = async () => {
+         if (step.template === true) {
+            const href = await resolveTemplateHref();
+            if (cancelled) return;
+
+            if (href === null) {
+               setFallback(true);
+               if (path !== '/templates') {
+                  route('/templates');
+                  return;
+               }
+
+               measure(step.fallbackTarget ?? step.target);
+               return;
+            }
+
+            if (path !== href) {
+               route(href);
+               return;
+            }
+
+            measure(step.target);
+            return;
+         }
+
+         if (step.href !== undefined && path !== step.href) {
+            route(step.href);
+            return;
+         }
+
+         measure(step.target);
+      };
+
+      void start();
+      return () => {
+         cancelled = true;
+         window.cancelAnimationFrame(frame);
+      };
+   }, [active, index, path, resolveTemplateHref, route, step]);
 
    useEffect(() => {
-      if (!active || step?.target === undefined) return;
+      if (!active || target === undefined) return;
 
       const update = () => {
-         setRect(visibleRect(document.querySelector(step.target ?? '')));
+         setRect(visibleRect(document.querySelector(target)));
       };
 
       window.addEventListener('resize', update);
@@ -209,7 +271,7 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
          window.removeEventListener('resize', update);
          window.removeEventListener('scroll', update, true);
       };
-   }, [active, step]);
+   }, [active, target]);
 
    useEffect(() => {
       if (!active) return;
@@ -319,7 +381,7 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
 
                   <div className="grid gap-1.5">
                      <h2 className="font-heading text-base font-semibold">{step.title}</h2>
-                     <p className="text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+                     <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
                   </div>
 
                   <div className="mt-1 flex items-center justify-between gap-2">

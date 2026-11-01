@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BlockType, Document } from '@postwren/email/ir';
 import { createBlock } from '@postwren/email/ir';
@@ -49,6 +49,13 @@ export type EmailEditorProps = {
 };
 
 const PREVIEW_UNSUBSCRIBE_URL = 'https://example.com/u/preview';
+
+/**
+ * The editor is embedded in a shell that already uses part of the viewport, so its own width decides
+ * the layout. Below these widths the side panels stop taking a column and become overlays or stack.
+ */
+const LIBRARY_INLINE_MIN_WIDTH = 720;
+const PROPERTIES_INLINE_MIN_WIDTH = 1080;
 
 function topLevelAnchor(doc: Document, id: string): string | null {
    for (const child of doc.children) {
@@ -108,11 +115,48 @@ export function EmailEditor({
          : 'desktop',
    );
    const [documentOpen, setDocumentOpen] = useState(false);
-   const [libraryOpen, setLibraryOpen] = useState(
-      () => typeof window === 'undefined' || window.matchMedia('(min-width: 1024px)').matches,
-   );
+   const [libraryOpen, setLibraryOpen] = useState(false);
+   const [editorWidth, setEditorWidth] = useState(0);
    const [history, setHistory] = useState<History<Document>>(() => createHistory(value));
    const { toast } = useToast();
+
+   const rootRef = useRef<HTMLDivElement>(null);
+   const libraryTouchedRef = useRef(false);
+   const libraryInline = editorWidth >= LIBRARY_INLINE_MIN_WIDTH;
+   const propertiesInline = editorWidth >= PROPERTIES_INLINE_MIN_WIDTH;
+
+   useLayoutEffect(() => {
+      const element = rootRef.current;
+      if (element === null) return;
+
+      const update = (width: number) => {
+         const rounded = Math.round(width);
+         setEditorWidth((current) => (current === rounded ? current : rounded));
+      };
+
+      update(element.getBoundingClientRect().width);
+      const observer = new ResizeObserver((entries) => {
+         const entry = entries[0];
+         if (entry !== undefined) update(entry.contentRect.width);
+      });
+      observer.observe(element);
+      return () => observer.disconnect();
+   }, []);
+
+   useLayoutEffect(() => {
+      if (editorWidth === 0 || libraryTouchedRef.current) return;
+      setLibraryOpen(libraryInline);
+   }, [editorWidth, libraryInline]);
+
+   const toggleLibrary = () => {
+      libraryTouchedRef.current = true;
+      setLibraryOpen((open) => !open);
+   };
+
+   const closeLibrary = () => {
+      libraryTouchedRef.current = true;
+      setLibraryOpen(false);
+   };
 
    const leftPanel = usePanelResize({
       storageKey: 'postwren-editor-left-panel',
@@ -304,6 +348,7 @@ export function EmailEditor({
 
    return (
       <div
+         ref={rootRef}
          className={cn(
             'flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground',
             className,
@@ -324,7 +369,7 @@ export function EmailEditor({
             canUndo={canUndo(history)}
             canRedo={canRedo(history)}
             libraryOpen={libraryOpen}
-            onToggleLibrary={() => setLibraryOpen((open) => !open)}
+            onToggleLibrary={toggleLibrary}
             onUndo={undoDocument}
             onRedo={redoDocument}
             onOpenDocument={() => setDocumentOpen(true)}
@@ -334,30 +379,33 @@ export function EmailEditor({
          <div className="relative flex min-h-0 flex-1">
             {libraryOpen && (
                <>
-                  <button
-                     type="button"
-                     aria-label="Close blocks panel"
-                     className="absolute inset-0 z-20 bg-black/40 lg:hidden"
-                     onClick={() => setLibraryOpen(false)}
-                  />
+                  {!libraryInline && (
+                     <button
+                        type="button"
+                        aria-label="Close blocks panel"
+                        className="absolute inset-0 z-20 bg-black/40"
+                        onClick={closeLibrary}
+                     />
+                  )}
                   <aside
                      id="editor-left-panel"
                      aria-label="Blocks"
-                     className="absolute inset-y-0 left-0 z-30 flex w-[min(18rem,85%)] min-h-0 flex-col border-r border-border bg-card/30 lg:relative lg:z-auto lg:w-[var(--left-panel-width)] lg:shrink-0"
+                     className={cn(
+                        'flex min-h-0 flex-col border-r border-border',
+                        libraryInline
+                           ? 'relative w-[var(--left-panel-width)] shrink-0 bg-card/30'
+                           : 'absolute inset-y-0 left-0 z-30 w-[min(18rem,85%)] bg-card shadow-xl',
+                     )}
                   >
                      <div className="min-h-0 flex-[1.2] overflow-x-hidden overflow-y-auto p-3">
                         <BlockLibrary
                            onAdd={(type) => {
                               appendBlock(type);
-                              if (window.matchMedia('(max-width: 1023px)').matches) {
-                                 setLibraryOpen(false);
-                              }
+                              if (!libraryInline) setLibraryOpen(false);
                            }}
                            onAddPattern={(pattern) => {
                               appendPattern(pattern);
-                              if (window.matchMedia('(max-width: 1023px)').matches) {
-                                 setLibraryOpen(false);
-                              }
+                              if (!libraryInline) setLibraryOpen(false);
                            }}
                            afterLabel={selectedLabel}
                         />
@@ -382,22 +430,29 @@ export function EmailEditor({
                         </div>
                      </div>
 
-                     <div
-                        {...leftPanel.separatorProps}
-                        aria-label="Resize blocks panel"
-                        aria-controls="editor-left-panel"
-                        className={cn(
-                           'absolute inset-y-0 -right-1 z-40 hidden w-2 cursor-col-resize touch-none outline-none lg:block',
-                           'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border',
-                           'hover:before:bg-primary focus-visible:before:bg-primary',
-                           leftPanel.dragging && 'before:bg-primary',
-                        )}
-                     />
+                     {libraryInline && (
+                        <div
+                           {...leftPanel.separatorProps}
+                           aria-label="Resize blocks panel"
+                           aria-controls="editor-left-panel"
+                           className={cn(
+                              'absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize touch-none outline-none',
+                              'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border',
+                              'hover:before:bg-primary focus-visible:before:bg-primary',
+                              leftPanel.dragging && 'before:bg-primary',
+                           )}
+                        />
+                     )}
                   </aside>
                </>
             )}
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:flex-row">
+            <div
+               className={cn(
+                  'flex min-h-0 min-w-0 flex-1 flex-col',
+                  propertiesInline && 'flex-row',
+               )}
+            >
                <EmailCanvas
                   html={preview.html}
                   viewport={viewport}
@@ -415,21 +470,28 @@ export function EmailEditor({
                   onRedo={redoDocument}
                />
 
-               <div
-                  {...rightPanel.separatorProps}
-                  aria-label="Resize properties panel"
-                  aria-controls="editor-properties-panel"
-                  className={cn(
-                     'relative hidden w-2 shrink-0 cursor-col-resize touch-none outline-none xl:block',
-                     'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border',
-                     'hover:before:bg-primary focus-visible:before:bg-primary',
-                     rightPanel.dragging && 'before:bg-primary',
-                  )}
-               />
+               {propertiesInline && (
+                  <div
+                     {...rightPanel.separatorProps}
+                     aria-label="Resize properties panel"
+                     aria-controls="editor-properties-panel"
+                     className={cn(
+                        'relative w-2 shrink-0 cursor-col-resize touch-none outline-none',
+                        'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border',
+                        'hover:before:bg-primary focus-visible:before:bg-primary',
+                        rightPanel.dragging && 'before:bg-primary',
+                     )}
+                  />
+               )}
 
                <aside
                   id="editor-properties-panel"
-                  className="max-h-[38%] min-h-0 shrink-0 overflow-x-hidden overflow-y-auto border-t border-border bg-card/20 xl:max-h-none xl:w-[var(--right-panel-width)] xl:border-t-0"
+                  className={cn(
+                     'min-h-0 shrink-0 overflow-x-hidden overflow-y-auto bg-card/20',
+                     propertiesInline
+                        ? 'w-[var(--right-panel-width)]'
+                        : 'max-h-[38%] border-t border-border',
+                  )}
                >
                   <PropertyPanel
                      doc={doc}
