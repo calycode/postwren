@@ -196,7 +196,7 @@ export function Tags() {
             description="Group subscribers so campaigns can target them with the audience query language."
          />
 
-         <Card>
+         <Card data-guide="tags-create">
             <CardContent className="pt-6">
                <form
                   className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-start"

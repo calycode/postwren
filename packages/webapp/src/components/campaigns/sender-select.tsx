@@ -9,7 +9,9 @@ import {
    SelectTrigger,
    SelectValue,
    Skeleton,
+   Tooltip,
 } from '@postwren/ui';
+import { Info } from 'lucide-react';
 import type { SenderAddress } from '@/lib/api/types';
 
 export type SenderSelectProps = {
@@ -107,11 +109,24 @@ export function SenderSelect({
 
    return (
       <Field
-         label="From email"
+         label={
+            <span className="inline-flex items-center gap-1.5">
+               From email
+               <Tooltip
+                  content="Only addresses verified in Settings can send."
+                  tabIndex={0}
+                  aria-label="Only verified senders can send"
+               >
+                  <Info
+                     className="size-3.5 text-muted-foreground"
+                     aria-hidden="true"
+                  />
+               </Tooltip>
+            </span>
+         }
          htmlFor={id}
          required
          error={validationError}
-         hint="Only addresses verified in Settings can send."
       >
          <Select
             value={value.length > 0 ? value : null}

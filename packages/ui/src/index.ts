@@ -82,3 +82,6 @@ export type { TextareaProps } from './components/textarea';
 
 export { Tooltip } from './components/tooltip';
 export type { TooltipProps } from './components/tooltip';
+
+export { ToastProvider, useToast } from './components/toast';
+export type { ToastOptions, ToastVariant } from './components/toast';

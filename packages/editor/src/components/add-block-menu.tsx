@@ -1,16 +1,11 @@
 import type { BlockType } from '@postwren/email/ir';
-import {
-   DropdownMenu,
-   DropdownMenuContent,
-   DropdownMenuItem,
-   DropdownMenuTrigger,
-} from '@postwren/ui';
-import { Plus, Sparkles } from 'lucide-react';
+import { cn } from '@postwren/ui';
+import { Sparkles } from 'lucide-react';
 import { BLOCK_PATTERNS } from '../lib/patterns';
 import type { BlockPattern } from '../lib/patterns';
 import { BlockIcon } from './block-icon';
 
-const GROUPS: readonly {
+export const BLOCK_GROUPS: readonly {
    label: string;
    types: readonly { type: BlockType; label: string }[];
 }[] = [
@@ -54,7 +49,7 @@ const GROUPS: readonly {
    },
 ];
 
-export function AddBlockMenu({
+export function BlockLibrary({
    onAdd,
    onAddPattern,
    afterLabel,
@@ -66,63 +61,64 @@ export function AddBlockMenu({
    afterLabel?: string | null;
    className?: string;
 }) {
-   const insertionTitle =
+   const insertionHint =
       afterLabel !== undefined && afterLabel !== null
-         ? `Adds after the selected block (${afterLabel})`
-         : 'Adds at the end of the document';
+         ? `New blocks are added after ${afterLabel}.`
+         : 'New blocks are added at the end of the email.';
 
    return (
-      <DropdownMenu className={className}>
-         <DropdownMenuTrigger
-            aria-label="Add block"
-            title={insertionTitle}
-            className="h-8 px-2 text-xs"
-         >
-            <Plus
-               className="size-4"
-               aria-hidden="true"
-            />
-            Add block
-         </DropdownMenuTrigger>
-         <DropdownMenuContent className="right-auto left-0 max-h-96 w-56 overflow-y-auto">
-            {GROUPS.map((group) => (
-               <div key={group.label}>
-                  <p className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                     {group.label}
-                  </p>
+      <div className={cn('grid gap-3', className)}>
+         <p className="text-[11px] leading-snug text-muted-foreground">{insertionHint}</p>
+
+         {BLOCK_GROUPS.map((group) => (
+            <section
+               key={group.label}
+               className="grid gap-1.5"
+            >
+               <h3 className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  {group.label}
+               </h3>
+               <div className="grid grid-cols-2 gap-1.5">
                   {group.types.map((option) => (
-                     <DropdownMenuItem
+                     <button
                         key={option.type}
-                        onSelect={() => onAdd(option.type)}
+                        type="button"
+                        onClick={() => onAdd(option.type)}
+                        className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-left text-xs font-medium outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
                      >
                         <BlockIcon
                            type={option.type}
-                           className="size-4 text-muted-foreground"
+                           className="size-3.5 shrink-0 text-muted-foreground"
                         />
-                        {option.label}
-                     </DropdownMenuItem>
+                        <span className="truncate">{option.label}</span>
+                     </button>
                   ))}
                </div>
-            ))}
-            <div>
-               <p className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  Patterns
-               </p>
+            </section>
+         ))}
+
+         <section className="grid gap-1.5">
+            <h3 className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+               Patterns
+            </h3>
+            <div className="grid gap-1">
                {BLOCK_PATTERNS.map((pattern) => (
-                  <DropdownMenuItem
+                  <button
                      key={pattern.id}
+                     type="button"
                      title={pattern.description}
-                     onSelect={() => onAddPattern(pattern)}
+                     onClick={() => onAddPattern(pattern)}
+                     className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                      <Sparkles
-                        className="size-4 text-muted-foreground"
+                        className="size-3.5 shrink-0 text-muted-foreground"
                         aria-hidden="true"
                      />
-                     {pattern.label}
-                  </DropdownMenuItem>
+                     <span className="truncate">{pattern.label}</span>
+                  </button>
                ))}
             </div>
-         </DropdownMenuContent>
-      </DropdownMenu>
+         </section>
+      </div>
    );
 }

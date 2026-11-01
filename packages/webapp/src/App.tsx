@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Route, Router, useLocation } from 'preact-iso';
 import { AppShell } from './components/app-shell';
 import { RequireAuth } from './components/require-auth';
+import { GuideProvider } from './lib/guide';
 import { CampaignDetail } from './routes/campaign-detail';
 import { Campaigns } from './routes/campaigns';
 import { Login } from './routes/login';
@@ -37,47 +38,49 @@ function HomeRedirect() {
 
 export function App() {
    return (
-      <Router>
-         <Route
-            path="/login"
-            component={Login}
-         />
-         <Route
-            path="/"
-            component={HomeRedirect}
-         />
-         <Route
-            path="/subscribers"
-            component={guarded(Subscribers)}
-         />
-         <Route
-            path="/tags"
-            component={guarded(Tags)}
-         />
-         <Route
-            path="/templates"
-            component={guarded(Templates)}
-         />
-         <Route
-            path="/templates/:id"
-            component={guarded(TemplateDetail)}
-         />
-         <Route
-            path="/campaigns"
-            component={guarded(Campaigns)}
-         />
-         <Route
-            path="/campaigns/:id"
-            component={guarded(CampaignDetail)}
-         />
-         <Route
-            path="/settings"
-            component={guarded(Settings)}
-         />
-         <Route
-            default
-            component={NotFound}
-         />
-      </Router>
+      <GuideProvider>
+         <Router>
+            <Route
+               path="/login"
+               component={Login}
+            />
+            <Route
+               path="/"
+               component={HomeRedirect}
+            />
+            <Route
+               path="/subscribers"
+               component={guarded(Subscribers)}
+            />
+            <Route
+               path="/tags"
+               component={guarded(Tags)}
+            />
+            <Route
+               path="/templates"
+               component={guarded(Templates)}
+            />
+            <Route
+               path="/templates/:id"
+               component={guarded(TemplateDetail)}
+            />
+            <Route
+               path="/campaigns"
+               component={guarded(Campaigns)}
+            />
+            <Route
+               path="/campaigns/:id"
+               component={guarded(CampaignDetail)}
+            />
+            <Route
+               path="/settings"
+               component={guarded(Settings)}
+            />
+            <Route
+               default
+               component={NotFound}
+            />
+         </Router>
+      </GuideProvider>
    );
 }

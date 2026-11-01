@@ -339,6 +339,76 @@ export function moveBlock(doc: Document, id: string, delta: -1 | 1): Document {
    return result.changed ? { ...doc, children: result.blocks } : doc;
 }
 
+export type DropPosition = 'before' | 'after';
+
+function reorderInList(
+   blocks: Block[],
+   sourceId: string,
+   targetId: string,
+   position: DropPosition,
+): ListResult {
+   const sourceIndex = blocks.findIndex((block) => block.id === sourceId);
+   const targetIndex = blocks.findIndex((block) => block.id === targetId);
+
+   if (sourceIndex >= 0 && targetIndex >= 0) {
+      if (sourceIndex === targetIndex) return { blocks, changed: false };
+
+      const next = blocks.slice();
+      const [item] = next.splice(sourceIndex, 1);
+      if (item === undefined) return { blocks, changed: false };
+
+      let insertAt = targetIndex;
+      if (sourceIndex < targetIndex) insertAt -= 1;
+      if (position === 'after') insertAt += 1;
+      next.splice(insertAt, 0, item);
+      return { blocks: next, changed: true };
+   }
+
+   let changed = false;
+   const next = blocks.map((block) => {
+      if (block.type === 'columns') {
+         let columnChanged = false;
+         const columns = block.columns.map((column) => {
+            const result = reorderInList(column.blocks, sourceId, targetId, position);
+            if (!result.changed) return column;
+            columnChanged = true;
+            return { ...column, blocks: result.blocks as LeafBlock[] };
+         });
+
+         if (!columnChanged) return block;
+         changed = true;
+         return { ...block, columns };
+      }
+
+      if (block.type === 'section') {
+         const result = reorderInList(block.children, sourceId, targetId, position);
+         if (!result.changed) return block;
+         changed = true;
+         return { ...block, children: result.blocks as SectionChild[] };
+      }
+
+      return block;
+   });
+
+   return changed ? { blocks: next, changed } : { blocks, changed };
+}
+
+/**
+ * Reorders `sourceId` next to `targetId` when both share a parent list. Blocks
+ * dragged across containers are left where they are rather than silently
+ * changing nesting.
+ */
+export function moveBlockTo(
+   doc: Document,
+   sourceId: string,
+   targetId: string,
+   position: DropPosition,
+): Document {
+   if (sourceId === targetId) return doc;
+   const result = reorderInList(doc.children, sourceId, targetId, position);
+   return result.changed ? { ...doc, children: result.blocks } : doc;
+}
+
 export function updateBlock(doc: Document, id: string, patch: BlockPatch): Document {
    const safePatch: BlockPatch = { ...patch };
    delete (safePatch as { id?: string }).id;

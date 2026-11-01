@@ -4,6 +4,7 @@ import {
    Pencil,
    Plus,
    Search,
+   SlidersHorizontal,
    Tag as TagIcon,
    Trash2,
    Upload,
@@ -29,6 +30,7 @@ import {
    SelectItem,
    SelectTrigger,
    SelectValue,
+   useToast,
 } from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
@@ -38,6 +40,9 @@ import { TagPicker } from '@/components/tag-picker';
 import { MetadataEditor } from '@/components/metadata-editor';
 import {
    addTag,
+   bulkDelete as bulkDeleteSubscribers,
+   bulkMetadata as bulkUpdateMetadata,
+   bulkTags as bulkUpdateTags,
    create as createSubscriber,
    exportCsv,
    importCsv,
@@ -124,6 +129,7 @@ function tagFailureMessage(failure: TagFailure): string {
 }
 
 export function Subscribers() {
+   const { toast } = useToast();
    const [search, setSearch] = useState('');
    const debouncedSearch = useDebouncedValue(search, 250);
    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -172,6 +178,24 @@ export function Subscribers() {
 
    const [exporting, setExporting] = useState(false);
 
+   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+   const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
+   const [bulkTags, setBulkTags] = useState<Tag[]>([]);
+   const [bulkTagsBusy, setBulkTagsBusy] = useState(false);
+   const [bulkTagsError, setBulkTagsError] = useState<string | null>(null);
+
+   const [bulkMetadataOpen, setBulkMetadataOpen] = useState(false);
+   const [bulkMetadataMode, setBulkMetadataMode] = useState<'set' | 'remove'>('set');
+   const [bulkMetadataKey, setBulkMetadataKey] = useState('company');
+   const [bulkMetadataValue, setBulkMetadataValue] = useState('');
+   const [bulkMetadataBusy, setBulkMetadataBusy] = useState(false);
+   const [bulkMetadataError, setBulkMetadataError] = useState<string | null>(null);
+
+   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
+   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+
    useEffect(() => {
       let cancelled = false;
       listTags()
@@ -195,6 +219,7 @@ export function Subscribers() {
       setLoading(true);
       setError(null);
       setMoreError(null);
+      setSelectedIds(new Set());
       setState(emptyCursorState());
 
       listSubscribers({
@@ -474,6 +499,106 @@ export function Subscribers() {
       }
    }
 
+   function clearSelection() {
+      setSelectedIds(new Set());
+   }
+
+   function openBulkTags() {
+      setBulkTags([]);
+      setBulkTagsError(null);
+      setBulkTagsOpen(true);
+   }
+
+   async function submitBulkTags() {
+      if (bulkTags.length === 0) {
+         setBulkTagsError('Choose at least one tag to add.');
+         return;
+      }
+
+      setBulkTagsBusy(true);
+      setBulkTagsError(null);
+      try {
+         const result = await bulkUpdateTags({
+            subscriberIds: [...selectedIds],
+            add: bulkTags.map((tag) => tag.id),
+         });
+         toast({
+            title: `Added ${pluralise(bulkTags.length, 'tag')} to ${pluralise(result.updated, 'subscriber')}`,
+            variant: 'success',
+         });
+         setBulkTagsOpen(false);
+         clearSelection();
+         setReloadKey((key) => key + 1);
+      } catch (cause) {
+         setBulkTagsError(errorMessage(cause, 'Could not update the tags'));
+      } finally {
+         setBulkTagsBusy(false);
+      }
+   }
+
+   function openBulkMetadata() {
+      setBulkMetadataMode('set');
+      setBulkMetadataKey('company');
+      setBulkMetadataValue('');
+      setBulkMetadataError(null);
+      setBulkMetadataOpen(true);
+   }
+
+   async function submitBulkMetadata() {
+      const key = bulkMetadataKey.trim();
+      const issues = validateMetadataRows([{ key, value: bulkMetadataValue }]);
+      if (issues.general !== undefined) {
+         setBulkMetadataError(issues.general);
+         return;
+      }
+      if (issues.rowErrors[0] !== undefined) {
+         setBulkMetadataError(issues.rowErrors[0]);
+         return;
+      }
+
+      setBulkMetadataBusy(true);
+      setBulkMetadataError(null);
+      try {
+         const result = await bulkUpdateMetadata({
+            subscriberIds: [...selectedIds],
+            metadata: { [key]: bulkMetadataMode === 'remove' ? null : bulkMetadataValue },
+         });
+         toast({
+            title:
+               bulkMetadataMode === 'remove'
+                  ? `Removed "${key}" from ${pluralise(result.updated, 'subscriber')}`
+                  : `Set "${key}" on ${pluralise(result.updated, 'subscriber')}`,
+            variant: 'success',
+         });
+         setBulkMetadataOpen(false);
+         clearSelection();
+         setReloadKey((keyValue) => keyValue + 1);
+      } catch (cause) {
+         setBulkMetadataError(errorMessage(cause, 'Could not update the custom field'));
+      } finally {
+         setBulkMetadataBusy(false);
+      }
+   }
+
+   async function confirmBulkDelete() {
+      setBulkDeleteBusy(true);
+      setBulkDeleteError(null);
+      try {
+         const result = await bulkDeleteSubscribers([...selectedIds]);
+         toast({
+            title: `Deleted ${pluralise(result.deleted, 'subscriber')}`,
+            variant: 'success',
+         });
+         setBulkDeleteOpen(false);
+         clearSelection();
+         setReloadKey((key) => key + 1);
+      } catch (cause) {
+         setBulkDeleteError(errorMessage(cause, 'Could not delete the subscribers'));
+      } finally {
+         setBulkDeleteBusy(false);
+      }
+   }
+
    const filtersActive =
       debouncedSearch.trim().length > 0 || statusFilter !== 'all' || tagFilter !== 'all';
 
@@ -603,6 +728,7 @@ export function Subscribers() {
          <PageHeader
             title="Subscribers"
             description="Everyone who can receive a campaign. Suppressed subscribers are never enqueued."
+            actionGuideId="subscribers-actions"
             actions={
                <>
                   <Button onClick={openCreate}>
@@ -725,28 +851,82 @@ export function Subscribers() {
                : `${pluralise(state.items.length, 'subscriber')} loaded`}
          </p>
 
-         <DataTable
-            caption="Subscribers"
-            columns={columns}
-            rows={state.items}
-            rowKey={(subscriber) => subscriber.id}
-            loading={loading}
-            error={error}
-            onRetry={() => setReloadKey((key) => key + 1)}
-            empty={{
-               title: filtersActive ? 'No subscribers match' : 'No subscribers yet',
-               description: filtersActive
-                  ? 'Try a different search or filter.'
-                  : 'Add a subscriber by hand or import a CSV to get started.',
-               icon: <Users aria-hidden="true" />,
-               action: filtersActive ? undefined : (
-                  <Button onClick={openCreate}>
-                     <Plus aria-hidden="true" />
-                     Add subscriber
-                  </Button>
-               ),
-            }}
-         />
+         {selectedIds.size > 0 && (
+            <div
+               role="region"
+               aria-label="Bulk actions"
+               className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2"
+            >
+               <p className="text-sm font-medium">
+                  {pluralise(selectedIds.size, 'subscriber')} selected
+               </p>
+               <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={openBulkTags}
+               >
+                  <TagIcon aria-hidden="true" />
+                  Add tags
+               </Button>
+               <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={openBulkMetadata}
+               >
+                  <SlidersHorizontal aria-hidden="true" />
+                  Set custom field
+               </Button>
+               <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                     setBulkDeleteError(null);
+                     setBulkDeleteOpen(true);
+                  }}
+               >
+                  <Trash2 aria-hidden="true" />
+                  Delete
+               </Button>
+               <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto"
+                  onClick={clearSelection}
+               >
+                  Clear selection
+               </Button>
+            </div>
+         )}
+
+         <div data-guide="subscribers-table">
+            <DataTable
+               caption="Subscribers. Tick rows to update several at once. Double-click a row to edit it."
+               selectable
+               selectedKeys={selectedIds}
+               onSelectionChange={setSelectedIds}
+               onRowDoubleClick={openEdit}
+               columns={columns}
+               rows={state.items}
+               rowKey={(subscriber) => subscriber.id}
+               loading={loading}
+               error={error}
+               onRetry={() => setReloadKey((key) => key + 1)}
+               empty={{
+                  title: filtersActive ? 'No subscribers match' : 'No subscribers yet',
+                  description: filtersActive
+                     ? 'Try a different search or filter.'
+                     : 'Add a subscriber by hand or import a CSV to get started.',
+                  icon: <Users aria-hidden="true" />,
+                  action: filtersActive ? undefined : (
+                     <Button onClick={openCreate}>
+                        <Plus aria-hidden="true" />
+                        Add subscriber
+                     </Button>
+                  ),
+               }}
+            />
+         </div>
 
          {moreError !== null && (
             <Alert variant="destructive">
@@ -770,6 +950,164 @@ export function Subscribers() {
                )}
             </div>
          )}
+
+         <Dialog
+            open={bulkTagsOpen}
+            onOpenChange={(open) => {
+               setBulkTagsOpen(open);
+               if (!open) {
+                  setBulkTags([]);
+                  setBulkTagsError(null);
+               }
+            }}
+         >
+            <DialogContent>
+               <DialogHeader>
+                  <DialogTitle>Add tags to selected subscribers</DialogTitle>
+                  <DialogDescription>
+                     {pluralise(selectedIds.size, 'subscriber')} selected. Tags are added alongside
+                     whatever each subscriber already has; nothing is removed.
+                  </DialogDescription>
+               </DialogHeader>
+
+               <Field
+                  label="Tags"
+                  htmlFor="bulk-subscriber-tags"
+                  hint="Search existing tags, or type a new name and press Enter to create it."
+               >
+                  <TagPicker
+                     id="bulk-subscriber-tags"
+                     value={bulkTags}
+                     onChange={setBulkTags}
+                     disabled={bulkTagsBusy}
+                     placeholder="Search or create a tag…"
+                  />
+               </Field>
+
+               {bulkTagsError !== null && (
+                  <Alert variant="destructive">
+                     <AlertDescription>{bulkTagsError}</AlertDescription>
+                  </Alert>
+               )}
+
+               <DialogFooter>
+                  <DialogClose disabled={bulkTagsBusy}>Cancel</DialogClose>
+                  <Button
+                     disabled={bulkTagsBusy || bulkTags.length === 0}
+                     onClick={() => void submitBulkTags()}
+                  >
+                     {bulkTagsBusy ? 'Adding…' : 'Add tags'}
+                  </Button>
+               </DialogFooter>
+            </DialogContent>
+         </Dialog>
+
+         <Dialog
+            open={bulkMetadataOpen}
+            onOpenChange={(open) => {
+               setBulkMetadataOpen(open);
+               if (!open) setBulkMetadataError(null);
+            }}
+         >
+            <DialogContent>
+               <DialogHeader>
+                  <DialogTitle>Set a custom field</DialogTitle>
+                  <DialogDescription>
+                     Applies one key/value pair to {pluralise(selectedIds.size, 'subscriber')}. Use
+                     it for shared attributes such as company or plan.
+                  </DialogDescription>
+               </DialogHeader>
+
+               <div className="grid gap-4">
+                  <Field
+                     label="Action"
+                     htmlFor="bulk-metadata-mode"
+                  >
+                     <Select
+                        value={bulkMetadataMode}
+                        onValueChange={(value) => {
+                           if (value === 'set' || value === 'remove') setBulkMetadataMode(value);
+                        }}
+                     >
+                        <SelectTrigger id="bulk-metadata-mode">
+                           <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="set">Set the value</SelectItem>
+                           <SelectItem value="remove">Remove the field</SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </Field>
+
+                  <Field
+                     label="Key"
+                     htmlFor="bulk-metadata-key"
+                     hint="Lowercase letters, digits and underscores, for example company."
+                     required
+                  >
+                     <Input
+                        id="bulk-metadata-key"
+                        value={bulkMetadataKey}
+                        disabled={bulkMetadataBusy}
+                        spellcheck={false}
+                        onInput={(event) => setBulkMetadataKey(event.currentTarget.value)}
+                     />
+                  </Field>
+
+                  {bulkMetadataMode === 'set' && (
+                     <Field
+                        label="Value"
+                        htmlFor="bulk-metadata-value"
+                     >
+                        <Input
+                           id="bulk-metadata-value"
+                           value={bulkMetadataValue}
+                           disabled={bulkMetadataBusy}
+                           placeholder="Acme Inc."
+                           onInput={(event) => setBulkMetadataValue(event.currentTarget.value)}
+                        />
+                     </Field>
+                  )}
+
+                  {bulkMetadataError !== null && (
+                     <Alert variant="destructive">
+                        <AlertDescription>{bulkMetadataError}</AlertDescription>
+                     </Alert>
+                  )}
+               </div>
+
+               <DialogFooter>
+                  <DialogClose disabled={bulkMetadataBusy}>Cancel</DialogClose>
+                  <Button
+                     disabled={bulkMetadataBusy}
+                     onClick={() => void submitBulkMetadata()}
+                  >
+                     {bulkMetadataBusy
+                        ? 'Saving…'
+                        : bulkMetadataMode === 'remove'
+                          ? 'Remove field'
+                          : 'Set field'}
+                  </Button>
+               </DialogFooter>
+            </DialogContent>
+         </Dialog>
+
+         <ConfirmDialog
+            open={bulkDeleteOpen}
+            onOpenChange={(open) => {
+               if (!open && !bulkDeleteBusy) {
+                  setBulkDeleteOpen(false);
+                  setBulkDeleteError(null);
+               }
+            }}
+            title="Delete selected subscribers"
+            description={`Delete ${pluralise(selectedIds.size, 'subscriber')}? They are removed from future campaigns but historical stats are kept.`}
+            confirmLabel="Delete subscribers"
+            destructive
+            loading={bulkDeleteBusy}
+            error={bulkDeleteError}
+            onConfirm={confirmBulkDelete}
+         />
 
          <Dialog
             open={formOpen}

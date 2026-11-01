@@ -24,6 +24,7 @@ type EmailCanvasProps = {
    confirming: boolean;
    onSelect: (id: string | null) => void;
    onMove: (id: string, delta: -1 | 1) => void;
+   onMoveTo: (sourceId: string, targetId: string, position: 'before' | 'after') => void;
    onDuplicate: (id: string) => void;
    onRequestDelete: (id: string) => void;
    onCancelDelete: () => void;
@@ -56,6 +57,7 @@ export function EmailCanvas({
    confirming,
    onSelect,
    onMove,
+   onMoveTo,
    onDuplicate,
    onRequestDelete,
    onCancelDelete,
@@ -74,11 +76,12 @@ export function EmailCanvas({
    const callbacksRef = useRef({
       onSelect,
       onMove,
+      onMoveTo,
       onRequestDelete,
       onUndo,
       onRedo,
    });
-   callbacksRef.current = { onSelect, onMove, onRequestDelete, onUndo, onRedo };
+   callbacksRef.current = { onSelect, onMove, onMoveTo, onRequestDelete, onUndo, onRedo };
 
    function updateToolbarPosition() {
       const pane = paneRef.current;
@@ -255,9 +258,99 @@ export function EmailCanvas({
             '[data-block-id]{cursor:pointer;}',
             '[data-block-id]:hover{outline:1px dashed #94a3b8 !important;outline-offset:-1px;}',
             '[data-block-id][data-postwren-selected]{outline:2px solid #0f766e !important;outline-offset:-2px;}',
+            '[data-block-id][data-postwren-dragging]{opacity:0.45;}',
+            '[data-block-id][data-postwren-drop=before]{box-shadow:inset 0 3px 0 0 #0f766e !important;}',
+            '[data-block-id][data-postwren-drop=after]{box-shadow:inset 0 -3px 0 0 #0f766e !important;}',
          ].join('');
          frameDoc.head.appendChild(style);
       }
+
+      const markDraggable = () => {
+         for (const element of frameDoc.querySelectorAll('[data-block-id]')) {
+            (element as HTMLElement).draggable = true;
+         }
+      };
+      markDraggable();
+
+      const isTopLevelBlock = (element: Element): boolean =>
+         element.parentElement?.closest('[data-block-id]') === null;
+
+      const clearDropTargets = () => {
+         for (const element of frameDoc.querySelectorAll('[data-postwren-drop]')) {
+            element.removeAttribute('data-postwren-drop');
+         }
+      };
+
+      let dragSourceId: string | null = null;
+      let dropTarget: { id: string; position: 'before' | 'after' } | null = null;
+
+      const onDragStart = (event: DragEvent) => {
+         const element = elementFromEvent(event)?.closest('[data-block-id]') ?? null;
+         const id = element?.getAttribute('data-block-id') ?? null;
+
+         if (element === null || id === null || !isTopLevelBlock(element)) {
+            event.preventDefault();
+            return;
+         }
+
+         dragSourceId = id;
+         element.setAttribute('data-postwren-dragging', 'true');
+         if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', id);
+         }
+      };
+
+      const onDragOver = (event: DragEvent) => {
+         if (dragSourceId === null) return;
+
+         const element = elementFromEvent(event)?.closest('[data-block-id]') ?? null;
+         const id = element?.getAttribute('data-block-id') ?? null;
+
+         if (element === null || id === null || id === dragSourceId || !isTopLevelBlock(element)) {
+            return;
+         }
+
+         event.preventDefault();
+         if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+
+         const rect = element.getBoundingClientRect();
+         const position: 'before' | 'after' =
+            event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+
+         if (dropTarget?.id === id && dropTarget.position === position) return;
+
+         clearDropTargets();
+         element.setAttribute('data-postwren-drop', position);
+         dropTarget = { id, position };
+      };
+
+      const onDrop = (event: DragEvent) => {
+         if (dragSourceId === null) return;
+
+         event.preventDefault();
+         const sourceId = dragSourceId;
+         const target = dropTarget;
+         dragSourceId = null;
+         dropTarget = null;
+         clearDropTargets();
+         for (const element of frameDoc.querySelectorAll('[data-postwren-dragging]')) {
+            element.removeAttribute('data-postwren-dragging');
+         }
+
+         if (target !== null) {
+            callbacksRef.current.onMoveTo(sourceId, target.id, target.position);
+         }
+      };
+
+      const onDragEnd = () => {
+         dragSourceId = null;
+         dropTarget = null;
+         clearDropTargets();
+         for (const element of frameDoc.querySelectorAll('[data-postwren-dragging]')) {
+            element.removeAttribute('data-postwren-dragging');
+         }
+      };
 
       const onClick = (event: Event) => {
          const element = elementFromEvent(event);
@@ -275,6 +368,10 @@ export function EmailCanvas({
       frameDoc.addEventListener('click', onClick);
       frameDoc.addEventListener('keydown', onKeyDown);
       frameDoc.addEventListener('scroll', onFrameScroll, { passive: true, capture: true });
+      frameDoc.addEventListener('dragstart', onDragStart);
+      frameDoc.addEventListener('dragover', onDragOver);
+      frameDoc.addEventListener('drop', onDrop);
+      frameDoc.addEventListener('dragend', onDragEnd);
       const frameWindow = frame.contentWindow;
       frameWindow?.addEventListener('scroll', onFrameScroll, { passive: true });
 
@@ -289,6 +386,10 @@ export function EmailCanvas({
          frameDoc.removeEventListener('click', onClick);
          frameDoc.removeEventListener('keydown', onKeyDown);
          frameDoc.removeEventListener('scroll', onFrameScroll, { capture: true });
+         frameDoc.removeEventListener('dragstart', onDragStart);
+         frameDoc.removeEventListener('dragover', onDragOver);
+         frameDoc.removeEventListener('drop', onDrop);
+         frameDoc.removeEventListener('dragend', onDragEnd);
          frameWindow?.removeEventListener('scroll', onFrameScroll);
          observer.disconnect();
          window.removeEventListener('resize', onWindowResize);
@@ -302,6 +403,7 @@ export function EmailCanvas({
       }
 
       window.requestAnimationFrame(() => {
+         markDraggable();
          applySelection(frameDoc);
          measure();
       });
@@ -360,7 +462,7 @@ export function EmailCanvas({
          ref={paneRef}
          tabIndex={0}
          onKeyDown={handlePaneKeyDown}
-         className="relative min-h-0 overflow-y-auto bg-muted/30 p-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:p-4"
+         className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-muted/30 p-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:p-4"
       >
          <div
             className={cn('mx-auto transition-[width] duration-200')}

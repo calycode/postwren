@@ -538,44 +538,16 @@ export function TemplateDetail() {
                />
             </div>
          ) : (
-            <>
-               {liveIssues.length > 0 && (
-                  <Alert
-                     variant="destructive"
-                     className="max-h-40 shrink-0 overflow-y-auto"
-                  >
-                     <AlertTitle>This document needs attention before it can be saved</AlertTitle>
-                     <AlertDescription>
-                        <p>
-                           Something in the email is incomplete, so autosave is paused. Quotes, code
-                           blocks and links need text, images need an absolute URL, and a section
-                           holds at most 20 blocks. Fill in the flagged fields and saving resumes on
-                           its own.
-                        </p>
-                        <details className="mt-2">
-                           <summary className="cursor-pointer text-xs font-medium">
-                              Technical details
-                           </summary>
-                           <ul className="mt-1 list-disc pl-4 font-mono text-xs">
-                              {liveIssues.map((issue, index) => (
-                                 <li key={`${index}-${issue}`}>{issue}</li>
-                              ))}
-                           </ul>
-                        </details>
-                     </AlertDescription>
-                  </Alert>
-               )}
-
-               <div className="min-h-0 flex-1">
-                  <EmailEditor
-                     value={doc}
-                     onChange={handleDocChange}
-                     onRender={handleRender}
-                     onUploadImage={handleUploadImage}
-                     className="h-full min-h-0"
-                  />
-               </div>
-            </>
+            <div className="min-h-0 flex-1">
+               <EmailEditor
+                  value={doc}
+                  onChange={handleDocChange}
+                  onRender={handleRender}
+                  issues={liveIssues}
+                  onUploadImage={handleUploadImage}
+                  className="h-full min-h-0"
+               />
+            </div>
          )}
 
          <EmailPreviewDialog

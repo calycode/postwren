@@ -229,6 +229,74 @@ describe('subscribers', () => {
       expect((await json(empty)).data).toHaveLength(0);
    });
 
+   it('sets and removes a custom field for several subscribers at once', async () => {
+      const owner = await auth();
+      const ids = await seedSubscribers(baseEnv(), [
+         { email: 'meta-bulk-1@example.com' },
+         { email: 'meta-bulk-2@example.com' },
+      ]);
+
+      const applied = await app.request('/api/v1/subscribers/bulk-metadata', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ subscriberIds: ids, metadata: { company: 'Acme' } }),
+      });
+      expect(applied.status).toBe(200);
+      expect((await json(applied)).data.updated).toBe(2);
+
+      for (const id of ids) {
+         const detail = await app.request(`/api/v1/subscribers/${id}`, {
+            headers: { cookie: owner.cookie },
+         });
+         expect((await json(detail)).data.metadata).toEqual({ company: 'Acme' });
+      }
+
+      const removed = await app.request('/api/v1/subscribers/bulk-metadata', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ subscriberIds: ids, metadata: { company: null } }),
+      });
+      expect(removed.status).toBe(200);
+
+      const detail = await app.request(`/api/v1/subscribers/${ids[0]}`, {
+         headers: { cookie: owner.cookie },
+      });
+      expect((await json(detail)).data.metadata).toEqual({});
+   });
+
+   it('rejects a malformed bulk metadata key', async () => {
+      const owner = await auth();
+      const ids = await seedSubscribers(baseEnv(), [{ email: 'meta-bad@example.com' }]);
+
+      const response = await app.request('/api/v1/subscribers/bulk-metadata', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ subscriberIds: ids, metadata: { Plan: 'pro' } }),
+      });
+      expect(response.status).toBe(422);
+   });
+
+   it('soft deletes several subscribers in bulk', async () => {
+      const owner = await auth();
+      const ids = await seedSubscribers(baseEnv(), [
+         { email: 'bulk-delete-1@example.com' },
+         { email: 'bulk-delete-2@example.com' },
+      ]);
+
+      const deleted = await app.request('/api/v1/subscribers/bulk-delete', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ subscriberIds: ids }),
+      });
+      expect(deleted.status).toBe(200);
+      expect((await json(deleted)).data.deleted).toBe(2);
+
+      const list = await app.request('/api/v1/subscribers', {
+         headers: { cookie: owner.cookie },
+      });
+      expect((await json(list)).data).toHaveLength(0);
+   });
+
    it('attaches a tag idempotently and detaches it', async () => {
       const owner = await auth();
       const [subscriberId] = await seedSubscribers(baseEnv(), [{ email: 'tagged@example.com' }]);

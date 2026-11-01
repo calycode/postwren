@@ -112,6 +112,7 @@ export function Campaigns() {
          <PageHeader
             title="Campaigns"
             description="Pin a template revision, choose an audience, and schedule the send."
+            actionGuideId="campaigns-actions"
             actions={
                <Button onClick={() => setCreateOpen(true)}>
                   <Plus aria-hidden="true" />
@@ -216,7 +217,10 @@ export function Campaigns() {
                }
             />
          ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
+            <div
+               data-guide="campaigns-table"
+               className="overflow-x-auto rounded-lg border border-border"
+            >
                <Table>
                   <caption className="sr-only">Campaigns</caption>
                   <TableHeader>

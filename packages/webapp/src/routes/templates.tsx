@@ -188,6 +188,7 @@ export function Templates() {
          <PageHeader
             title="Templates"
             description="Reusable email documents. Campaigns pin a template revision when they are sent."
+            actionGuideId="templates-actions"
             actions={
                <Button
                   disabled={creating}
@@ -240,45 +241,47 @@ export function Templates() {
             </Alert>
          )}
 
-         <DataTable
-            caption="Templates"
-            columns={columns}
-            rows={filteredTemplates}
-            rowKey={(template) => template.id}
-            loading={loading}
-            error={loadError}
-            onRetry={() => setReloadKey((key) => key + 1)}
-            empty={
-               searchActive
-                  ? {
-                       title: 'No templates match your search',
-                       description: 'Try a different name or subject.',
-                       icon: <Search aria-hidden="true" />,
-                       action: (
-                          <Button
-                             variant="outline"
-                             onClick={clearSearch}
-                          >
-                             Clear search
-                          </Button>
-                       ),
-                    }
-                  : {
-                       title: 'No templates yet',
-                       description: 'Create a template to start building an email document.',
-                       icon: <FileText aria-hidden="true" />,
-                       action: (
-                          <Button
-                             disabled={creating}
-                             onClick={() => void createTemplateAndOpen()}
-                          >
-                             <Plus aria-hidden="true" />
-                             New template
-                          </Button>
-                       ),
-                    }
-            }
-         />
+         <div data-guide="templates-table">
+            <DataTable
+               caption="Templates"
+               columns={columns}
+               rows={filteredTemplates}
+               rowKey={(template) => template.id}
+               loading={loading}
+               error={loadError}
+               onRetry={() => setReloadKey((key) => key + 1)}
+               empty={
+                  searchActive
+                     ? {
+                          title: 'No templates match your search',
+                          description: 'Try a different name or subject.',
+                          icon: <Search aria-hidden="true" />,
+                          action: (
+                             <Button
+                                variant="outline"
+                                onClick={clearSearch}
+                             >
+                                Clear search
+                             </Button>
+                          ),
+                       }
+                     : {
+                          title: 'No templates yet',
+                          description: 'Create a template to start building an email document.',
+                          icon: <FileText aria-hidden="true" />,
+                          action: (
+                             <Button
+                                disabled={creating}
+                                onClick={() => void createTemplateAndOpen()}
+                             >
+                                <Plus aria-hidden="true" />
+                                New template
+                             </Button>
+                          ),
+                       }
+               }
+            />
+         </div>
 
          <ConfirmDialog
             open={deleting !== null}

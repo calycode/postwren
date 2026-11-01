@@ -4,7 +4,7 @@ import { ok, paginated } from '@postwren/worker-kit/envelope';
 import { ConflictError, NotFoundError, ValidationError } from '@postwren/worker-kit/errors';
 import { paginationQuery, subscriberInput, subscriberPatch } from '@postwren/shared/contracts';
 import { parseSubscriberCsv } from '@postwren/shared/csv';
-import { MAX_METADATA_KEYS, mergeMetadata } from '@postwren/shared/metadata';
+import { MAX_METADATA_KEYS, mergeMetadata, metadataPatch } from '@postwren/shared/metadata';
 import type { MetadataRecord } from '@postwren/shared/metadata';
 import type { AppEnv } from '../env';
 import { decodeKeysetCursor, encodeKeysetCursor } from '../lib/cursor';
@@ -49,6 +49,15 @@ const bulkTagsInput = z.object({
    subscriberIds: z.array(z.string().trim().min(1)).min(1),
    add: z.array(z.string().trim().min(1)).optional(),
    remove: z.array(z.string().trim().min(1)).optional(),
+});
+
+const bulkIdsInput = z.object({
+   subscriberIds: z.array(z.string().trim().min(1)).min(1).max(500),
+});
+
+const bulkMetadataInput = z.object({
+   subscriberIds: z.array(z.string().trim().min(1)).min(1).max(500),
+   metadata: metadataPatch,
 });
 
 export const subscriberRoutes = new Hono<AppEnv>();
@@ -355,6 +364,56 @@ subscriberRoutes.post('/bulk-tags', async (c) => {
       added: addIds.length,
       removed: removeIds.length,
    });
+});
+
+subscriberRoutes.post('/bulk-metadata', async (c) => {
+   const body = bulkMetadataInput.parse(await readJson(c));
+
+   const placeholders = body.subscriberIds.map(() => '?').join(', ');
+   const existing = await c.env.DB.prepare(
+      `SELECT id FROM subscribers WHERE deleted_at IS NULL AND id IN (${placeholders})`,
+   )
+      .bind(...body.subscriberIds)
+      .all<{ id: string }>();
+
+   const updates: MetadataRecord = {};
+   const deletes: string[] = [];
+   for (const [key, value] of Object.entries(body.metadata)) {
+      if (value === null) deletes.push(key);
+      else updates[key] = value;
+   }
+
+   for (const row of existing.results) {
+      if (Object.keys(updates).length > 0) {
+         const current = await loadSubscriberMetadata(c.env.DB, row.id);
+         const merged = mergeMetadata(current, updates);
+         if (Object.keys(merged).length > MAX_METADATA_KEYS) {
+            throw new ValidationError(
+               `At most ${MAX_METADATA_KEYS} metadata keys are allowed per subscriber`,
+            );
+         }
+      }
+
+      await writeSubscriberMetadata(c.env.DB, row.id, updates, deletes);
+   }
+
+   return ok({ updated: existing.results.length });
+});
+
+subscriberRoutes.post('/bulk-delete', async (c) => {
+   const body = bulkIdsInput.parse(await readJson(c));
+   const now = nowSeconds();
+   const placeholders = body.subscriberIds.map(() => '?').join(', ');
+
+   const result = await c.env.DB.prepare(
+      `UPDATE subscribers
+       SET deleted_at = ?, unsubscribed_at = COALESCE(unsubscribed_at, ?)
+       WHERE deleted_at IS NULL AND id IN (${placeholders})`,
+   )
+      .bind(now, now, ...body.subscriberIds)
+      .run();
+
+   return ok({ deleted: result.meta.changes ?? 0 });
 });
 
 subscriberRoutes.patch('/:id', async (c) => {

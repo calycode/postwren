@@ -469,7 +469,7 @@ function randomId(type: BlockType): string {
    return `${type}-${crypto.randomUUID()}`;
 }
 
-const defaultPadding = (): Spacing => ({ top: 0, right: 24, bottom: 16, left: 24 });
+const defaultPadding = (): Spacing => ({ top: 16, right: 24, bottom: 8, left: 24 });
 
 export function createHeadingBlock(): HeadingBlock {
    return {
@@ -589,7 +589,7 @@ export function createQuoteBlock(): QuoteBlock {
       borderColor: '#0f766e',
       fontSize: 18,
       lineHeight: 28,
-      padding: { top: 8, right: 24, bottom: 16, left: 24 },
+      padding: { top: 16, right: 24, bottom: 8, left: 24 },
    };
 }
 

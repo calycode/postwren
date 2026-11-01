@@ -70,7 +70,7 @@ export function Field({
    return (
       <div
          data-slot="field"
-         className={cn('grid gap-2', className)}
+         className={cn('grid content-start gap-2', className)}
          {...withoutRef(props)}
       >
          {label !== undefined && (

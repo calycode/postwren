@@ -112,7 +112,7 @@ export function PropertyPanel({
    const block = selectedId ? findBlock(doc, selectedId) : null;
 
    return (
-      <div className="grid gap-5 p-4">
+      <div className="grid min-w-0 gap-5 p-4">
          <div className="grid gap-1">
             <h2 className="font-heading text-sm font-semibold text-foreground">Properties</h2>
             <p className="text-xs text-muted-foreground">
@@ -158,7 +158,7 @@ function DocumentSummary({ doc }: { doc: Document }) {
          <div className="flex items-baseline justify-between gap-2">
             <dt className="shrink-0 text-muted-foreground">Preheader</dt>
             <dd
-               className="truncate text-right font-medium"
+               className="min-w-0 truncate text-right font-medium"
                title={doc.preheader ?? ''}
             >
                {doc.preheader && doc.preheader.length > 0 ? doc.preheader : 'None'}

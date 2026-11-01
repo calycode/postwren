@@ -113,4 +113,24 @@ export function bulkTags(input: BulkTagsInput): Promise<{ updated: number }> {
    }).then((result) => result.data);
 }
 
+export type BulkMetadataInput = {
+   subscriberIds: string[];
+   /** A null value removes the key. */
+   metadata: Record<string, string | null>;
+};
+
+export function bulkMetadata(input: BulkMetadataInput): Promise<{ updated: number }> {
+   return apiFetchPage<{ updated: number }>('/api/v1/subscribers/bulk-metadata', {
+      method: 'POST',
+      body: input,
+   }).then((result) => result.data);
+}
+
+export function bulkDelete(subscriberIds: string[]): Promise<{ deleted: number }> {
+   return apiFetchPage<{ deleted: number }>('/api/v1/subscribers/bulk-delete', {
+      method: 'POST',
+      body: { subscriberIds },
+   }).then((result) => result.data);
+}
+
 export type { Subscriber, SubscriberStatus, Tag };

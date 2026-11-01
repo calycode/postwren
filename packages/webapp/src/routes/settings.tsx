@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Info, Mail, Plus, Trash2 } from 'lucide-react';
+import { Info, Mail, Plus, Trash2 } from 'lucide-react';
 import {
    Alert,
    AlertDescription,
@@ -262,7 +262,7 @@ export function Settings() {
             </AlertDescription>
          </Alert>
 
-         <Card>
+         <Card data-guide="settings-senders">
             <CardHeader>
                <CardTitle>Sending domains</CardTitle>
                <CardDescription>
@@ -637,31 +637,6 @@ export function Settings() {
                      {API_BASE_URL.length > 0 ? API_BASE_URL : 'same origin'}
                   </code>
                </div>
-            </CardContent>
-         </Card>
-
-         <Card className="border-destructive/40">
-            <CardHeader>
-               <CardTitle className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle
-                     className="size-4"
-                     aria-hidden="true"
-                  />
-                  Danger zone
-               </CardTitle>
-               <CardDescription>
-                  Destructive workspace actions are not wired in this wave. Nothing here can run
-                  yet.
-               </CardDescription>
-            </CardHeader>
-            <CardContent>
-               <Button
-                  variant="destructive"
-                  disabled
-                  title="Not available in this wave"
-               >
-                  Delete all subscribers
-               </Button>
             </CardContent>
          </Card>
 

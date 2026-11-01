@@ -1,5 +1,3 @@
-import type { BlockType, Document } from '@postwren/email/ir';
-import { GMAIL_CLIP_BYTES } from '@postwren/email/render';
 import type { RenderWarning } from '@postwren/email/render';
 import {
    Badge,
@@ -9,29 +7,36 @@ import {
    DropdownMenuItem,
    DropdownMenuTrigger,
    Separator,
+   cn,
 } from '@postwren/ui';
-import { Monitor, Redo2, Settings2, Smartphone, TriangleAlert, Undo2 } from 'lucide-react';
-import { blockLabel, findBlock } from '../lib/document-ops';
-import type { BlockPattern } from '../lib/patterns';
+import {
+   Monitor,
+   PanelLeftClose,
+   PanelLeftOpen,
+   Redo2,
+   Settings2,
+   Smartphone,
+   TriangleAlert,
+   Undo2,
+} from 'lucide-react';
+import { GMAIL_CLIP_BYTES } from '@postwren/email/render';
 import type { Viewport } from '../lib/viewport';
-import { AddBlockMenu } from './add-block-menu';
-import { BlockOutline } from './block-outline';
 
 type EditorToolbarProps = {
-   doc: Document;
-   selectedId: string | null;
    viewport: Viewport;
    onViewportChange: (viewport: Viewport) => void;
    warnings: readonly RenderWarning[];
+   /** Structural problems that pause autosave. */
+   issues: readonly string[];
    bytes: number;
    canUndo: boolean;
    canRedo: boolean;
+   libraryOpen: boolean;
+   onToggleLibrary: () => void;
    onUndo: () => void;
    onRedo: () => void;
-   onAddBlock: (type: BlockType) => void;
-   onAddPattern: (pattern: BlockPattern) => void;
-   onSelectBlock: (id: string) => void;
    onOpenDocument: () => void;
+   onSelectBlock?: (id: string) => void;
 };
 
 const CLIP_KILOBYTES = Math.round(GMAIL_CLIP_BYTES / 1000);
@@ -42,39 +47,46 @@ function warningTitle(message: string): string {
 }
 
 export function EditorToolbar({
-   doc,
-   selectedId,
    viewport,
    onViewportChange,
    warnings,
+   issues,
    bytes,
    canUndo,
    canRedo,
+   libraryOpen,
+   onToggleLibrary,
    onUndo,
    onRedo,
-   onAddBlock,
-   onAddPattern,
-   onSelectBlock,
    onOpenDocument,
+   onSelectBlock,
 }: EditorToolbarProps) {
-   const selectedBlock = selectedId !== null ? findBlock(doc, selectedId) : null;
-   const selectedLabel = selectedBlock !== null ? blockLabel(selectedBlock) : null;
    const aboveClip = bytes > GMAIL_CLIP_BYTES;
+   const needsAttention = issues.length > 0;
+   const summary = needsAttention
+      ? (issues[0] ?? 'This document needs attention before it can be saved')
+      : warnings.length > 0
+        ? warningTitle(warnings[0]?.message ?? '')
+        : 'No warnings';
 
    return (
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card/40 px-3 py-2">
          <div className="flex flex-wrap items-center gap-2">
-            <BlockOutline
-               doc={doc}
-               selectedId={selectedId}
-               onSelect={onSelectBlock}
-            />
-
-            <AddBlockMenu
-               afterLabel={selectedLabel}
-               onAdd={onAddBlock}
-               onAddPattern={onAddPattern}
-            />
+            <Button
+               size="icon"
+               variant="ghost"
+               className="size-8"
+               aria-label={libraryOpen ? 'Hide blocks panel' : 'Show blocks panel'}
+               aria-pressed={libraryOpen}
+               title={libraryOpen ? 'Hide blocks panel' : 'Show blocks panel'}
+               onClick={onToggleLibrary}
+            >
+               {libraryOpen ? (
+                  <PanelLeftClose aria-hidden="true" />
+               ) : (
+                  <PanelLeftOpen aria-hidden="true" />
+               )}
+            </Button>
 
             <Button
                size="sm"
@@ -156,24 +168,65 @@ export function EditorToolbar({
          <div className="flex items-center gap-2">
             <DropdownMenu>
                <DropdownMenuTrigger
-                  aria-label="Render warnings"
-                  className="gap-2 px-2 py-1 text-xs"
+                  aria-label={
+                     needsAttention
+                        ? `${issues.length} document issues need attention`
+                        : 'Render warnings'
+                  }
+                  title={summary}
+                  className={cn(
+                     'gap-2 px-2 py-1 text-xs',
+                     needsAttention &&
+                        'border-destructive bg-destructive/10 text-destructive hover:bg-destructive/15',
+                  )}
                >
                   <TriangleAlert aria-hidden="true" />
-                  <span className="hidden sm:inline">Warnings</span>
-                  <Badge variant={warnings.length > 0 ? 'warning' : 'secondary'}>
-                     {warnings.length}
+                  <span className="hidden sm:inline">
+                     {needsAttention ? 'Needs attention' : 'Warnings'}
+                  </span>
+                  <Badge
+                     variant={
+                        needsAttention
+                           ? 'destructive'
+                           : warnings.length > 0
+                             ? 'warning'
+                             : 'secondary'
+                     }
+                  >
+                     {needsAttention ? issues.length : warnings.length}
                   </Badge>
                </DropdownMenuTrigger>
                <DropdownMenuContent className="max-h-80 w-80 overflow-y-auto">
+                  {needsAttention && (
+                     <div className="grid gap-1 px-2 py-2">
+                        <p className="text-xs font-semibold text-destructive">
+                           This document needs attention before it can be saved
+                        </p>
+                        <ul className="grid gap-1 pl-4 text-xs text-muted-foreground">
+                           {issues.map((issue) => (
+                              <li
+                                 key={issue}
+                                 className="list-disc"
+                              >
+                                 {issue}
+                              </li>
+                           ))}
+                        </ul>
+                     </div>
+                  )}
+
+                  {needsAttention && warnings.length > 0 && <Separator className="my-1" />}
+
                   {warnings.length === 0 ? (
-                     <p className="px-2 py-3 text-sm text-muted-foreground">No warnings.</p>
+                     needsAttention ? null : (
+                        <p className="px-2 py-3 text-sm text-muted-foreground">No warnings.</p>
+                     )
                   ) : (
                      warnings.map((warning, index) => {
                         const title = warningTitle(warning.message);
                         const blockId = warning.blockId;
 
-                        if (blockId === undefined) {
+                        if (blockId === undefined || onSelectBlock === undefined) {
                            return (
                               <div
                                  key={`${warning.code}-document-${index}`}

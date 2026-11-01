@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { BlockType, Document } from '@postwren/email/ir';
 import { createBlock } from '@postwren/email/ir';
 import { renderEmail } from '@postwren/email/render';
 import type { RenderWarning } from '@postwren/email/render';
 import { applyMergeTags } from '@postwren/email/template';
 import type { MergeContext } from '@postwren/email/template';
-import { cn } from '@postwren/ui';
+import { cn, useToast } from '@postwren/ui';
+import { BlockLibrary } from './components/add-block-menu';
+import { BlockTree } from './components/block-outline';
 import { DocumentDialog } from './components/document-dialog';
 import { EditorToolbar } from './components/editor-toolbar';
 import { EmailCanvas } from './components/email-canvas';
@@ -17,12 +20,15 @@ import {
    insertAfter,
    insertBlock,
    moveBlock,
+   moveBlockTo,
    removeBlock,
 } from './lib/document-ops';
+import type { DropPosition } from './lib/document-ops';
 import { canRedo, canUndo, commit, createHistory, redo, undo } from './lib/history';
 import type { History } from './lib/history';
 import type { ImageUploader } from './lib/media';
 import type { BlockPattern } from './lib/patterns';
+import { usePanelResize } from './lib/use-panel-resize';
 import type { Viewport } from './lib/viewport';
 
 export type EmailEditorProps = {
@@ -35,6 +41,8 @@ export type EmailEditorProps = {
       bytes: number;
       warnings: RenderWarning[];
    }) => void;
+   /** Structural problems that pause autosave in the host. */
+   issues?: readonly string[];
    /** Host-provided image upload, forwarded to the property panel. */
    onUploadImage?: ImageUploader;
    className?: string;
@@ -88,6 +96,7 @@ export function EmailEditor({
    value,
    onChange,
    onRender,
+   issues = [],
    onUploadImage,
    className,
 }: EmailEditorProps) {
@@ -99,12 +108,43 @@ export function EmailEditor({
          : 'desktop',
    );
    const [documentOpen, setDocumentOpen] = useState(false);
+   const [libraryOpen, setLibraryOpen] = useState(
+      () => typeof window === 'undefined' || window.matchMedia('(min-width: 1024px)').matches,
+   );
    const [history, setHistory] = useState<History<Document>>(() => createHistory(value));
+   const { toast } = useToast();
+
+   const leftPanel = usePanelResize({
+      storageKey: 'postwren-editor-left-panel',
+      defaultSize: 264,
+      min: 200,
+      max: 420,
+   });
+   const rightPanel = usePanelResize({
+      storageKey: 'postwren-editor-right-panel',
+      defaultSize: 320,
+      min: 260,
+      max: 480,
+      invert: true,
+   });
 
    const historyRef = useRef(history);
    historyRef.current = history;
    const emittedRef = useRef(value);
    const doc = history.present;
+   const issueCountRef = useRef(issues.length);
+
+   useEffect(() => {
+      if (issues.length > 0 && issueCountRef.current === 0) {
+         toast({
+            title: `${issues.length} ${issues.length === 1 ? 'issue needs' : 'issues need'} attention`,
+            description: issues[0],
+            variant: 'destructive',
+            duration: 9000,
+         });
+      }
+      issueCountRef.current = issues.length;
+   }, [issues, toast]);
 
    useEffect(() => {
       if (value === historyRef.current.present || value === emittedRef.current) return;
@@ -231,6 +271,11 @@ export function EmailEditor({
       applyChange(moveBlock(doc, id, delta));
    };
 
+   const moveTo = (sourceId: string, targetId: string, position: DropPosition) => {
+      const next = moveBlockTo(doc, sourceId, targetId, position);
+      if (next !== doc) applyChange(next);
+   };
+
    const duplicate = (id: string) => {
       const source = findBlock(doc, id);
       if (!source) return;
@@ -263,50 +308,138 @@ export function EmailEditor({
             'flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground',
             className,
          )}
+         style={
+            {
+               '--left-panel-width': `${leftPanel.size}px`,
+               '--right-panel-width': `${rightPanel.size}px`,
+            } as unknown as CSSProperties
+         }
       >
          <EditorToolbar
-            doc={doc}
-            selectedId={selectedId}
             viewport={viewport}
             onViewportChange={setViewport}
             warnings={preview.result.warnings}
+            issues={issues}
             bytes={preview.result.bytes}
             canUndo={canUndo(history)}
             canRedo={canRedo(history)}
+            libraryOpen={libraryOpen}
+            onToggleLibrary={() => setLibraryOpen((open) => !open)}
             onUndo={undoDocument}
             onRedo={redoDocument}
-            onAddBlock={appendBlock}
-            onAddPattern={appendPattern}
-            onSelectBlock={select}
             onOpenDocument={() => setDocumentOpen(true)}
+            onSelectBlock={select}
          />
 
-         <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(200px,1.2fr)_minmax(0,0.8fr)] xl:grid-cols-[minmax(0,1fr)_20rem] xl:grid-rows-1">
-            <EmailCanvas
-               html={preview.html}
-               viewport={viewport}
-               selectedId={selectedId}
-               selectedLabel={selectedLabel}
-               confirming={confirmingId !== null && confirmingId === selectedId}
-               onSelect={select}
-               onMove={move}
-               onDuplicate={duplicate}
-               onRequestDelete={setConfirmingId}
-               onCancelDelete={() => setConfirmingId(null)}
-               onConfirmDelete={confirmDelete}
-               onUndo={undoDocument}
-               onRedo={redoDocument}
-            />
+         <div className="relative flex min-h-0 flex-1">
+            {libraryOpen && (
+               <>
+                  <button
+                     type="button"
+                     aria-label="Close blocks panel"
+                     className="absolute inset-0 z-20 bg-black/40 lg:hidden"
+                     onClick={() => setLibraryOpen(false)}
+                  />
+                  <aside
+                     id="editor-left-panel"
+                     aria-label="Blocks"
+                     className="absolute inset-y-0 left-0 z-30 flex w-[min(18rem,85%)] min-h-0 flex-col border-r border-border bg-card/30 lg:relative lg:z-auto lg:w-[var(--left-panel-width)] lg:shrink-0"
+                  >
+                     <div className="min-h-0 flex-[1.2] overflow-x-hidden overflow-y-auto p-3">
+                        <BlockLibrary
+                           onAdd={(type) => {
+                              appendBlock(type);
+                              if (window.matchMedia('(max-width: 1023px)').matches) {
+                                 setLibraryOpen(false);
+                              }
+                           }}
+                           onAddPattern={(pattern) => {
+                              appendPattern(pattern);
+                              if (window.matchMedia('(max-width: 1023px)').matches) {
+                                 setLibraryOpen(false);
+                              }
+                           }}
+                           afterLabel={selectedLabel}
+                        />
+                     </div>
 
-            <aside className="min-h-0 max-h-full overflow-y-auto border-t border-border bg-card/20 xl:border-t-0 xl:border-l">
-               <PropertyPanel
-                  doc={doc}
+                     <div className="border-t border-border" />
+
+                     <div className="flex min-h-0 flex-1 flex-col">
+                        <div className="flex items-center justify-between px-3 py-2">
+                           <h2 className="text-xs font-semibold">Layout</h2>
+                           <span className="text-[10px] text-muted-foreground">
+                              Drag to reorder
+                           </span>
+                        </div>
+                        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-3">
+                           <BlockTree
+                              doc={doc}
+                              selectedId={selectedId}
+                              onSelect={select}
+                              onMove={moveTo}
+                           />
+                        </div>
+                     </div>
+
+                     <div
+                        {...leftPanel.separatorProps}
+                        aria-label="Resize blocks panel"
+                        aria-controls="editor-left-panel"
+                        className={cn(
+                           'absolute inset-y-0 -right-1 z-40 hidden w-2 cursor-col-resize touch-none outline-none lg:block',
+                           'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border',
+                           'hover:before:bg-primary focus-visible:before:bg-primary',
+                           leftPanel.dragging && 'before:bg-primary',
+                        )}
+                     />
+                  </aside>
+               </>
+            )}
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:flex-row">
+               <EmailCanvas
+                  html={preview.html}
+                  viewport={viewport}
                   selectedId={selectedId}
+                  selectedLabel={selectedLabel}
+                  confirming={confirmingId !== null && confirmingId === selectedId}
                   onSelect={select}
-                  onChange={applyChange}
-                  onUploadImage={onUploadImage}
+                  onMove={move}
+                  onMoveTo={moveTo}
+                  onDuplicate={duplicate}
+                  onRequestDelete={setConfirmingId}
+                  onCancelDelete={() => setConfirmingId(null)}
+                  onConfirmDelete={confirmDelete}
+                  onUndo={undoDocument}
+                  onRedo={redoDocument}
                />
-            </aside>
+
+               <div
+                  {...rightPanel.separatorProps}
+                  aria-label="Resize properties panel"
+                  aria-controls="editor-properties-panel"
+                  className={cn(
+                     'relative hidden w-2 shrink-0 cursor-col-resize touch-none outline-none xl:block',
+                     'before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border',
+                     'hover:before:bg-primary focus-visible:before:bg-primary',
+                     rightPanel.dragging && 'before:bg-primary',
+                  )}
+               />
+
+               <aside
+                  id="editor-properties-panel"
+                  className="max-h-[38%] min-h-0 shrink-0 overflow-x-hidden overflow-y-auto border-t border-border bg-card/20 xl:max-h-none xl:w-[var(--right-panel-width)] xl:border-t-0"
+               >
+                  <PropertyPanel
+                     doc={doc}
+                     selectedId={selectedId}
+                     onSelect={select}
+                     onChange={applyChange}
+                     onUploadImage={onUploadImage}
+                  />
+               </aside>
+            </div>
          </div>
 
          <DocumentDialog

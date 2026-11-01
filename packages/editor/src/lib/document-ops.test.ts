@@ -18,6 +18,7 @@ import {
    insertBlock,
    insertIntoSection,
    moveBlock,
+   moveBlockTo,
    normaliseColumns,
    removeBlock,
    removeFromSection,
@@ -253,6 +254,38 @@ describe('document-ops', () => {
       }
 
       expect(moveBlock(doc, 'c', -1).children).toEqual(doc.children);
+   });
+
+   it('reorders a dropped block before or after a sibling', () => {
+      const doc = documentOf([textBlock('a'), textBlock('b'), textBlock('c')]);
+
+      expect(moveBlockTo(doc, 'c', 'a', 'before').children.map((block) => block.id)).toEqual([
+         'c',
+         'a',
+         'b',
+      ]);
+      expect(moveBlockTo(doc, 'a', 'c', 'after').children.map((block) => block.id)).toEqual([
+         'b',
+         'c',
+         'a',
+      ]);
+      expect(moveBlockTo(doc, 'b', 'b', 'after')).toBe(doc);
+   });
+
+   it('reorders inside a section but refuses to move blocks across containers', () => {
+      const doc = documentOf([
+         sectionBlock('sec', [textBlock('a'), textBlock('b')]),
+         textBlock('outside'),
+      ]);
+
+      const inside = moveBlockTo(doc, 'b', 'a', 'before');
+      const section = inside.children[0];
+      expect(section?.type).toBe('section');
+      if (section?.type === 'section') {
+         expect(section.children.map((block) => block.id)).toEqual(['b', 'a']);
+      }
+
+      expect(moveBlockTo(doc, 'outside', 'a', 'before')).toBe(doc);
    });
 
    it('updates top-level and nested blocks while preserving ids', () => {

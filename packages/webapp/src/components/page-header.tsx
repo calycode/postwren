@@ -4,9 +4,11 @@ type PageHeaderProps = {
    title: ComponentChildren;
    description?: ComponentChildren;
    actions?: ComponentChildren;
+   /** Marks the action row for the product tour. */
+   actionGuideId?: string;
 };
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, actionGuideId }: PageHeaderProps) {
    return (
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
          <div className="grid gap-1">
@@ -18,7 +20,12 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
             )}
          </div>
          {actions !== undefined && (
-            <div className="flex flex-wrap items-center gap-2">{actions}</div>
+            <div
+               className="flex flex-wrap items-center gap-2"
+               data-guide={actionGuideId}
+            >
+               {actions}
+            </div>
          )}
       </div>
    );

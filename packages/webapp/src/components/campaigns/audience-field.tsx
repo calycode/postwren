@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { Field, Input } from '@postwren/ui';
+import { Field, Input, Tooltip } from '@postwren/ui';
+import { Info } from 'lucide-react';
 import { TagPicker } from '@/components/tag-picker';
 import type { Tag } from '@/lib/api/types';
 import { formatNumber } from '@/lib/format';
@@ -56,40 +57,74 @@ export function AudienceField({
    onChange,
    error,
    disabled = false,
-   hint,
    preview,
 }: AudienceFieldProps) {
    const tags = tagsFromQuery(value);
-   const exclusion = splitTerms(value).exclude;
+   const terms = splitTerms(value);
+   const exclusion = terms.exclude;
+   const advanced = value.includes('meta:') || exclusion.length > 0;
 
    return (
       <div className="grid gap-2">
          <Field
-            label="Audience query"
+            label={
+               <span className="inline-flex items-center gap-1.5">
+                  Audience
+                  <Tooltip
+                     content="The tag picker and the query are the same filter, shown two ways. Use the picker for include tags; use the query when you also need to exclude tags or filter on custom fields."
+                     tabIndex={0}
+                     aria-label="How the audience filter works"
+                  >
+                     <Info
+                        className="size-3.5 text-muted-foreground"
+                        aria-hidden="true"
+                     />
+                  </Tooltip>
+               </span>
+            }
             htmlFor={id}
             error={error}
-            hint={
-               hint ??
-               'Use tag:name to include a tag and -tag:name to exclude one. Leave empty for every active subscriber.'
-            }
+            hint="Leave this empty to send to every active subscriber."
          >
             <div className="grid gap-2">
-               <Input
-                  id={id}
-                  value={value}
-                  disabled={disabled}
-                  placeholder="tag:newsletter -tag:internal"
-                  aria-invalid={error ? 'true' : undefined}
-                  aria-describedby={error ? `${id}-error` : undefined}
-                  onInput={(event) => onChange(event.currentTarget.value)}
-               />
-               <TagPicker
-                  id={`${id}-tags`}
-                  value={tags}
-                  onChange={(next) => onChange(rebuildQuery(next, exclusion))}
-                  disabled={disabled}
-                  placeholder="Add a tag filter…"
-               />
+               <div className="grid gap-1">
+                  <span className="text-xs font-medium text-muted-foreground">Include tags</span>
+                  <TagPicker
+                     id={`${id}-tags`}
+                     value={tags}
+                     onChange={(next) => onChange(rebuildQuery(next, exclusion))}
+                     disabled={disabled}
+                     placeholder="Add a tag to include…"
+                  />
+               </div>
+
+               <details
+                  open={advanced ? true : undefined}
+                  className="rounded-md border border-border px-3 py-2"
+               >
+                  <summary className="cursor-pointer list-none text-xs font-medium [&::-webkit-details-marker]:hidden">
+                     Advanced: edit the query directly
+                  </summary>
+                  <div className="mt-2 grid gap-1.5">
+                     <Input
+                        id={id}
+                        value={value}
+                        disabled={disabled}
+                        aria-label="Audience query"
+                        placeholder="tag:newsletter -tag:internal meta:plan=pro"
+                        aria-invalid={error ? 'true' : undefined}
+                        aria-describedby={error ? `${id}-error` : undefined}
+                        onInput={(event) => onChange(event.currentTarget.value)}
+                     />
+                     <p className="text-xs leading-relaxed text-muted-foreground">
+                        <code className="rounded bg-muted px-1 py-0.5">tag:newsletter</code>{' '}
+                        includes a tag,{' '}
+                        <code className="rounded bg-muted px-1 py-0.5">-tag:internal</code> excludes
+                        one, and <code className="rounded bg-muted px-1 py-0.5">meta:plan=pro</code>{' '}
+                        filters on a custom field.
+                     </p>
+                  </div>
+               </details>
             </div>
          </Field>
 
