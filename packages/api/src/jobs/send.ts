@@ -8,6 +8,7 @@ import type { MergeContext } from '@postwren/email/template';
 import { parseMetadataJson } from '@postwren/shared/metadata';
 import type { CampaignRow, MailSubscriberRow } from '../lib/rows';
 import { createCloudflareAdapter, errorCodeOf } from '../adapters/email';
+import { configuredAppOrigin } from '../lib/app-url';
 import { nowSeconds } from '../lib/time';
 import { loadSubscriberMetadata } from '../lib/subscribers';
 
@@ -102,6 +103,7 @@ function linkKey(linkId: string, href: string): string {
 
 async function signClickLinks(
    env: Env,
+   origin: string,
    document: Document,
    messageId: string,
 ): Promise<Map<string, string>> {
@@ -117,7 +119,7 @@ async function signClickLinks(
          { m: messageId, u: target.href, l: target.linkId },
          { secret: env.TOKEN_SECRET, purpose: 'click', ttlSeconds: CLICK_TTL_SECONDS },
       );
-      resolved.set(key, `${env.APP_URL}/t/c/${token}`);
+      resolved.set(key, `${origin}/t/c/${token}`);
    }
 
    return resolved;
@@ -141,6 +143,25 @@ function mailDomain(env: Env): string {
 }
 
 export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): Promise<void> {
+   const origin = configuredAppOrigin(env);
+   if (origin === null) {
+      // Tracking, unsubscribe and media links need an absolute origin, and a
+      // queue consumer has no request to derive one from. Pause instead of
+      // sending mail with dead links; the campaign can resume once APP_URL is set.
+      console.error('campaign_send_skipped', { reason: 'APP_URL is not configured' });
+      const now = nowSeconds();
+      for (const message of batch.messages) {
+         message.ack();
+         await env.DB.prepare(
+            `UPDATE campaigns SET status = 'paused', updated_at = ?
+             WHERE id = ? AND status = 'sending'`,
+         )
+            .bind(now, message.body.campaignId)
+            .run();
+      }
+      return;
+   }
+
    const groups = new Map<string, { ids: string[]; messages: Message<CampaignJob>[] }>();
 
    for (const message of batch.messages) {
@@ -241,7 +262,7 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
                ttlSeconds: UNSUBSCRIBE_TTL_SECONDS,
             },
          );
-         const unsubscribeUrl = `${env.APP_URL}/u/${unsubToken}`;
+         const unsubscribeUrl = `${origin}/u/${unsubToken}`;
 
          const mergeContext: MergeContext = {
             subscriber: {
@@ -266,7 +287,7 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
 
          try {
             const merged = applyMergeTags(document, mergeContext);
-            const links = await signClickLinks(env, merged, recipient.message_id);
+            const links = await signClickLinks(env, origin, merged, recipient.message_id);
             const rendered = renderEmail(merged, {
                unsubscribeUrl,
                resolveLink: (href, linkId) => links.get(linkKey(linkId, href)) ?? href,
@@ -280,7 +301,7 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
                   ttlSeconds: OPEN_TTL_SECONDS,
                },
             );
-            const pixel = `<img src="${env.APP_URL}/t/o/${openToken}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;outline:none;text-decoration:none;">`;
+            const pixel = `<img src="${origin}/t/o/${openToken}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;outline:none;text-decoration:none;">`;
 
             html = rendered.html.replace('</body>', `${pixel}</body>`);
             if (!html.includes(pixel)) html = `${html}${pixel}`;

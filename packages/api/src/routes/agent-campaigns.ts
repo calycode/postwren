@@ -3,6 +3,7 @@ import { ok } from '@postwren/worker-kit/envelope';
 import { ConflictError, NotFoundError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { dispatchCampaign, loadCampaign } from '../jobs/dispatch';
+import { requireConfiguredAppOrigin } from '../lib/app-url';
 import { nowSeconds } from '../lib/time';
 
 /**
@@ -22,6 +23,8 @@ agentCampaignRoutes.post('/:id/resume', async (c) => {
    if (campaign.status !== 'paused') {
       throw new ConflictError(`Cannot move campaign from ${campaign.status} to sending`);
    }
+
+   requireConfiguredAppOrigin(c.env);
 
    const now = nowSeconds();
    const claimed = await c.env.DB.prepare(

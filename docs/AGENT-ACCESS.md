@@ -227,7 +227,7 @@ curl -X POST "$POSTWREN_URL/api/v1/media" \
 
 The authorization server is Cloudflare's [`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider), running in this Worker. It owns discovery, dynamic client registration, client-metadata documents, authorization codes, access tokens, refresh tokens and revocation. Grants, codes and token hashes live in the `OAUTH_KV` namespace; API keys stay in D1.
 
-The issuer is `APP_URL`. Discovery, registration, authorization and token endpoints use standard OAuth responses rather than the `{ data, error }` API envelope.
+The issuer is `APP_URL`, or the request's own origin when `APP_URL` is empty. Discovery, registration, authorization and token endpoints use standard OAuth responses rather than the `{ data, error }` API envelope.
 
 ### Discovery
 
@@ -312,7 +312,7 @@ Key properties:
 
 ### Connecting ChatGPT
 
-1. Make sure `APP_URL` in `wrangler.jsonc` is the public HTTPS origin of the Worker. Discovery URLs, the issuer and token audiences are derived from it.
+1. Set `APP_URL` in `wrangler.jsonc` to the public HTTPS origin of the Worker, or leave it empty to follow the request's origin. Discovery URLs, the issuer and token audiences are derived from it.
 2. Provision the OAuth KV namespace once per environment and put its id in `wrangler.jsonc`:
 
    ```sh

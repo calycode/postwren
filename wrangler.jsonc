@@ -69,10 +69,15 @@
    },
    // Settings the installer changes for their own deployment: Appflare's install
    // form lists these, and app settings edit them later.
+   //
+   // APP_URL empty means "use the origin the request arrived on", so a fresh
+   // workers.dev or custom-domain deploy can sign in before anything is set.
+   // Campaign mail is rendered by a queue consumer with no request, so set
+   // APP_URL to the public origin before scheduling one.
    "vars": {
-      "APP_URL": "https://postwren.example.com",
+      "APP_URL": "",
       "ENVIRONMENT": "production",
-      "EMAIL_FROM": "noreply@postwren.example.com",
-      "OWNER_EMAIL": "",
+      "EMAIL_FROM": "hello@no-reply.calycode.com",
+      "OWNER_EMAIL": "hello@calycode.com",
    },
 }

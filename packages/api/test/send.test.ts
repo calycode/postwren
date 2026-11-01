@@ -187,4 +187,27 @@ describe('queue consumer', () => {
       expect(campaign?.status).toBe('sent');
       expect(campaign?.completed_at).toBeLessThanOrEqual(now());
    });
+
+   it('pauses instead of sending when APP_URL is unset', async () => {
+      const { target, campaignId, subscriberId } = await fixture();
+      const email = new FakeEmail();
+      const env = withQueue(withEmail({ ...target, APP_URL: '' }, email), new FakeQueue());
+
+      const { batch } = makeBatch([{ campaignId, recipientIds: [subscriberId] }]);
+      await workerHandler.queue(batch, env);
+
+      expect(email.sent).toHaveLength(0);
+
+      const campaign = await target.DB.prepare('SELECT status FROM campaigns WHERE id = ?')
+         .bind(campaignId)
+         .first<{ status: string }>();
+      expect(campaign?.status).toBe('paused');
+
+      const recipient = await target.DB.prepare(
+         'SELECT status FROM campaign_recipients WHERE campaign_id = ? AND subscriber_id = ?',
+      )
+         .bind(campaignId, subscriberId)
+         .first<{ status: string }>();
+      expect(recipient?.status).toBe('queued');
+   });
 });

@@ -75,6 +75,29 @@ describe('campaigns', () => {
       expect(response.status).toBe(422);
    });
 
+   it('refuses to schedule or send a campaign without a configured APP_URL', async () => {
+      const owner = await seedOwner(baseEnv());
+      const campaign = await createCampaign(owner);
+      const noUrl = createAppForTest({ APP_URL: '' });
+
+      const schedule = await noUrl.request(`/api/v1/campaigns/${campaign.id}/schedule`, {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ scheduledAt: now() + 3600 }),
+      });
+
+      expect(schedule.status).toBe(422);
+      expect((await json(schedule)).error.code).toBe('app_url_missing');
+
+      const sendNow = await noUrl.request(`/api/v1/campaigns/${campaign.id}/send-now`, {
+         method: 'POST',
+         headers: authHeaders(owner),
+      });
+
+      expect(sendNow.status).toBe(422);
+      expect((await json(sendNow)).error.code).toBe('app_url_missing');
+   });
+
    it('schedules a campaign and snapshots its audience', async () => {
       const owner = await seedOwner(baseEnv());
       const campaign = await createCampaign(owner);

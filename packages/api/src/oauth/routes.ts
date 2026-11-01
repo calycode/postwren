@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { AuthorizationError, CimdFetchError } from '@cloudflare/workers-oauth-provider';
 import type {
@@ -10,7 +11,8 @@ import { timingSafeEqual } from '@postwren/worker-kit/http';
 import { AppError } from '@postwren/worker-kit/errors';
 import type { AppEnv, Env } from '../env';
 import { CSRF_COOKIE, SESSION_COOKIE, findSessionUser } from '../auth/session';
-import { DEFAULT_SCOPES, issuer } from './config';
+import { appOrigin } from '../lib/app-url';
+import { DEFAULT_SCOPES } from './config';
 import { renderConsentError, renderConsentPage } from './consent';
 
 export const oauthRoutes = new Hono<AppEnv>();
@@ -57,10 +59,10 @@ function authorizationFailure(error: unknown): Response {
    throw error;
 }
 
-function loginRedirect(c: { req: { path: string; url: string } }, env: Env): Response {
+function loginRedirect(c: Context<AppEnv>): Response {
    const url = new URL(c.req.url);
    const target = `${url.pathname}${url.search}`;
-   const login = new URL(`${issuer(env)}/login`);
+   const login = new URL(`${appOrigin(c)}/login`);
    login.searchParams.set('next', target);
    return redirectTo(login.toString());
 }
@@ -86,7 +88,7 @@ oauthRoutes.get('/authorize', async (c) => {
          : await findSessionUser(c.env, sessionRaw);
 
    if (user === null) {
-      return loginRedirect(c, c.env);
+      return loginRedirect(c);
    }
 
    let details: ConsentDescription;
@@ -133,7 +135,7 @@ oauthRoutes.post('/authorize', async (c) => {
          : await findSessionUser(c.env, sessionRaw);
 
    if (user === null) {
-      return loginRedirect(c, c.env);
+      return loginRedirect(c);
    }
 
    const oauth = requireOAuth(c.env);

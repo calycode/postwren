@@ -61,10 +61,12 @@ vars from `wrangler.jsonc` become settings you can change: `APP_URL`, `ENVIRONME
   subdomain so marketing complaints cannot damage transactional reputation.
 - **`OWNER_EMAIL`** — the only address allowed to sign in. Lowercase; must match the
   address you type on the login page.
-- **`APP_URL`** — the public origin, no trailing slash. If you do not know it before the
-  install, leave the default, install, then set it under the app's settings once
-  Appflare shows the address. Magic links, tracking links, OAuth discovery and the MCP
-  resource audience all derive from it, so it must be right before you sign in.
+- **`APP_URL`** — the public origin, no trailing slash. It is optional: leave it empty
+  and magic links, media URLs and OAuth discovery follow the origin the request arrived
+  on, which is what makes a fresh `workers.dev` or Appflare domain work before you know
+  the final address. Campaign mail is the exception, because the queue consumer has no
+  request to derive an origin from: set `APP_URL` before scheduling or sending a
+  campaign, otherwise the API answers `app_url_missing`.
 
 ## After the install
 
@@ -74,8 +76,10 @@ vars from `wrangler.jsonc` become settings you can change: `APP_URL`, `ENVIRONME
 2. Open the app's address, go to `/login`, enter `OWNER_EMAIL` and send the link.
 3. In the app, check **Settings → Sending domains**; the address is seeded from
    `EMAIL_FROM`, but campaigns only send from an address listed there.
-4. Optional: attach a custom domain in Appflare, then update `APP_URL` in the app's
-   settings. Appflare redeploys the settings when the address changes.
+4. Optional: attach a custom domain in Appflare. With `APP_URL` empty, links follow the
+   request host, so the app keeps working on either address. Set `APP_URL` to the custom
+   domain before sending campaigns so tracking and unsubscribe links use the canonical
+   origin. Appflare redeploys the settings when the address changes.
 5. Optional: put Cloudflare Access in front of the app. The public integrations would
    need to stay reachable, so bypass them if you use them: `/api/public/*` (subscribe
    forms), `/api/v1/*` (bearer keys), `/mcp`, `/oauth/*`, `/.well-known/*`, and the
@@ -180,4 +184,5 @@ GitHub username; no `install.buildCommand` is needed while `wrangler.jsonc` keep
 ```
 
 The catalog has no `{{appUrl}}` equivalent outside a manifest, which is why the
-repository install asks you to confirm `APP_URL` by hand.
+repository install asks for `APP_URL`. Leave it empty and request-scoped links follow
+the host they arrived on; set it before sending campaigns.

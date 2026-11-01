@@ -87,7 +87,7 @@ pnpm exec wrangler queues create postwren-campaigns-dlq
 pnpm exec wrangler kv namespace create OAUTH_KV
 ```
 
-3. Put the returned ids into `wrangler.jsonc`: `database_id` on `DB`, and the real KV id in place of the all-zero `OAUTH_KV` placeholder. Appflare and the Deploy button create both themselves, so this step is only for a manual deploy. Then:
+3. Put the returned ids into `wrangler.jsonc`: `database_id` on `DB`, and the real KV id in place of the all-zero `OAUTH_KV` placeholder. Appflare and the Deploy button create both themselves, so this step is only for a manual deploy. Set `OWNER_EMAIL` and `EMAIL_FROM` to your own values; the shipped `hello@...` defaults exist so an install is not left with an open owner slot. Then:
 
 ```sh
 pnpm exec wrangler secret put SESSION_SECRET
@@ -95,6 +95,8 @@ pnpm exec wrangler secret put TOKEN_SECRET
 pnpm db:migrate:remote
 pnpm deploy
 ```
+
+`APP_URL` ships empty on purpose: magic links, media URLs and OAuth metadata then follow the origin the request arrived on, so `workers.dev` and a custom domain both work before anything is configured. Campaign mail is rendered in the queue consumer, which has no request, so set `APP_URL` to the public origin before scheduling or sending one; the API answers `app_url_missing` until you do.
 
 4. **Onboard the sending domain** in the Cloudflare dashboard under Email Service, and set `EMAIL_FROM` to an address on it. Use a dedicated subdomain (`marketing.example.com`) so marketing complaints cannot damage transactional reputation. New domains start with conservative daily quotas that scale with reputation — do not open with a large blast.
 5. Add the same address in **Settings → Sending domains**. Campaigns can only send from a verified address in that list, which is what stops a typo from burning the domain.

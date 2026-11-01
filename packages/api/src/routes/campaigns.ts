@@ -24,6 +24,7 @@ import type { Env } from '../env';
 import type { AppEnv } from '../env';
 import type { CampaignRow, RecipientRow, TemplateRow } from '../lib/rows';
 import { readJson } from '../lib/validation';
+import { requireConfiguredAppOrigin } from '../lib/app-url';
 import { decodeCursor, encodeCursor } from '../lib/cursor';
 import { nowSeconds } from '../lib/time';
 import { assertAudienceQuery, countAudience } from '../lib/audience';
@@ -266,6 +267,7 @@ campaignRoutes.post('/:id/schedule', async (c) => {
    }
 
    assertTransition(campaign.status, 'scheduled');
+   requireConfiguredAppOrigin(c.env);
    const template = await requireTemplate(c.env.DB, campaign.template_id);
    await pinAudience(c.env, id, campaign.audience_query, template);
 
@@ -283,6 +285,7 @@ campaignRoutes.post('/:id/send-now', async (c) => {
    const id = c.req.param('id');
    const campaign = await findCampaign(c.env.DB, id);
    assertTransition(campaign.status, 'sending');
+   requireConfiguredAppOrigin(c.env);
 
    const template = await requireTemplate(c.env.DB, campaign.template_id);
    await pinAudience(c.env, id, campaign.audience_query, template);

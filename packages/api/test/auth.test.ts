@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
-import { authHeaders, createAppForTest, json, resetDb, seedOwner } from './helpers';
+import type { Env } from '../src/env';
+import { authHeaders, createAppForTest, FakeEmail, json, resetDb, seedOwner } from './helpers';
 
 const app = createAppForTest();
 
@@ -51,6 +52,84 @@ describe('auth', () => {
       expect(session.status).toBe(200);
       const current = await json(session);
       expect(current.data.id).toBe(verified.data.id);
+   });
+
+   it('sends the magic link in production without exposing a dev token', async () => {
+      const email = new FakeEmail();
+      const production = createAppForTest({
+         ENVIRONMENT: 'production',
+         EMAIL: email as unknown as Env['EMAIL'],
+      });
+
+      const response = await production.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: 'dev@example.com' }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = await json(response);
+      expect(body.data.sent).toBe(true);
+      expect(body.data.devToken).toBeUndefined();
+      expect(email.sent).toHaveLength(1);
+      expect(email.sent[0]?.to).toBe('dev@example.com');
+   });
+
+   it('builds the magic link from the request when APP_URL is unset', async () => {
+      const email = new FakeEmail();
+      const production = createAppForTest({
+         ENVIRONMENT: 'production',
+         APP_URL: '',
+         EMAIL: email as unknown as Env['EMAIL'],
+      });
+
+      const response = await production.request('https://mail.example.test/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: 'dev@example.com' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(email.sent).toHaveLength(1);
+      expect(email.sent[0]?.text).toContain('https://mail.example.test/login?token=');
+   });
+
+   it('prefers a configured APP_URL over the request origin', async () => {
+      const email = new FakeEmail();
+      const production = createAppForTest({
+         ENVIRONMENT: 'production',
+         APP_URL: 'https://postwren.test/',
+         EMAIL: email as unknown as Env['EMAIL'],
+      });
+
+      const response = await production.request('https://mail.example.test/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: 'dev@example.com' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(email.sent[0]?.text).toContain('https://postwren.test/login?token=');
+      expect(email.sent[0]?.text).not.toContain('mail.example.test');
+   });
+
+   it('reports a failed magic-link email instead of claiming it was sent', async () => {
+      const email = new FakeEmail();
+      email.failWith = new Error('E_SENDER_NOT_VERIFIED');
+      const production = createAppForTest({
+         ENVIRONMENT: 'production',
+         EMAIL: email as unknown as Env['EMAIL'],
+      });
+
+      const response = await production.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: 'dev@example.com' }),
+      });
+
+      expect(response.status).toBe(502);
+      const body = await json(response);
+      expect(body.error.code).toBe('email_send_failed');
    });
 
    it('rejects an unknown token', async () => {

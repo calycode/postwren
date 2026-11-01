@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { ok } from '@postwren/worker-kit/envelope';
 import { AppError, NotFoundError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
+import { appOrigin } from '../lib/app-url';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -67,7 +68,7 @@ mediaUploadRoutes.post('/', async (c) => {
    });
 
    return ok(
-      { url: `${c.env.APP_URL}/media/${key}`, key },
+      { url: `${appOrigin(c)}/media/${key}`, key },
       { status: 201, requestId: c.get('requestId') },
    );
 });

@@ -7,6 +7,7 @@ import { AppError, UnauthorizedError } from '@postwren/worker-kit/errors';
 import { RATE_LIMITS } from '@postwren/shared/contracts';
 import type { AppEnv } from '../env';
 import { readJson } from '../lib/validation';
+import { appOrigin } from '../lib/app-url';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { nowSeconds } from '../lib/time';
 import { requestClientIp } from '../middleware/context';
@@ -53,7 +54,7 @@ authRoutes.post('/magic-link', async (c) => {
       .run();
 
    if (c.env.ENVIRONMENT === 'production') {
-      const signInUrl = `${c.env.APP_URL}/login?token=${encodeURIComponent(raw)}`;
+      const signInUrl = `${appOrigin(c)}/login?token=${encodeURIComponent(raw)}`;
       try {
          await c.env.EMAIL.send({
             from: { email: c.env.EMAIL_FROM, name: 'Postwren' },
@@ -66,6 +67,11 @@ authRoutes.post('/magic-link', async (c) => {
          console.error('magic_link_send_failed', {
             message: error instanceof Error ? error.message : String(error),
          });
+         throw new AppError(
+            502,
+            'email_send_failed',
+            'The sign-in email could not be sent. Check EMAIL_FROM and the email binding.',
+         );
       }
       return ok({ sent: true });
    }

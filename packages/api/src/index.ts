@@ -10,6 +10,7 @@ import { SCOPES } from './auth/scopes';
 import type { CampaignJob, Env } from './env';
 import { handleQueue } from './jobs/send';
 import { handleScheduled } from './jobs/dispatch';
+import { configuredAppOrigin, resolveAppOrigin } from './lib/app-url';
 import { handleMcpRequest } from './mcp/server';
 import { mcpResource, ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS } from './oauth/config';
 
@@ -41,8 +42,13 @@ const mcpApiHandler = {
 
 const providers = new Map<string, OAuthProvider<Env>>();
 
-function providerFor(env: Env): OAuthProvider<Env> {
-   const origin = env.APP_URL.replace(/\/+$/, '');
+/**
+ * Only used by the scheduled purge, which never serves a request. Expired
+ * OAuth data lives in KV, so the origin on this provider is never exposed.
+ */
+const PURGE_ORIGIN = 'https://postwren.invalid';
+
+function providerFor(env: Env, origin: string): OAuthProvider<Env> {
    const existing = providers.get(origin);
    if (existing !== undefined) {
       return existing;
@@ -85,7 +91,7 @@ function providerFor(env: Env): OAuthProvider<Env> {
                keyId: credential.id,
                prefix: credential.prefix,
             },
-            audience: mcpResource(callbackEnv),
+            audience: mcpResource(origin),
          };
       },
    });
@@ -96,7 +102,7 @@ function providerFor(env: Env): OAuthProvider<Env> {
 
 export default {
    fetch(request: Request, env: Env, ctx: ExecutionContext) {
-      return providerFor(env).fetch(request, env, ctx);
+      return providerFor(env, resolveAppOrigin(request.url, env)).fetch(request, env, ctx);
    },
    async queue(batch: MessageBatch<CampaignJob>, env: Env): Promise<void> {
       await handleQueue(batch, env);
@@ -107,6 +113,7 @@ export default {
       ctx: ExecutionContext,
    ): Promise<void> {
       await handleScheduled(controller, env, ctx);
-      ctx.waitUntil(providerFor(env).purgeExpiredData(env));
+      const purgeOrigin = configuredAppOrigin(env) ?? PURGE_ORIGIN;
+      ctx.waitUntil(providerFor(env, purgeOrigin).purgeExpiredData(env));
    },
 } satisfies ExportedHandler<Env, CampaignJob>;
