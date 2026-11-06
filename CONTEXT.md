@@ -18,6 +18,7 @@ Vocabulary and seams for this repo. Read before changing code.
 | **Metadata**         | Custom key/value pairs. Subscribers store one row per key in `subscriber_metadata`; campaigns store a flat string map in `campaigns.metadata_json`. Keys match `^[a-z][a-z0-9_]{0,63}$`. Keys `id`, `email`, `first_name`, `last_name`, `status` and `tags` are reserved.                                                                        |
 | **Subscribe key**    | A publishable `pk_live_…` credential for the public subscribe endpoint. Only a SHA-256 hash and a display prefix are stored; the secret is shown once.                                                                                                                                                                                           |
 | **Public ingestion** | `POST /api/public/subscribe`, authenticated by a subscribe key rather than a session. Browser origins are restricted per key.                                                                                                                                                                                                                    |
+| **Embed origin**     | An exact origin allowed to frame the admin SPA. Stored in `embed_origins`, enforced as `Content-Security-Policy: frame-ancestors`. Same-origin is always allowed; the default is no external origin.                                                                                                                                             |
 | **OAuth provider**   | `@cloudflare/workers-oauth-provider` owns MCP authorization: discovery, DCR/CIMD, PKCE, codes and token rotation. Grants and hashed tokens live in the `OAUTH_KV` namespace; `pwr_` API keys stay in D1.                                                                                                                                         |
 | **link_id**          | A block `id`, used as the click-analytics key.                                                                                                                                                                                                                                                                                                   |
 | **Suppression**      | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                                                                                                                                                                                                                                               |
@@ -113,6 +114,16 @@ The body is camelCase:
 The endpoint is idempotent: an existing email gains tags and metadata, keeps its status (an unsubscribed or bounced subscriber is never revived), and records `source` / `source_url`. `subscribe_keys.default_tags` are added to every signup. Requests are rate limited with `RATE_LIMITS.publicSubscribe` against `rate_limits`. Every accepted request returns `202 { "data": { "subscribed": true } }` regardless of whether the address was new, so the public endpoint cannot be used to test list membership.
 
 Keys are managed under `/api/v1/subscribe-keys` with a normal session. `POST` returns the secret once; `GET` lists prefix, origins and default tags; `DELETE` revokes.
+
+## Iframe embedding
+
+The admin SPA is framable only by its own origin plus the exact origins in `embed_origins`. The
+`frame-policy` middleware sets `Content-Security-Policy: frame-ancestors` on every HTML response,
+which is why `run_worker_first` routes every request through the Worker. An origin is scheme +
+host + optional port, HTTPS only outside loopback development; paths, wildcards and credentials are
+rejected. `X-Frame-Options: SAMEORIGIN` is only a fallback while the list is empty; it is removed
+once an allowlist exists because it cannot express one. The session cookie stays `SameSite=Lax`, so
+a cross-site embed may load but stay signed out.
 
 ## Local development
 

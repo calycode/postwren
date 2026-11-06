@@ -374,6 +374,11 @@ What must not change: `renderEmail`, the IR, `applyMergeTags`, `compileAudience`
 | R16 | `allowedHosts` is fixed at build time from `workerUrl`, so the settings value cannot point anywhere else             | Phase 1 fails closed with `WORKER_NOT_CONFIGURED` when the hosts differ, and the setting's description says to redeploy after changing it. A per-tenant host would need `network:request:unrestricted`, which is too much authority for a signup proxy. |
 | R17 | The Worker rate-limits per client IP; all traffic from one site's Worker may share an egress IP                      | Accepted for phase 1: the plugin maps 429 to a friendly message. Raising the budget is a Worker-side change (`RATE_LIMITS.publicSubscribe`).                                                                                                            |
 
+The "No iframe" note in R8 is about serving the SPA from a plugin route. Framing the standalone
+Worker is a separate option: it is gated by the exact-origin allowlist under **Settings → Iframe
+embedding**, and it still needs a same-site session cookie. See
+[IFRAME-EMBEDDING.md](IFRAME-EMBEDDING.md).
+
 ## 7. Milestones
 
 Phase 1 as built:

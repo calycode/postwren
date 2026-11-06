@@ -16,6 +16,7 @@ import {
    Separator,
 } from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { EmbedSettingsCard } from '@/components/embed-settings-card';
 import { PageHeader } from '@/components/page-header';
 import { API_BASE_URL, ApiError } from '@/lib/api/client';
 import { createSender, listSenders, removeSender, updateSender } from '@/lib/api/settings';
@@ -617,6 +618,8 @@ export function Settings() {
                </form>
             </CardContent>
          </Card>
+
+         <EmbedSettingsCard />
 
          <Card>
             <CardHeader>

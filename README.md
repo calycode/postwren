@@ -41,6 +41,7 @@ migrations/    numbered SQL
 
 - **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
 - **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
+- **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/IFRAME-EMBEDDING.md](docs/IFRAME-EMBEDDING.md).
 - **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
 - **EmDash sites** — a native plugin that proxies signups to the Worker and renders its settings in the EmDash admin. See [packages/emdash-plugin](packages/emdash-plugin) once installed.
 
@@ -123,3 +124,4 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 - [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
 - [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
 - [EmDash plugin packaging](docs/EMDASH-PLUGIN.md)
+- [Iframe embedding](docs/IFRAME-EMBEDDING.md)

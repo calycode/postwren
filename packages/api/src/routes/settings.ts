@@ -8,6 +8,13 @@ import { isUniqueViolation, readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';
 import { domainOf, seedSenderAddress, senderEmailFrom } from '../lib/senders';
 import type { SenderAddressRow } from '../lib/senders';
+import {
+   MAX_EMBED_ORIGINS,
+   MAX_EMBED_ORIGIN_LENGTH,
+   loadEmbedOrigins,
+   normaliseEmbedOrigin,
+   replaceEmbedOrigins,
+} from '../lib/embed-origins';
 
 const emailField = z
    .string()
@@ -27,6 +34,12 @@ const senderPatchInput = z
       name: z.string().trim().max(100).optional(),
       verified: z.boolean().optional(),
       isDefault: z.boolean().optional(),
+   })
+   .strict();
+
+const embedOriginsInput = z
+   .object({
+      origins: z.array(z.string().max(MAX_EMBED_ORIGIN_LENGTH)).max(MAX_EMBED_ORIGINS),
    })
    .strict();
 
@@ -170,4 +183,41 @@ settingsRoutes.delete('/senders/:id', async (c) => {
    await c.env.DB.prepare('DELETE FROM sender_addresses WHERE id = ?').bind(id).run();
 
    return ok({ id, deleted: true });
+});
+
+settingsRoutes.get('/embed-origins', async (c) => {
+   return ok({ origins: await loadEmbedOrigins(c.env.DB) });
+});
+
+settingsRoutes.put('/embed-origins', async (c) => {
+   const body = embedOriginsInput.parse(await readJson(c));
+   const origins: string[] = [];
+
+   for (const raw of body.origins) {
+      const origin = normaliseEmbedOrigin(raw);
+      if (origin === null) {
+         throw new AppError(
+            422,
+            'validation_error',
+            `"${raw}" is not an exact origin. Use a scheme, host and optional port only, for example https://cms.example.com.`,
+            { origin: raw },
+         );
+      }
+
+      if (!origins.includes(origin)) origins.push(origin);
+   }
+
+   await replaceEmbedOrigins(c.env.DB, origins, nowSeconds());
+
+   console.info(
+      JSON.stringify({
+         level: 'info',
+         event: 'embed_origins_updated',
+         requestId: c.get('requestId'),
+         userId: c.get('userId'),
+         origins,
+      }),
+   );
+
+   return ok({ origins });
 });

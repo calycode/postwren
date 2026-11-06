@@ -155,6 +155,10 @@ export type SenderSettings = {
    defaultFrom: string;
 };
 
+export type EmbedSettings = {
+   origins: string[];
+};
+
 export type SubscribeKey = {
    id: string;
    name: string;

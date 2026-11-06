@@ -4,6 +4,7 @@ import { fail, ok } from '@postwren/worker-kit/envelope';
 import type { AppEnv, Env } from './env';
 import { requestContext } from './middleware/context';
 import { onErrorHandler } from './middleware/error';
+import { framePolicy } from './middleware/frame-policy';
 import { requireAuth, requireCsrf } from './middleware/auth';
 import { enforceScopes } from './middleware/scopes';
 import { authRoutes } from './routes/auth';
@@ -27,6 +28,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    const app = new Hono<AppEnv>();
 
    app.use('*', requestContext);
+   app.use('*', framePolicy);
    app.route('/', publicRoutes);
    app.use(
       '*',

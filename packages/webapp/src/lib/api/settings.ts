@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { SenderAddress, SenderSettings } from './types';
+import type { EmbedSettings, SenderAddress, SenderSettings } from './types';
 
 export type SenderInput = {
    email: string;
@@ -34,4 +34,15 @@ export function removeSender(id: string): Promise<void> {
    return apiFetch<void>(`/api/v1/settings/senders/${encodeURIComponent(id)}`, {
       method: 'DELETE',
    }).then(() => undefined);
+}
+
+export function getEmbedOrigins(): Promise<EmbedSettings> {
+   return apiFetch<EmbedSettings>('/api/v1/settings/embed-origins');
+}
+
+export function updateEmbedOrigins(origins: string[]): Promise<EmbedSettings> {
+   return apiFetch<EmbedSettings>('/api/v1/settings/embed-origins', {
+      method: 'PUT',
+      body: { origins },
+   });
 }

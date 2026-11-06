@@ -8,15 +8,9 @@
       "directory": "packages/webapp/dist/client",
       "binding": "ASSETS",
       "not_found_handling": "single-page-application",
-      "run_worker_first": [
-         "/api/*",
-         "/t/*",
-         "/u/*",
-         "/media/*",
-         "/mcp",
-         "/oauth/*",
-         "/.well-known/*",
-      ],
+      // Keep every response on the Worker so frame-ancestors is applied to the
+      // SPA fallback as well as to real routes.
+      "run_worker_first": true,
    },
    "d1_databases": [
       {

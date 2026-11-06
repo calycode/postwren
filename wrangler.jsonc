@@ -13,15 +13,10 @@
       "directory": "packages/webapp/dist/client",
       "binding": "ASSETS",
       "not_found_handling": "single-page-application",
-      "run_worker_first": [
-         "/api/*",
-         "/t/*",
-         "/u/*",
-         "/media/*",
-         "/mcp",
-         "/oauth/*",
-         "/.well-known/*",
-      ],
+      // Every response, including the SPA fallback, must pass through the
+      // Worker so the embed allowlist can set frame-ancestors. Static assets
+      // are proxied to the assets binding unchanged.
+      "run_worker_first": true,
    },
    "d1_databases": [
       {

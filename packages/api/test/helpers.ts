@@ -66,6 +66,7 @@ export async function resetDb(db: D1Database = env.DB): Promise<void> {
       db.prepare('DELETE FROM magic_links'),
       db.prepare('DELETE FROM rate_limits'),
       db.prepare('DELETE FROM sender_addresses'),
+      db.prepare('DELETE FROM embed_origins'),
       db.prepare('DELETE FROM users'),
    ]);
 }
