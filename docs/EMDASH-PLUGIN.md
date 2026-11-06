@@ -376,8 +376,8 @@ What must not change: `renderEmail`, the IR, `applyMergeTags`, `compileAudience`
 
 The "No iframe" note in R8 is about serving the SPA from a plugin route. Framing the standalone
 Worker is a separate option: it is gated by the exact-origin allowlist under **Settings → Iframe
-embedding**, and it still needs a same-site session cookie. See
-[IFRAME-EMBEDDING.md](IFRAME-EMBEDDING.md).
+embedding**, it still needs a same-site session cookie, and sign-in inside the frame uses the
+emailed 6-digit code. See [IFRAME-EMBEDDING.md](IFRAME-EMBEDDING.md).
 
 ## 7. Milestones
 

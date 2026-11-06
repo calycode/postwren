@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
 import type { Env } from '../src/env';
-import { authHeaders, createAppForTest, FakeEmail, json, resetDb, seedOwner } from './helpers';
+import { authHeaders, createAppForTest, FakeEmail, json, now, resetDb, seedOwner } from './helpers';
 
 const app = createAppForTest();
+const TEST_OWNER_EMAIL = (env.OWNER_EMAIL ?? 'dev@example.com').toLowerCase();
 
 function setCookies(response: Response): string[] {
    const headers = response.headers as Headers & { getSetCookie?: () => string[] };
@@ -32,6 +33,7 @@ describe('auth', () => {
       const body = await json(request);
       expect(body.data.sent).toBe(true);
       expect(typeof body.data.devToken).toBe('string');
+      expect(body.data.devCode).toMatch(/^\d{6}$/);
 
       const verify = await app.request('/api/auth/verify', {
          method: 'POST',
@@ -71,6 +73,7 @@ describe('auth', () => {
       const body = await json(response);
       expect(body.data.sent).toBe(true);
       expect(body.data.devToken).toBeUndefined();
+      expect(body.data.devCode).toBeUndefined();
       expect(email.sent).toHaveLength(1);
       expect(email.sent[0]?.to).toBe('dev@example.com');
    });
@@ -165,6 +168,138 @@ describe('auth', () => {
          body: JSON.stringify({ token: data.devToken }),
       });
       expect(second.status).toBe(401);
+   });
+
+   it('signs in with the emailed code and consumes the link', async () => {
+      const request = await app.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL }),
+      });
+      const { data } = await json(request);
+      expect(data.devCode).toMatch(/^\d{6}$/);
+
+      const verifyCode = await app.request('/api/auth/verify-code', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL, code: data.devCode }),
+      });
+
+      expect(verifyCode.status).toBe(200);
+      const verified = await json(verifyCode);
+      expect(verified.data.email).toBe(TEST_OWNER_EMAIL);
+      expect(cookieFrom(verifyCode, 'sid')).toMatch(/^sid=/);
+
+      const reusedCode = await app.request('/api/auth/verify-code', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL, code: data.devCode }),
+      });
+      expect(reusedCode.status).toBe(401);
+
+      const reusedLink = await app.request('/api/auth/verify', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ token: data.devToken }),
+      });
+      expect(reusedLink.status).toBe(401);
+   });
+
+   it('binds the code to the email it was sent to', async () => {
+      const request = await app.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL }),
+      });
+      const { data } = await json(request);
+
+      const response = await app.request('/api/auth/verify-code', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: 'other@example.com', code: data.devCode }),
+      });
+
+      expect(response.status).toBe(401);
+   });
+
+   it('rejects an expired code', async () => {
+      const request = await app.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL }),
+      });
+      const { data } = await json(request);
+
+      await env.DB.prepare('UPDATE magic_links SET expires_at = ? WHERE email = ?')
+         .bind(now() - 1, TEST_OWNER_EMAIL)
+         .run();
+
+      const response = await app.request('/api/auth/verify-code', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL, code: data.devCode }),
+      });
+
+      expect(response.status).toBe(401);
+   });
+
+   it('rate limits repeated code attempts', async () => {
+      const request = await app.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL }),
+      });
+      const { data } = await json(request);
+      const wrongCode = data.devCode === '000000' ? '000001' : '000000';
+      const statuses: number[] = [];
+
+      for (let index = 0; index < 11; index += 1) {
+         const response = await app.request('/api/auth/verify-code', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email: TEST_OWNER_EMAIL, code: wrongCode }),
+         });
+         statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, 10)).toEqual(Array(10).fill(401));
+      expect(statuses[10]).toBe(429);
+   });
+
+   it('sends both the code and the link in production', async () => {
+      const email = new FakeEmail();
+      const production = createAppForTest({
+         ENVIRONMENT: 'production',
+         APP_URL: 'https://postwren.test',
+         EMAIL: email as unknown as Env['EMAIL'],
+      });
+
+      const response = await production.request('/api/auth/magic-link', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = await json(response);
+      expect(body.data.devCode).toBeUndefined();
+      expect(body.data.devToken).toBeUndefined();
+      expect(email.sent).toHaveLength(1);
+
+      const message = email.sent[0];
+      expect(message?.subject).toBe('Your Postwren sign-in code');
+      expect(message?.text).toContain('https://postwren.test/login?token=');
+      const code = /sign-in code is (\d{6})/i.exec(message?.text ?? '')?.[1];
+      expect(code).toBeDefined();
+      expect(message?.html).toContain(code);
+
+      const verify = await production.request('/api/auth/verify-code', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ email: TEST_OWNER_EMAIL, code }),
+      });
+
+      expect(verify.status).toBe(200);
    });
 
    it('logs out and invalidates the session', async () => {

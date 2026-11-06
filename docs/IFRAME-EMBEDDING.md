@@ -100,3 +100,14 @@ same **site** (same scheme and registrable domain):
 For a cross-site embed, put the Worker on a custom domain under the same registrable domain as the
 host, or plan an explicit token handoff. Do not relax the session cookie to `SameSite=None` just
 to make an iframe work; that widens CSRF exposure for every session.
+
+## Signing in inside the iframe
+
+Use the 6-digit code from the sign-in email. The magic link navigates to a top-level page, but the
+code keeps the login inside the iframe. The code is single-use, expires after 15 minutes, and is
+rate limited per email and IP.
+
+The code only solves the navigation. The cookie rule above still applies: if the browser refuses
+the `sid` cookie in a cross-site iframe, the login page returns with a message that the session
+could not be loaded. Put Postwren on a custom domain under the same registrable domain as the
+EmDash site.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'preact-iso';
 import { Mail } from 'lucide-react';
 import {
@@ -13,7 +13,7 @@ import {
    Field,
    Input,
 } from '@postwren/ui';
-import { requestMagicLink, verify } from '@/lib/api/auth';
+import { requestMagicLink, verify, verifyCode } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
 import { errorMessage, fieldErrorsFrom, isEmail } from '@/lib/form-errors';
@@ -50,10 +50,25 @@ export function Login() {
 
    const [email, setEmail] = useState('');
    const [phase, setPhase] = useState<'email' | 'sent'>('email');
+   const [code, setCode] = useState('');
    const [devToken, setDevToken] = useState<string | null>(null);
+   const [devCode, setDevCode] = useState<string | null>(null);
    const [busy, setBusy] = useState(false);
    const [error, setError] = useState<string | null>(null);
    const [errors, setErrors] = useState<FieldErrors>({});
+
+   const finishSignIn = useCallback(async (): Promise<boolean> => {
+      const user = await refresh();
+      if (user === null) {
+         setError(
+            "Signed in, but the session could not be loaded. If this page is inside an iframe, the browser may be blocking Postwren's session cookie; the embedding site and Postwren must share a registrable domain.",
+         );
+         return false;
+      }
+
+      goTo(route, next);
+      return true;
+   }, [refresh, route, next]);
 
    useEffect(() => {
       if (status === 'signed-in') goTo(route, next);
@@ -70,8 +85,7 @@ export function Login() {
       verify(token)
          .then(async () => {
             if (cancelled) return;
-            await refresh();
-            goTo(route, next);
+            await finishSignIn();
          })
          .catch((cause: unknown) => {
             if (!cancelled)
@@ -84,7 +98,7 @@ export function Login() {
       return () => {
          cancelled = true;
       };
-   }, [query.token, status, next, route, refresh]);
+   }, [query.token, status, finishSignIn]);
 
    async function submit(event: Event) {
       event.preventDefault();
@@ -100,9 +114,40 @@ export function Login() {
       try {
          const result = await requestMagicLink(email.trim());
          setDevToken(result.devToken ?? null);
+         setDevCode(result.devCode ?? null);
+         setCode('');
          setPhase('sent');
       } catch (cause) {
-         setError(errorMessage(cause, 'Could not send the sign-in link'));
+         setError(errorMessage(cause, 'Could not send the sign-in code'));
+         setErrors(cause instanceof ApiError ? fieldErrorsFrom(cause.details) : {});
+      } finally {
+         setBusy(false);
+      }
+   }
+
+   async function submitCode(event: Event) {
+      event.preventDefault();
+      setError(null);
+      setErrors({});
+
+      const trimmedEmail = email.trim();
+      if (!isEmail(trimmedEmail)) {
+         setErrors({ email: 'Enter a valid email address.' });
+         setPhase('email');
+         return;
+      }
+
+      if (!/^\d{6}$/.test(code)) {
+         setErrors({ code: 'Enter the 6-digit code from the email.' });
+         return;
+      }
+
+      setBusy(true);
+      try {
+         await verifyCode(trimmedEmail, code);
+         await finishSignIn();
+      } catch (cause) {
+         setError(errorMessage(cause, 'That code is invalid or has expired.'));
          setErrors(cause instanceof ApiError ? fieldErrorsFrom(cause.details) : {});
       } finally {
          setBusy(false);
@@ -114,13 +159,21 @@ export function Login() {
       setError(null);
       try {
          await verify(token);
-         await refresh();
-         goTo(route, next);
+         await finishSignIn();
       } catch (cause) {
          setError(errorMessage(cause, 'Could not verify the sign-in link'));
       } finally {
          setBusy(false);
       }
+   }
+
+   function resetEmail() {
+      setPhase('email');
+      setCode('');
+      setDevToken(null);
+      setDevCode(null);
+      setError(null);
+      setErrors({});
    }
 
    return (
@@ -138,8 +191,8 @@ export function Login() {
                </CardTitle>
                <CardDescription>
                   {phase === 'sent'
-                     ? `We sent a sign-in link to ${email.trim()}. Open it to continue.`
-                     : 'Enter your email address and we will send you a magic sign-in link.'}
+                     ? `We sent a 6-digit code and a sign-in link to ${email.trim()}. Enter the code below, or open the link on this device.`
+                     : 'Enter your email address and we will send you a 6-digit sign-in code and a magic link.'}
                </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -178,39 +231,88 @@ export function Login() {
                         disabled={busy}
                         className="w-full"
                      >
-                        {busy ? 'Sending…' : 'Send link'}
+                        {busy ? 'Sending…' : 'Send code'}
                      </Button>
                   </form>
                ) : (
                   <div className="grid gap-4">
-                     {error !== null && (
-                        <Alert variant="destructive">
-                           <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                     )}
+                     <form
+                        className="grid gap-4"
+                        onSubmit={submitCode}
+                        noValidate
+                     >
+                        <Field
+                           label="6-digit code"
+                           htmlFor="login-code"
+                           error={errors.code}
+                           hint={`Sent to ${email.trim()}.`}
+                        >
+                           <Input
+                              id="login-code"
+                              inputMode="numeric"
+                              autoComplete="one-time-code"
+                              pattern="[0-9]*"
+                              maxLength={6}
+                              autoFocus
+                              value={code}
+                              className="text-center font-mono text-lg tracking-[0.35em]"
+                              onInput={(event) =>
+                                 setCode(event.currentTarget.value.replace(/\D/g, '').slice(0, 6))
+                              }
+                           />
+                        </Field>
 
-                     {devToken !== null && (
+                        {error !== null && (
+                           <Alert variant="destructive">
+                              <AlertDescription>{error}</AlertDescription>
+                           </Alert>
+                        )}
+
+                        <Button
+                           type="submit"
+                           disabled={busy}
+                           className="w-full"
+                        >
+                           {busy ? 'Signing in…' : 'Sign in with code'}
+                        </Button>
+                     </form>
+
+                     {(devCode !== null || devToken !== null) && (
                         <div className="grid gap-2 rounded-lg border border-warning bg-warning p-3 text-sm text-warning-foreground">
                            <p className="font-medium">Development mode</p>
-                           <p>Use a direct sign-in token instead of opening your email.</p>
-                           <Button
-                              variant="outline"
-                              disabled={busy}
-                              onClick={() => void signInWithDevToken(devToken)}
-                           >
-                              {busy ? 'Signing in…' : 'Sign in (dev)'}
-                           </Button>
+                           <p>No email is sent. Use this code, or sign in with the direct link.</p>
+                           {devCode !== null && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                 <code className="rounded bg-background/70 px-2 py-1 font-mono text-base tracking-[0.25em]">
+                                    {devCode}
+                                 </code>
+                                 <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() => setCode(devCode)}
+                                 >
+                                    Use code
+                                 </Button>
+                              </div>
+                           )}
+                           {devToken !== null && (
+                              <Button
+                                 variant="outline"
+                                 size="sm"
+                                 disabled={busy}
+                                 onClick={() => void signInWithDevToken(devToken)}
+                              >
+                                 {busy ? 'Signing in…' : 'Sign in (dev link)'}
+                              </Button>
+                           )}
                         </div>
                      )}
 
                      <Button
                         variant="ghost"
                         disabled={busy}
-                        onClick={() => {
-                           setPhase('email');
-                           setDevToken(null);
-                           setError(null);
-                        }}
+                        onClick={resetEmail}
                      >
                         Use a different email
                      </Button>

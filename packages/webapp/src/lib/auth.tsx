@@ -9,14 +9,14 @@ export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
 type AuthContextValue = {
    status: AuthStatus;
    user: AuthUser | null;
-   refresh: () => Promise<void>;
+   refresh: () => Promise<AuthUser | null>;
    signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue>({
    status: 'loading',
    user: null,
-   refresh: async () => undefined,
+   refresh: async () => null,
    signOut: async () => undefined,
 });
 
@@ -24,19 +24,21 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
    const [status, setStatus] = useState<AuthStatus>('loading');
    const [user, setUser] = useState<AuthUser | null>(null);
 
-   const refresh = useCallback(async () => {
+   const refresh = useCallback(async (): Promise<AuthUser | null> => {
       try {
          const result = await apiSession();
          setUser(result);
          setStatus('signed-in');
+         return result;
       } catch (cause) {
          if (cause instanceof ApiError && cause.status === 401) {
             setUser(null);
             setStatus('signed-out');
-            return;
+            return null;
          }
          setUser(null);
          setStatus('signed-out');
+         return null;
       }
    }, []);
 

@@ -71,9 +71,10 @@ vars from `wrangler.jsonc` become settings you can change: `APP_URL`, `ENVIRONME
 ## After the install
 
 1. **Onboard the sending domain** in the Cloudflare dashboard under Email Service, and
-   verify the address in `EMAIL_FROM`. Magic-link sign-in sends through the same
+   verify the address in `EMAIL_FROM`. Sign-in codes and links send through the same
    `EMAIL` binding, so without a verified sender nobody can log in.
-2. Open the app's address, go to `/login`, enter `OWNER_EMAIL` and send the link.
+2. Open the app's address, go to `/login`, enter `OWNER_EMAIL`, then use the 6-digit
+   code from the email (or open the magic link).
 3. In the app, check **Settings → Sending domains**; the address is seeded from
    `EMAIL_FROM`, but campaigns only send from an address listed there.
 4. Optional: attach a custom domain in Appflare. With `APP_URL` empty, links follow the

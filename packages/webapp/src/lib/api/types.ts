@@ -125,6 +125,7 @@ export type AuthUser = {
 export type MagicLinkResult = {
    sent: boolean;
    devToken?: string;
+   devCode?: string;
 };
 
 export type AdminEnvironment = {

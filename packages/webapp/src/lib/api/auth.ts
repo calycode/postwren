@@ -27,6 +27,14 @@ export function verify(token: string): Promise<AuthUser> {
    });
 }
 
+export function verifyCode(email: string, code: string): Promise<AuthUser> {
+   return apiFetch<AuthUser>(`${AUTH_BASE}/verify-code`, {
+      method: 'POST',
+      body: { email, code },
+      signal: authSignal(),
+   });
+}
+
 export function logout(): Promise<void> {
    return apiFetch<void>(`${AUTH_BASE}/logout`, {
       method: 'POST',

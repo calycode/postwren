@@ -55,7 +55,7 @@ pnpm db:migrate:local
 pnpm dev                  # Vite on :5173, Worker on :8787
 ```
 
-Open `http://localhost:5173/login`, enter the address in `OWNER_EMAIL` (`dev@example.com` by default), and use the **Development mode** button that appears after "Send link" — outside production the magic-link token is returned in the response instead of emailed.
+Open `http://localhost:5173/login`, enter the address in `OWNER_EMAIL` (`dev@example.com` by default), and use the 6-digit code shown in the **Development mode** panel — outside production the code and magic-link token are returned in the response instead of emailed.
 
 For the Worker to serve the built SPA on `:8787`, run `pnpm build` once and open `http://localhost:8787`. Vite proxies `/api`, `/media`, `/t`, and `/u`; `/mcp`, `/oauth`, and `/.well-known` must be called on `:8787` directly. If the Worker is not on 8787, update `API_TARGET` in `packages/webapp/vite.config.ts` or pass `VITE_API_TARGET`.
 
