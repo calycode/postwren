@@ -13,7 +13,6 @@ import {
    SelectContent,
    SelectItem,
    SelectTrigger,
-   SelectValue,
    Skeleton,
    Table,
    TableBody,
@@ -50,7 +49,7 @@ function sentTotal(campaign: CampaignView): string {
 }
 
 export function Campaigns() {
-   const { route } = useLocation();
+   const { route, query } = useLocation();
    const [campaigns, setCampaigns] = useState<CampaignView[]>([]);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState<string | null>(null);
@@ -58,7 +57,11 @@ export function Campaigns() {
    const [search, setSearch] = useState('');
    const debouncedSearch = useDebouncedValue(search, 250);
    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-   const [createOpen, setCreateOpen] = useState(false);
+   const [createOpen, setCreateOpen] = useState(query.new === '1');
+
+   useEffect(() => {
+      if (query.new === '1') setCreateOpen(true);
+   }, [query.new]);
 
    useEffect(() => {
       let cancelled = false;
@@ -151,7 +154,9 @@ export function Campaigns() {
                   }}
                >
                   <SelectTrigger aria-label="Filter by status">
-                     <SelectValue placeholder="Status" />
+                     <span className="truncate">
+                        {statusFilter === 'all' ? 'All statuses' : titleCase(statusFilter)}
+                     </span>
                   </SelectTrigger>
                   <SelectContent>
                      <SelectItem value="all">All statuses</SelectItem>
@@ -219,7 +224,7 @@ export function Campaigns() {
          ) : (
             <div
                data-guide="campaigns-table"
-               className="overflow-x-auto rounded-lg border border-border"
+               className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
             >
                <Table>
                   <caption className="sr-only">Campaigns</caption>

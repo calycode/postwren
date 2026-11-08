@@ -13,6 +13,7 @@ export type AudienceFieldProps = {
    error?: string;
    disabled?: boolean;
    hint?: ComponentChildren;
+   label?: ComponentChildren;
    preview?: AudiencePreviewState;
 };
 
@@ -57,6 +58,8 @@ export function AudienceField({
    onChange,
    error,
    disabled = false,
+   hint,
+   label,
    preview,
 }: AudienceFieldProps) {
    const tags = tagsFromQuery(value);
@@ -69,7 +72,7 @@ export function AudienceField({
          <Field
             label={
                <span className="inline-flex items-center gap-1.5">
-                  Audience
+                  {label ?? 'Audience'}
                   <Tooltip
                      content="The tag picker and the query are the same filter, shown two ways. Use the picker for include tags; use the query when you also need to exclude tags or filter on custom fields."
                      tabIndex={0}
@@ -84,7 +87,7 @@ export function AudienceField({
             }
             htmlFor={id}
             error={error}
-            hint="Leave this empty to send to every active subscriber."
+            hint={hint ?? 'Leave this empty to send to every active subscriber.'}
          >
             <div className="grid gap-2">
                <div className="grid gap-1">
@@ -153,12 +156,12 @@ export function AudienceField({
                         role="status"
                         className="text-sm text-foreground"
                      >
-                        Will send to <strong>{formatNumber(preview.count)}</strong>{' '}
+                        Matches <strong>{formatNumber(preview.count)}</strong>{' '}
                         {preview.count === 1 ? 'subscriber' : 'subscribers'}.
                      </p>
                      <p className="text-xs text-muted-foreground">
-                        Suppressed subscribers — unsubscribed, bounced, complained, and deleted —
-                        are excluded.
+                        Suppressed subscribers (unsubscribed, bounced, complained and deleted) are
+                        excluded.
                      </p>
                   </>
                ) : null}

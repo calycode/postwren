@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useRoute } from 'preact-iso';
-import { ArrowLeft, CalendarClock, MailCheck, Pause, Send, XCircle } from 'lucide-react';
+import { useRoute } from 'preact-iso';
+import { CalendarClock, MailCheck, Pause, Send, XCircle } from 'lucide-react';
 import {
    Alert,
    AlertDescription,
@@ -69,20 +69,31 @@ import { errorMessage, fieldErrorsFrom, isEmail } from '@/lib/form-errors';
 import type { FieldErrors } from '@/lib/form-errors';
 import { formatDateTime, formatNumber, titleCase } from '@/lib/format';
 
-function readOnlyNote(status: CampaignView['status']): string {
+function audienceLabel(query: string): string {
+   const trimmed = query.trim();
+   if (trimmed.length === 0) return 'All active subscribers';
+   const tag = /^tag:([a-z0-9_-]+)$/i.exec(trimmed);
+   if (tag !== null) return `Tagged "${tag[1]}"`;
+   return trimmed;
+}
+
+/** Shown as the status badge tooltip instead of a paragraph of its own. */
+function statusHint(status: CampaignView['status']): string {
    switch (status) {
       case 'scheduled':
-         return 'This campaign is locked until it sends or is cancelled.';
+         return 'Locked until it sends or is cancelled.';
       case 'sending':
-         return 'This campaign is sending. Stats refresh every 5 seconds.';
+         return 'Sending now. Stats refresh every 5 seconds.';
       case 'sent':
-         return 'This campaign has finished sending. Recipients and stats are read-only.';
+         return 'Finished sending. Recipients and stats are read-only.';
+      case 'paused':
+         return 'Paused. Queued recipients stay queued until you resume.';
       case 'cancelled':
-         return 'This campaign was cancelled. No further recipients will be sent.';
+         return 'Cancelled. No further recipients will be sent.';
       case 'failed':
-         return 'This campaign stopped after a failure. Review the stats before trying again.';
+         return 'Stopped after a failure. Review the stats before trying again.';
       default:
-         return '';
+         return 'Not sent yet. Edit freely.';
    }
 }
 
@@ -93,16 +104,40 @@ type SummaryItemProps = {
 
 function SummaryItem({ label, value }: SummaryItemProps) {
    return (
-      <div className="grid gap-1">
-         <span className="text-xs font-medium text-muted-foreground">{label}</span>
-         <span className="text-sm break-words">{value}</span>
+      <div className="grid gap-0.5">
+         <dt className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            {label}
+         </dt>
+         <dd className="text-sm break-words">{value}</dd>
       </div>
+   );
+}
+
+/** Read-only context. It never competes with results for attention. */
+function SummaryCard({ items }: { items: SummaryItemProps[] }) {
+   return (
+      <Card>
+         <CardHeader>
+            <CardTitle className="text-base">Summary</CardTitle>
+            <CardDescription>What was pinned for this campaign.</CardDescription>
+         </CardHeader>
+         <CardContent>
+            <dl className="grid gap-3">
+               {items.map((item) => (
+                  <SummaryItem
+                     key={item.label}
+                     label={item.label}
+                     value={item.value}
+                  />
+               ))}
+            </dl>
+         </CardContent>
+      </Card>
    );
 }
 
 export function CampaignDetail() {
    const { params } = useRoute();
-   const { route } = useLocation();
    const { user } = useAuth();
    const id = params.id ?? '';
    const ownerEmail = user?.email ?? '';
@@ -471,17 +506,57 @@ export function CampaignDetail() {
    const templateName = selectedTemplate?.name ?? campaign?.templateId ?? '—';
    const scheduleSeconds = parseLocalDateTime(scheduleAt);
 
+   const summaryItems: SummaryItemProps[] =
+      campaign === null
+         ? []
+         : [
+              {
+                 label: 'Template',
+                 value: `${templateName}${templateRevision !== null ? ` · v${templateRevision}` : ''}`,
+              },
+              { label: 'Subject', value: campaign.subject },
+              { label: 'From', value: `${campaign.fromName} <${campaign.fromEmail}>` },
+              { label: 'Reply-to', value: campaign.replyTo ?? '—' },
+              {
+                 label: 'Audience',
+                 value:
+                    campaign.audienceQuery.trim().length > 0
+                       ? audienceLabel(campaign.audienceQuery)
+                       : 'All active subscribers',
+              },
+              { label: 'Scheduled for', value: formatDateTime(campaign.scheduledAt) },
+              {
+                 label: 'UTM',
+                 value:
+                    [campaign.utmSource, campaign.utmMedium, campaign.utmCampaign]
+                       .filter((part) => part.length > 0)
+                       .join(' / ') || '—',
+              },
+              { label: 'Updated', value: formatDateTime(campaign.updated_at) },
+              {
+                 label: 'Custom fields',
+                 value:
+                    Object.entries(campaign.metadata)
+                       .map(([key, value]) => `${key}: ${value}`)
+                       .join(' · ') || '—',
+              },
+           ];
+
    return (
       <div className="grid gap-6">
          <PageHeader
             title={campaign?.name ?? 'Campaign'}
-            description={
-               campaign === null ? 'Campaign detail' : `${titleCase(campaign.status)} campaign`
-            }
+            breadcrumbs={[
+               { label: 'Campaigns', href: '/campaigns' },
+               { label: campaign?.name ?? 'Campaign' },
+            ]}
             actions={
                campaign === null ? undefined : (
                   <>
-                     <Badge variant={campaignStatusVariant(campaign.status)}>
+                     <Badge
+                        variant={campaignStatusVariant(campaign.status)}
+                        title={statusHint(campaign.status)}
+                     >
                         {titleCase(campaign.status)}
                      </Badge>
                      <Button
@@ -590,131 +665,82 @@ export function CampaignDetail() {
                )}
 
                {editable ? (
-                  <>
-                     {campaign.status === 'paused' && (
-                        <Alert variant="warning">
-                           <AlertDescription>
-                              This campaign is paused. Save your edits, then use Send now to resume
-                              it.
-                           </AlertDescription>
-                        </Alert>
-                     )}
+                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+                     <div className="grid content-start gap-6">
+                        {campaign.status === 'paused' && (
+                           <Alert variant="warning">
+                              <AlertDescription>
+                                 This campaign is paused. Save your edits, then use Send now to
+                                 resume it.
+                              </AlertDescription>
+                           </Alert>
+                        )}
 
-                     <Card>
-                        <CardHeader>
-                           <CardTitle>Campaign settings</CardTitle>
-                           <CardDescription>
-                              Changes only affect this campaign. The pinned template revision is
-                              updated when you save.
-                           </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <CampaignFields
-                              idPrefix="campaign"
-                              form={form}
-                              onChange={updateForm}
-                              errors={fieldErrors}
-                              templates={templates.templates}
-                              templatesLoading={templates.loading}
-                              templatesError={templates.error}
-                              onRetryTemplates={templates.reload}
-                              disabled={saving}
-                              templateRevision={campaign.templateRevision}
-                              audiencePreview={audiencePreview}
-                              senders={senders.settings?.addresses}
-                              sendersLoading={senders.loading}
-                              sendersError={senders.error}
-                              onRetrySenders={senders.reload}
+                        {campaign.status === 'paused' && (
+                           <CampaignStats
+                              stats={stats}
+                              loading={statsLoading}
+                              error={statsError}
+                              onRetry={() => setStatsReloadKey((key) => key + 1)}
                            />
-                        </CardContent>
-                     </Card>
+                        )}
 
-                     {campaign.status === 'paused' && (
+                        <Card>
+                           <CardHeader>
+                              <CardTitle>Campaign settings</CardTitle>
+                              <CardDescription>
+                                 Changes only affect this campaign. The pinned template revision is
+                                 updated when you save.
+                              </CardDescription>
+                           </CardHeader>
+                           <CardContent>
+                              <CampaignFields
+                                 idPrefix="campaign"
+                                 form={form}
+                                 onChange={updateForm}
+                                 errors={fieldErrors}
+                                 templates={templates.templates}
+                                 templatesLoading={templates.loading}
+                                 templatesError={templates.error}
+                                 onRetryTemplates={templates.reload}
+                                 disabled={saving}
+                                 templateRevision={campaign.templateRevision}
+                                 audiencePreview={audiencePreview}
+                                 senders={senders.settings?.addresses}
+                                 sendersLoading={senders.loading}
+                                 sendersError={senders.error}
+                                 onRetrySenders={senders.reload}
+                              />
+                           </CardContent>
+                        </Card>
+                     </div>
+
+                     <aside className="grid content-start gap-4">
+                        <SummaryCard items={summaryItems} />
+                     </aside>
+                  </div>
+               ) : (
+                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+                     <div className="grid content-start gap-6">
                         <CampaignStats
                            stats={stats}
                            loading={statsLoading}
                            error={statsError}
                            onRetry={() => setStatsReloadKey((key) => key + 1)}
                         />
-                     )}
-                  </>
-               ) : (
-                  <>
-                     <p className="text-sm text-muted-foreground">
-                        {readOnlyNote(campaign.status)}
-                     </p>
 
-                     <Card>
-                        <CardHeader>
-                           <CardTitle>Summary</CardTitle>
-                           <CardDescription>What was pinned for this campaign.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                           <SummaryItem
-                              label="Template"
-                              value={`${templateName}${templateRevision !== null ? ` · v${templateRevision}` : ''}`}
+                        {(campaign.status === 'sending' || campaign.status === 'sent') && (
+                           <CampaignRecipients
+                              campaignId={campaign.id}
+                              refreshKey={campaign.status}
                            />
-                           <SummaryItem
-                              label="Subject"
-                              value={campaign.subject}
-                           />
-                           <SummaryItem
-                              label="From"
-                              value={`${campaign.fromName} <${campaign.fromEmail}>`}
-                           />
-                           <SummaryItem
-                              label="Reply-to"
-                              value={campaign.replyTo ?? '—'}
-                           />
-                           <SummaryItem
-                              label="Audience"
-                              value={
-                                 campaign.audienceQuery.trim().length > 0
-                                    ? campaign.audienceQuery
-                                    : 'All active subscribers'
-                              }
-                           />
-                           <SummaryItem
-                              label="Scheduled for"
-                              value={formatDateTime(campaign.scheduledAt)}
-                           />
-                           <SummaryItem
-                              label="UTM"
-                              value={
-                                 [campaign.utmSource, campaign.utmMedium, campaign.utmCampaign]
-                                    .filter((part) => part.length > 0)
-                                    .join(' / ') || '—'
-                              }
-                           />
-                           <SummaryItem
-                              label="Updated"
-                              value={formatDateTime(campaign.updated_at)}
-                           />
-                           <SummaryItem
-                              label="Custom fields"
-                              value={
-                                 Object.entries(campaign.metadata)
-                                    .map(([key, value]) => `${key}: ${value}`)
-                                    .join(' · ') || '—'
-                              }
-                           />
-                        </CardContent>
-                     </Card>
+                        )}
+                     </div>
 
-                     <CampaignStats
-                        stats={stats}
-                        loading={statsLoading}
-                        error={statsError}
-                        onRetry={() => setStatsReloadKey((key) => key + 1)}
-                     />
-
-                     {(campaign.status === 'sending' || campaign.status === 'sent') && (
-                        <CampaignRecipients
-                           campaignId={campaign.id}
-                           refreshKey={campaign.status}
-                        />
-                     )}
-                  </>
+                     <aside className="grid content-start gap-4">
+                        <SummaryCard items={summaryItems} />
+                     </aside>
+                  </div>
                )}
             </>
          )}
@@ -893,16 +919,6 @@ export function CampaignDetail() {
             html={previewData?.html ?? ''}
             text={previewData?.text ?? ''}
          />
-
-         <div className="flex flex-wrap gap-2">
-            <Button
-               variant="outline"
-               onClick={() => route('/campaigns')}
-            >
-               <ArrowLeft aria-hidden="true" />
-               Back to campaigns
-            </Button>
-         </div>
       </div>
    );
 }

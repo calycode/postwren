@@ -122,6 +122,13 @@ export function CampaignRecipients({ campaignId, refreshKey }: CampaignRecipient
             <span className="text-muted-foreground">{formatDateTime(recipient.openedAt)}</span>
          ),
       },
+      {
+         id: 'clicked',
+         header: 'Clicked',
+         cell: (recipient) => (
+            <span className="text-muted-foreground">{formatDateTime(recipient.clickedAt)}</span>
+         ),
+      },
    ];
 
    return (

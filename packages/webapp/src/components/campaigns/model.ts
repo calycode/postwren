@@ -16,10 +16,24 @@ export type CampaignStatsView = {
    sent: number;
    failed: number;
    suppressed: number;
+   delivered: number;
+   bounced: number;
+   complained: number;
    uniqueOpens: number;
    uniqueClicks: number;
    clickThroughRate: number;
    unsubscribed: number;
+   topLinks: {
+      url: string;
+      clicks: number;
+      clickers: number;
+      lastClickedAt: number;
+   }[];
+   recentClicks: {
+      email: string | null;
+      url: string;
+      clickedAt: number;
+   }[];
 };
 
 export type RecipientView = {
@@ -30,6 +44,7 @@ export type RecipientView = {
    status: string;
    sentAt: number | null;
    openedAt: number | null;
+   clickedAt: number | null;
    createdAt: number | null;
 };
 
@@ -148,12 +163,52 @@ export function toCampaignStatsView(value: unknown): CampaignStatsView {
       numberOf(source, 'clickThroughRate', 'click_through_rate') ??
       (audienceSize > 0 ? uniqueClicks / audienceSize : 0);
 
+   const topLinks = Array.isArray(source.topLinks)
+      ? source.topLinks.flatMap((entry) => {
+           const link = recordOf(entry);
+           if (link === null) return [];
+           const url = stringOf(link, 'url');
+           const clicks = numberOf(link, 'clicks');
+           if (url === null || clicks === null) return [];
+           return [
+              {
+                 url,
+                 clicks,
+                 clickers: numberOf(link, 'clickers') ?? 0,
+                 lastClickedAt: numberOf(link, 'lastClickedAt', 'last_clicked_at') ?? 0,
+              },
+           ];
+        })
+      : [];
+
+   const recentClicks = Array.isArray(source.recentClicks)
+      ? source.recentClicks.flatMap((entry) => {
+           const click = recordOf(entry);
+           if (click === null) return [];
+           const url = stringOf(click, 'url');
+           const clickedAt = numberOf(click, 'clickedAt', 'clicked_at');
+           if (url === null || clickedAt === null) return [];
+           return [
+              {
+                 email: stringOf(click, 'email'),
+                 url,
+                 clickedAt,
+              },
+           ];
+        })
+      : [];
+
    return {
       audienceSize,
       queued: numberOf(source, 'queued') ?? numberOf(statuses, 'queued') ?? 0,
       sent: numberOf(source, 'sent') ?? numberOf(statuses, 'sent') ?? 0,
       failed: numberOf(source, 'failed') ?? numberOf(statuses, 'failed') ?? 0,
       suppressed: numberOf(source, 'suppressed') ?? numberOf(statuses, 'suppressed') ?? 0,
+      delivered:
+         numberOf(source, 'delivered') ??
+         (numberOf(statuses, 'sent') ?? 0) + (numberOf(statuses, 'delivered') ?? 0),
+      bounced: numberOf(source, 'bounced') ?? numberOf(statuses, 'bounced') ?? 0,
+      complained: numberOf(source, 'complained') ?? numberOf(statuses, 'complained') ?? 0,
       uniqueOpens: numberOf(source, 'uniqueOpens', 'unique_opens', 'opened', 'opens') ?? 0,
       uniqueClicks,
       clickThroughRate,
@@ -161,6 +216,8 @@ export function toCampaignStatsView(value: unknown): CampaignStatsView {
          numberOf(source, 'unsubscribed', 'unsubscribes') ??
          numberOf(statuses, 'unsubscribed') ??
          0,
+      topLinks,
+      recentClicks,
    };
 }
 
@@ -179,6 +236,7 @@ export function toRecipientView(value: unknown, campaignId: string): RecipientVi
       status: stringOf(source, 'status') ?? 'queued',
       sentAt: numberOf(source, 'sentAt', 'sent_at'),
       openedAt: numberOf(source, 'openedAt', 'opened_at'),
+      clickedAt: numberOf(source, 'clickedAt', 'clicked_at'),
       createdAt: numberOf(source, 'created_at', 'createdAt'),
    };
 }

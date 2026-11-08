@@ -100,8 +100,8 @@ export function NewCampaignDialog({ open, onOpenChange }: NewCampaignDialogProps
             onOpenChange(next);
          }}
       >
-         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
+         <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+            <DialogHeader className="border-b border-border p-6 pr-14">
                <DialogTitle>New campaign</DialogTitle>
                <DialogDescription>
                   Pin a template revision and choose who should receive it. The campaign starts as a
@@ -110,33 +110,37 @@ export function NewCampaignDialog({ open, onOpenChange }: NewCampaignDialogProps
             </DialogHeader>
 
             <form
-               className="grid gap-5"
+               className="flex min-h-0 flex-1 flex-col"
                onSubmit={(event) => void submit(event)}
                noValidate
             >
-               <CampaignFields
-                  idPrefix="new-campaign"
-                  form={form}
-                  onChange={updateForm}
-                  errors={errors}
-                  templates={templates.templates}
-                  templatesLoading={templates.loading}
-                  templatesError={templates.error}
-                  onRetryTemplates={templates.reload}
-                  disabled={creating}
-                  senders={senders.settings?.addresses}
-                  sendersLoading={senders.loading}
-                  sendersError={senders.error}
-                  onRetrySenders={senders.reload}
-               />
+               <div className="min-h-0 overflow-y-auto p-6">
+                  <CampaignFields
+                     idPrefix="new-campaign"
+                     form={form}
+                     onChange={updateForm}
+                     errors={errors}
+                     templates={templates.templates}
+                     templatesLoading={templates.loading}
+                     templatesError={templates.error}
+                     onRetryTemplates={templates.reload}
+                     disabled={creating}
+                     senders={senders.settings?.addresses}
+                     sendersLoading={senders.loading}
+                     sendersError={senders.error}
+                     onRetrySenders={senders.reload}
+                  />
+               </div>
 
                {formError !== null && (
-                  <Alert variant="destructive">
-                     <AlertDescription>{formError}</AlertDescription>
-                  </Alert>
+                  <div className="px-6 pb-3">
+                     <Alert variant="destructive">
+                        <AlertDescription>{formError}</AlertDescription>
+                     </Alert>
+                  </div>
                )}
 
-               <DialogFooter>
+               <DialogFooter className="border-t border-border bg-card p-4">
                   <DialogClose disabled={creating}>Cancel</DialogClose>
                   <Button
                      type="submit"
