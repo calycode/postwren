@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { Button, cn } from '@postwren/ui';
-import { ArrowDown, ArrowUp, Copy, Trash } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookmarkPlus, Copy, Trash } from 'lucide-react';
 import { VIEWPORT_WIDTH } from '../lib/viewport';
 import type { Viewport } from '../lib/viewport';
+import type { InsertPosition } from '../lib/document-ops';
+import type { LibraryDrag } from './add-block-menu';
 
 const STYLE_ID = 'postwren-editor-canvas-style';
 const MAX_CANVAS_HEIGHT = 2000;
@@ -19,14 +22,23 @@ type ToolbarPosition = {
 type EmailCanvasProps = {
    html: string;
    viewport: Viewport;
+   scale: number;
    selectedId: string | null;
    selectedLabel: string | null;
    confirming: boolean;
    onSelect: (id: string | null) => void;
    onMove: (id: string, delta: -1 | 1) => void;
    onMoveTo: (sourceId: string, targetId: string, position: 'before' | 'after') => void;
+   onDropLibrary?: (
+      payload: LibraryDrag,
+      targetId: string | null,
+      position: InsertPosition,
+   ) => void;
+   /** Set while a block is being dragged out of the library. */
+   libraryDragRef?: RefObject<LibraryDrag | null>;
    onDuplicate: (id: string) => void;
    onRequestDelete: (id: string) => void;
+   onRequestSaveBlock?: (id: string) => void;
    onCancelDelete: () => void;
    onConfirmDelete: (id: string) => void;
    onUndo: () => void;
@@ -52,14 +64,18 @@ function findBlockElement(frameDoc: Document, id: string): Element | null {
 export function EmailCanvas({
    html,
    viewport,
+   scale,
    selectedId,
    selectedLabel,
    confirming,
    onSelect,
    onMove,
    onMoveTo,
+   onDropLibrary,
+   libraryDragRef,
    onDuplicate,
    onRequestDelete,
+   onRequestSaveBlock,
    onCancelDelete,
    onConfirmDelete,
    onUndo,
@@ -77,11 +93,20 @@ export function EmailCanvas({
       onSelect,
       onMove,
       onMoveTo,
+      onDropLibrary,
       onRequestDelete,
       onUndo,
       onRedo,
    });
-   callbacksRef.current = { onSelect, onMove, onMoveTo, onRequestDelete, onUndo, onRedo };
+   callbacksRef.current = {
+      onSelect,
+      onMove,
+      onMoveTo,
+      onDropLibrary,
+      onRequestDelete,
+      onUndo,
+      onRedo,
+   };
 
    function updateToolbarPosition() {
       const pane = paneRef.current;
@@ -261,6 +286,7 @@ export function EmailCanvas({
             '[data-block-id][data-postwren-dragging]{opacity:0.45;}',
             '[data-block-id][data-postwren-drop=before]{box-shadow:inset 0 3px 0 0 #0f766e !important;}',
             '[data-block-id][data-postwren-drop=after]{box-shadow:inset 0 -3px 0 0 #0f766e !important;}',
+            '[data-block-id][data-postwren-drop=inside]{outline:3px solid #0f766e !important;outline-offset:-3px;background:rgba(15,118,110,0.08) !important;}',
          ].join('');
          frameDoc.head.appendChild(style);
       }
@@ -272,9 +298,6 @@ export function EmailCanvas({
       };
       markDraggable();
 
-      const isTopLevelBlock = (element: Element): boolean =>
-         element.parentElement?.closest('[data-block-id]') === null;
-
       const clearDropTargets = () => {
          for (const element of frameDoc.querySelectorAll('[data-postwren-drop]')) {
             element.removeAttribute('data-postwren-drop');
@@ -282,13 +305,13 @@ export function EmailCanvas({
       };
 
       let dragSourceId: string | null = null;
-      let dropTarget: { id: string; position: 'before' | 'after' } | null = null;
+      let dropTarget: { id: string; position: InsertPosition } | null = null;
 
       const onDragStart = (event: DragEvent) => {
          const element = elementFromEvent(event)?.closest('[data-block-id]') ?? null;
          const id = element?.getAttribute('data-block-id') ?? null;
 
-         if (element === null || id === null || !isTopLevelBlock(element)) {
+         if (element === null || id === null) {
             event.preventDefault();
             return;
          }
@@ -301,22 +324,88 @@ export function EmailCanvas({
          }
       };
 
+      /** Reordering only works between siblings; dropping into a container is a library action. */
+      const sameParent = (target: Element): boolean => {
+         if (dragSourceId === null) return true;
+         const source = findBlockElement(frameDoc, dragSourceId);
+         if (source === null) return true;
+         const parentId = (element: Element): string | null =>
+            element.parentElement?.closest('[data-block-id]')?.getAttribute('data-block-id') ??
+            null;
+         return parentId(source) === parentId(target);
+      };
+
       const onDragOver = (event: DragEvent) => {
-         if (dragSourceId === null) return;
+         const libraryPayload = dragSourceId === null ? libraryDragRef?.current : null;
+         if (dragSourceId === null && (libraryPayload === null || libraryPayload === undefined))
+            return;
 
          const element = elementFromEvent(event)?.closest('[data-block-id]') ?? null;
          const id = element?.getAttribute('data-block-id') ?? null;
 
-         if (element === null || id === null || id === dragSourceId || !isTopLevelBlock(element)) {
+         if (
+            element === null ||
+            id === null ||
+            id === dragSourceId ||
+            (dragSourceId !== null && !sameParent(element))
+         ) {
+            if (libraryPayload !== null && libraryPayload !== undefined) {
+               event.preventDefault();
+               if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+
+               // Empty space below the email still accepts a drop; point at the
+               // last top-level block so the insertion line is visible.
+               const topLevel = Array.from(
+                  frameDoc.querySelectorAll<HTMLElement>('[data-block-kind]'),
+               ).filter(
+                  (candidate) => candidate.parentElement?.closest('[data-block-id]') === null,
+               );
+               const last = topLevel[topLevel.length - 1];
+               const lastId = last?.getAttribute('data-block-id') ?? null;
+
+               if (last !== undefined && lastId !== null && lastId !== dragSourceId) {
+                  const lastKind = last.getAttribute('data-block-kind');
+                  const lastIsContainer = lastKind === 'section' || lastKind === 'columns';
+                  if (dropTarget?.id !== lastId || dropTarget.position !== 'after') {
+                     clearDropTargets();
+                     last.setAttribute('data-postwren-drop', 'after');
+                     dropTarget = lastIsContainer ? null : { id: lastId, position: 'after' };
+                  }
+               } else if (dropTarget !== null) {
+                  clearDropTargets();
+                  dropTarget = null;
+               }
+            }
             return;
          }
 
          event.preventDefault();
-         if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+         if (event.dataTransfer) {
+            event.dataTransfer.dropEffect =
+               libraryPayload === null || libraryPayload === undefined ? 'move' : 'copy';
+         }
 
          const rect = element.getBoundingClientRect();
-         const position: 'before' | 'after' =
-            event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+         const containerKind = element.getAttribute('data-block-kind');
+         const container = containerKind === 'section' || containerKind === 'columns';
+         const payloadIsLeaf =
+            libraryPayload !== null && libraryPayload !== undefined
+               ? libraryPayload.kind === 'type'
+                  ? libraryPayload.type !== 'section' && libraryPayload.type !== 'columns'
+                  : libraryPayload.kind === 'block'
+                    ? libraryPayload.block.type !== 'section' &&
+                      libraryPayload.block.type !== 'columns'
+                    : false
+               : false;
+
+         let position: InsertPosition;
+         if (container && !payloadIsLeaf) {
+            position = 'after';
+         } else if (container) {
+            position = 'inside';
+         } else {
+            position = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+         }
 
          if (dropTarget?.id === id && dropTarget.position === position) return;
 
@@ -326,7 +415,20 @@ export function EmailCanvas({
       };
 
       const onDrop = (event: DragEvent) => {
-         if (dragSourceId === null) return;
+         if (dragSourceId === null) {
+            const payload = libraryDragRef?.current;
+            if (payload === null || payload === undefined) return;
+            event.preventDefault();
+            const target = dropTarget;
+            dropTarget = null;
+            clearDropTargets();
+            callbacksRef.current.onDropLibrary?.(
+               payload,
+               target?.id ?? null,
+               target?.position ?? 'after',
+            );
+            return;
+         }
 
          event.preventDefault();
          const sourceId = dragSourceId;
@@ -339,7 +441,11 @@ export function EmailCanvas({
          }
 
          if (target !== null) {
-            callbacksRef.current.onMoveTo(sourceId, target.id, target.position);
+            callbacksRef.current.onMoveTo(
+               sourceId,
+               target.id,
+               target.position === 'inside' ? 'after' : target.position,
+            );
          }
       };
 
@@ -462,11 +568,11 @@ export function EmailCanvas({
          ref={paneRef}
          tabIndex={0}
          onKeyDown={handlePaneKeyDown}
-         className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-muted/30 p-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:p-4"
+         className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-muted/30 px-2 pt-12 pb-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-4 sm:pt-14 sm:pb-4"
       >
          <div
             className={cn('mx-auto transition-[width] duration-200')}
-            style={{ width: VIEWPORT_WIDTH[viewport], maxWidth: '100%' }}
+            style={{ width: VIEWPORT_WIDTH[viewport], zoom: scale }}
          >
             <iframe
                ref={iframeRef}
@@ -537,6 +643,18 @@ export function EmailCanvas({
                      >
                         <Copy aria-hidden="true" />
                      </Button>
+                     {onRequestSaveBlock !== undefined && (
+                        <Button
+                           size="icon"
+                           variant="ghost"
+                           className="size-7"
+                           aria-label={`Save ${selectedLabel} as a reusable block`}
+                           title="Save as reusable block"
+                           onClick={() => onRequestSaveBlock(selectedId)}
+                        >
+                           <BookmarkPlus aria-hidden="true" />
+                        </Button>
+                     )}
                      <Button
                         size="icon"
                         variant="ghost"

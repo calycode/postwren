@@ -687,7 +687,10 @@ function renderMarkdown(context: Context, block: MarkdownBlock): string {
 function renderBlock(context: Context, block: Block): string {
    const html = renderBlockMarkup(context, block);
    if (!context.opts.annotateBlocks || html.length === 0) return html;
-   return html.replace('<tr', `<tr data-block-id="${escapeHtml(block.id)}"`);
+   return html.replace(
+      '<tr',
+      `<tr data-block-id="${escapeHtml(block.id)}" data-block-kind="${block.type}"`,
+   );
 }
 
 function renderBlockMarkup(context: Context, block: Block): string {

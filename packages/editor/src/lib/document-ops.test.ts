@@ -14,8 +14,9 @@ import {
    duplicateBlock,
    findBlock,
    flattenBlocks,
-   insertAfter,
+   insertAtTarget,
    insertBlock,
+   insertIntoColumn,
    insertIntoSection,
    moveBlock,
    moveBlockTo,
@@ -109,10 +110,10 @@ describe('document-ops', () => {
          columnsBlock('cols', [{ widthPercent: 100, blocks: [textBlock('nested')] }]),
       ]);
 
-      const topLevel = insertAfter(doc, 'a', textBlock('after-a'));
+      const topLevel = insertAtTarget(doc, textBlock('after-a'), 'a', 'after');
       expect(topLevel.children.map((block) => block.id)).toEqual(['a', 'after-a', 'b', 'cols']);
 
-      const nested = insertAfter(doc, 'nested', textBlock('after-nested'));
+      const nested = insertAtTarget(doc, textBlock('after-nested'), 'nested', 'after');
       const cols = nested.children[2];
       expect(cols?.type).toBe('columns');
       if (cols?.type === 'columns') {
@@ -127,7 +128,7 @@ describe('document-ops', () => {
 
    it('appends a block when the insertion anchor is missing', () => {
       const doc = documentOf([textBlock('a')]);
-      const result = insertAfter(doc, 'missing', textBlock('b'));
+      const result = insertAtTarget(doc, textBlock('b'), 'missing');
 
       expect(result.children.map((block) => block.id)).toEqual(['a', 'b']);
    });
@@ -564,6 +565,70 @@ describe('section operations', () => {
    });
 });
 
+describe('inserting at a drop target', () => {
+   it('adds a block inside an empty section', () => {
+      const doc = documentOf([sectionBlock('empty', [])]);
+      const result = insertAtTarget(doc, textBlock('new'), 'empty', 'inside');
+      const section = result.children[0];
+
+      expect(section?.type).toBe('section');
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['new']);
+      }
+   });
+
+   it('keeps a drop next to a nested child inside the same section', () => {
+      const doc = documentOf([sectionBlock('section', [textBlock('a'), textBlock('b')])]);
+      const result = insertAtTarget(doc, textBlock('between'), 'a', 'after');
+      const section = result.children[0];
+
+      if (section?.type === 'section') {
+         expect(section.children.map((child) => child.id)).toEqual(['a', 'between', 'b']);
+      }
+      expect(result.children).toHaveLength(1);
+   });
+
+   it('adds a block inside the first column', () => {
+      const doc = documentOf([
+         columnsBlock('cols', [
+            { widthPercent: 50, blocks: [] },
+            { widthPercent: 50, blocks: [textBlock('right')] },
+         ]),
+      ]);
+      const result = insertAtTarget(doc, textBlock('left-new'), 'cols', 'inside');
+      const columns = result.children[0];
+
+      if (columns?.type === 'columns') {
+         expect(columns.columns[0]?.blocks.map((block) => block.id)).toEqual(['left-new']);
+         expect(columns.columns[1]?.blocks.map((block) => block.id)).toEqual(['right']);
+      }
+   });
+
+   it('adds to a specific column through insertIntoColumn', () => {
+      const doc = documentOf([
+         columnsBlock('cols', [
+            { widthPercent: 50, blocks: [] },
+            { widthPercent: 50, blocks: [] },
+         ]),
+      ]);
+      const result = insertIntoColumn(doc, 'cols', 1, textBlock('second'));
+      const columns = result.children[0];
+
+      if (columns?.type === 'columns') {
+         expect(columns.columns[0]?.blocks).toHaveLength(0);
+         expect(columns.columns[1]?.blocks.map((block) => block.id)).toEqual(['second']);
+      }
+      expect(insertIntoColumn(doc, 'missing', 0, textBlock('x'))).toBe(doc);
+   });
+
+   it('never nests a container inside a section', () => {
+      const doc = documentOf([sectionBlock('section', [textBlock('a')])]);
+      const result = insertAtTarget(doc, columnsBlock('new-cols', []), 'section', 'inside');
+
+      expect(result.children.map((block) => block.id)).toEqual(['section', 'new-cols']);
+   });
+});
+
 describe('structural integrity', () => {
    it('adds a columns block at the top level when a column child is selected', () => {
       const doc = documentOf([
@@ -577,7 +642,7 @@ describe('structural integrity', () => {
          { widthPercent: 50, blocks: [] },
          { widthPercent: 50, blocks: [] },
       ]);
-      const result = insertAfter(doc, 'left', added);
+      const result = insertAtTarget(doc, added, 'left', 'after');
 
       expect(result.children.map((block) => block.id)).toEqual(['cols', 'added']);
       expect(documentIssues(result)).toEqual([]);
@@ -585,7 +650,7 @@ describe('structural integrity', () => {
 
    it('adds a section at the top level when a section child is selected', () => {
       const doc = documentOf([sectionBlock('section', [textBlock('a')])]);
-      const result = insertAfter(doc, 'a', sectionBlock('added', []));
+      const result = insertAtTarget(doc, sectionBlock('added', []), 'a', 'after');
 
       expect(result.children.map((block) => block.id)).toEqual(['section', 'added']);
       expect(documentIssues(result)).toEqual([]);
@@ -605,7 +670,7 @@ describe('structural integrity', () => {
       const children = Array.from({ length: 20 }, (_, index) => textBlock(`child-${index}`));
       const doc = documentOf([sectionBlock('section', children)]);
 
-      const result = insertAfter(doc, 'child-19', textBlock('overflow'));
+      const result = insertAtTarget(doc, textBlock('overflow'), 'child-19', 'after');
 
       expect(result.children.map((block) => block.id)).toEqual(['section', 'overflow']);
       expect(documentIssues(result)).toEqual([]);

@@ -15,6 +15,10 @@ export type MergeContext = {
       utm_campaign: string;
       meta: Record<string, string>;
    };
+   automation?: {
+      id: string;
+      meta: Record<string, string>;
+   };
    links: {
       unsubscribe: string;
    };
@@ -34,6 +38,7 @@ const PATHS = new Set([
    'campaign.id',
    'campaign.subject',
    'campaign.utm_campaign',
+   'automation.id',
    'links.unsubscribe',
 ]);
 
@@ -44,6 +49,7 @@ const FILTER_SYNTAX =
 const META_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 const SUBSCRIBER_META_PREFIX = 'subscriber.meta.';
 const CAMPAIGN_META_PREFIX = 'campaign.meta.';
+const AUTOMATION_META_PREFIX = 'automation.meta.';
 
 type Filter = { name: string; arg?: string };
 type Parsed = { path: string; filters: Filter[] } | { error: string };
@@ -55,6 +61,10 @@ function metaKeyOf(path: string): string | null {
    }
    if (path.startsWith(CAMPAIGN_META_PREFIX)) {
       const key = path.slice(CAMPAIGN_META_PREFIX.length);
+      return META_KEY.test(key) ? key : null;
+   }
+   if (path.startsWith(AUTOMATION_META_PREFIX)) {
+      const key = path.slice(AUTOMATION_META_PREFIX.length);
       return META_KEY.test(key) ? key : null;
    }
    return null;
@@ -104,7 +114,11 @@ function readPath(ctx: MergeContext, path: string): string {
       return ctx.subscriber.meta[path.slice(SUBSCRIBER_META_PREFIX.length)] ?? '';
    }
    if (path.startsWith(CAMPAIGN_META_PREFIX)) {
-      return ctx.campaign.meta[path.slice(CAMPAIGN_META_PREFIX.length)] ?? '';
+      const key = path.slice(CAMPAIGN_META_PREFIX.length);
+      return ctx.campaign.meta[key] ?? ctx.automation?.meta[key] ?? '';
+   }
+   if (path.startsWith(AUTOMATION_META_PREFIX)) {
+      return ctx.automation?.meta[path.slice(AUTOMATION_META_PREFIX.length)] ?? '';
    }
 
    switch (path) {
@@ -124,6 +138,8 @@ function readPath(ctx: MergeContext, path: string): string {
          return ctx.campaign.subject;
       case 'campaign.utm_campaign':
          return ctx.campaign.utm_campaign;
+      case 'automation.id':
+         return ctx.automation?.id ?? '';
       case 'links.unsubscribe':
          return ctx.links.unsubscribe;
       default:

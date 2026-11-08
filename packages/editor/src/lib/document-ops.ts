@@ -16,32 +16,80 @@ type ListResult = {
    changed: boolean;
 };
 
+type ListTransform = (blocks: Block[]) => ListResult;
+
+function unchanged(blocks: Block[]): ListResult {
+   return { blocks, changed: false };
+}
+
 function isContainerType(type: Block['type']): boolean {
    return type === 'columns' || type === 'section';
 }
 
+/** The child lists a container owns, in visual order. Leaves return null. */
+function childBlocks(block: Block): Block[] | null {
+   if (block.type === 'columns') return block.columns.flatMap((column) => column.blocks);
+   if (block.type === 'section') return block.children;
+   return null;
+}
+
+/**
+ * Rebuilds a container's child lists through `transform`. Returns null when no
+ * child list changed, so untouched blocks and columns keep their identity.
+ */
+function mapContainerChildren(block: Block, transform: ListTransform): Block | null {
+   if (block.type === 'columns') {
+      let changed = false;
+      const columns = block.columns.map((column) => {
+         const result = mapBlockLists(column.blocks, transform);
+         if (!result.changed) return column;
+         changed = true;
+         return { ...column, blocks: result.blocks as LeafBlock[] };
+      });
+      return changed ? { ...block, columns } : null;
+   }
+
+   if (block.type === 'section') {
+      const result = mapBlockLists(block.children, transform);
+      return result.changed ? { ...block, children: result.blocks as SectionChild[] } : null;
+   }
+
+   return null;
+}
+
+/**
+ * The one recursive traversal over the document tree. `transform` runs against
+ * each list: the top level first, then the children of every container. A list
+ * that reports a change returns as-is, so nested lists are never searched once
+ * the target has been found at that level.
+ */
+function mapBlockLists(blocks: Block[], transform: ListTransform): ListResult {
+   const local = transform(blocks);
+   if (local.changed) return local;
+
+   let changed = false;
+   const next = blocks.map((block) => {
+      const rebuilt = mapContainerChildren(block, transform);
+      if (rebuilt === null) return block;
+      changed = true;
+      return rebuilt;
+   });
+
+   return changed ? { blocks: next, changed } : unchanged(blocks);
+}
+
 function containsId(block: Block, id: string): boolean {
    if (block.id === id) return true;
-   if (block.type === 'columns') {
-      return block.columns.some((column) => column.blocks.some((child) => containsId(child, id)));
-   }
-   if (block.type === 'section') {
-      return block.children.some((child) => containsId(child, id));
-   }
-   return false;
+   const children = childBlocks(block);
+   return children !== null && children.some((child) => containsId(child, id));
 }
 
 function flattenList(blocks: Block[]): Block[] {
    const flat: Block[] = [];
    for (const block of blocks) {
       flat.push(block);
-      if (block.type === 'columns') {
-         for (const column of block.columns) {
-            flat.push(...flattenList(column.blocks));
-         }
-      } else if (block.type === 'section') {
-         flat.push(...flattenList(block.children));
-      }
+      const children = childBlocks(block);
+      if (children !== null) flat.push(...flattenList(children));
    }
    return flat;
 }
@@ -56,121 +104,39 @@ function defaultWidths(count: number): number[] {
 }
 
 function updateInList(blocks: Block[], id: string, patch: BlockPatch): ListResult {
-   let changed = false;
-   const next = blocks.map((block) => {
-      if (block.id === id) {
-         changed = true;
-         return { ...block, ...patch } as unknown as Block;
-      }
+   return mapBlockLists(blocks, (list) => {
+      const index = list.findIndex((block) => block.id === id);
+      const target = index < 0 ? undefined : list[index];
+      if (target === undefined) return unchanged(list);
 
-      if (block.type === 'columns') {
-         let columnChanged = false;
-         const columns = block.columns.map((column) => {
-            const result = updateInList(column.blocks, id, patch);
-            if (!result.changed) return column;
-            columnChanged = true;
-            return { ...column, blocks: result.blocks as LeafBlock[] };
-         });
-         if (columnChanged) {
-            changed = true;
-            return { ...block, columns };
-         }
-      }
-
-      if (block.type === 'section') {
-         const result = updateInList(block.children, id, patch);
-         if (result.changed) {
-            changed = true;
-            return { ...block, children: result.blocks as SectionChild[] };
-         }
-      }
-
-      return block;
+      const next = list.slice();
+      next[index] = { ...target, ...patch } as unknown as Block;
+      return { blocks: next, changed: true };
    });
-
-   return changed ? { blocks: next, changed } : { blocks, changed };
 }
 
 function removeFromList(blocks: Block[], id: string): ListResult {
-   let changed = false;
-   const next: Block[] = [];
-
-   for (const block of blocks) {
-      if (block.id === id) {
-         changed = true;
-         continue;
-      }
-
-      if (block.type === 'columns') {
-         let columnChanged = false;
-         const columns = block.columns.map((column) => {
-            const result = removeFromList(column.blocks, id);
-            if (!result.changed) return column;
-            columnChanged = true;
-            return { ...column, blocks: result.blocks as LeafBlock[] };
-         });
-         if (columnChanged) {
-            changed = true;
-            next.push({ ...block, columns });
-            continue;
-         }
-      }
-
-      if (block.type === 'section') {
-         const result = removeFromList(block.children, id);
-         if (result.changed) {
-            changed = true;
-            next.push({ ...block, children: result.blocks as SectionChild[] });
-            continue;
-         }
-      }
-
-      next.push(block);
-   }
-
-   return changed ? { blocks: next, changed } : { blocks, changed };
+   return mapBlockLists(blocks, (list) => {
+      const index = list.findIndex((block) => block.id === id);
+      if (index < 0) return unchanged(list);
+      return { blocks: [...list.slice(0, index), ...list.slice(index + 1)], changed: true };
+   });
 }
 
 function moveInList(blocks: Block[], id: string, delta: -1 | 1): ListResult {
-   const index = blocks.findIndex((block) => block.id === id);
-   if (index >= 0) {
-      const target = index + delta;
-      if (target < 0 || target >= blocks.length) return { blocks, changed: false };
+   return mapBlockLists(blocks, (list) => {
+      const index = list.findIndex((block) => block.id === id);
+      if (index < 0) return unchanged(list);
 
-      const next = blocks.slice();
+      const target = index + delta;
+      if (target < 0 || target >= list.length) return unchanged(list);
+
+      const next = list.slice();
       const [item] = next.splice(index, 1);
-      if (!item) return { blocks, changed: false };
+      if (item === undefined) return unchanged(list);
       next.splice(target, 0, item);
       return { blocks: next, changed: true };
-   }
-
-   let changed = false;
-   const next = blocks.map((block) => {
-      if (block.type === 'columns') {
-         let columnChanged = false;
-         const columns = block.columns.map((column) => {
-            const result = moveInList(column.blocks, id, delta);
-            if (!result.changed) return column;
-            columnChanged = true;
-            return { ...column, blocks: result.blocks as LeafBlock[] };
-         });
-
-         if (!columnChanged) return block;
-         changed = true;
-         return { ...block, columns };
-      }
-
-      if (block.type === 'section') {
-         const result = moveInList(block.children, id, delta);
-         if (!result.changed) return block;
-         changed = true;
-         return { ...block, children: result.blocks as SectionChild[] };
-      }
-
-      return block;
    });
-
-   return changed ? { blocks: next, changed } : { blocks, changed };
 }
 
 export function insertBlock(doc: Document, block: Block, at?: number): Document {
@@ -184,59 +150,69 @@ export function insertBlock(doc: Document, block: Block, at?: number): Document 
    };
 }
 
-function insertAfterInList(blocks: Block[], id: string, block: Block): ListResult {
-   const index = blocks.findIndex((candidate) => candidate.id === id);
-   if (index >= 0) {
-      const next = blocks.slice();
-      next.splice(index + 1, 0, block);
+function insertAdjacentInList(
+   blocks: Block[],
+   id: string,
+   block: Block,
+   position: DropPosition,
+): ListResult {
+   return mapBlockLists(blocks, (list) => {
+      const index = list.findIndex((candidate) => candidate.id === id);
+      if (index < 0) return unchanged(list);
+
+      const next = list.slice();
+      next.splice(index + (position === 'after' ? 1 : 0), 0, block);
       return { blocks: next, changed: true };
-   }
-
-   let changed = false;
-   const next = blocks.map((candidate) => {
-      if (candidate.type === 'columns') {
-         let columnChanged = false;
-         const columns = candidate.columns.map((column) => {
-            const result = insertAfterInList(column.blocks, id, block);
-            if (!result.changed) return column;
-            columnChanged = true;
-            return { ...column, blocks: result.blocks as LeafBlock[] };
-         });
-
-         if (!columnChanged) return candidate;
-         changed = true;
-         return { ...candidate, columns };
-      }
-
-      if (candidate.type === 'section') {
-         const result = insertAfterInList(candidate.children, id, block);
-         if (!result.changed) return candidate;
-         changed = true;
-         return { ...candidate, children: result.blocks as SectionChild[] };
-      }
-
-      return candidate;
    });
-
-   return changed ? { blocks: next, changed } : { blocks, changed };
 }
 
-export function insertAfter(doc: Document, id: string, block: Block): Document {
-   const anchorIndex = doc.children.findIndex((child) => containsId(child, id));
-   const anchor = anchorIndex < 0 ? undefined : doc.children[anchorIndex];
+function appendAfterTopLevel(doc: Document, id: string, block: Block): Document {
+   const index = doc.children.findIndex((child) => containsId(child, id));
+   return insertBlock(doc, block, index < 0 ? undefined : index + 1);
+}
 
-   if (isContainerType(block.type)) {
-      // Containers are only valid at the top level, so a selected nested block
-      // anchors the insertion after its nearest top-level ancestor instead.
-      return insertBlock(doc, block, anchorIndex < 0 ? undefined : anchorIndex + 1);
+/**
+ * Insert for a block dropped or added from the library. The target decides the
+ * parent: dropping on a section or a column appends inside it, dropping next to
+ * a nested block stays in that parent list, and containers never nest.
+ */
+export function insertAtTarget(
+   doc: Document,
+   block: Block,
+   targetId: string | null,
+   position: InsertPosition = 'after',
+): Document {
+   if (targetId === null) return insertBlock(doc, block);
+
+   const target = findBlock(doc, targetId);
+   if (target === null) return insertBlock(doc, block);
+
+   const isLeaf = !isContainerType(block.type);
+
+   if (target.type === 'section') {
+      if (!isLeaf) return appendAfterTopLevel(doc, target.id, block);
+      return insertIntoSection(doc, target.id, block as LeafBlock);
    }
 
-   if (anchor?.type === 'section' && anchor.children.length >= SECTION_CHILD_LIMIT) {
+   if (target.type === 'columns') {
+      if (!isLeaf) return appendAfterTopLevel(doc, target.id, block);
+      return insertIntoColumn(doc, target.id, 0, block as LeafBlock);
+   }
+
+   if (!isLeaf) return appendAfterTopLevel(doc, target.id, block);
+
+   const ancestor = doc.children.find((child) => containsId(child, target.id));
+   if (ancestor?.type === 'section' && ancestor.children.length >= SECTION_CHILD_LIMIT) {
       // A full section cannot hold another child, so the block lands after it.
-      return insertBlock(doc, block, anchorIndex + 1);
+      return appendAfterTopLevel(doc, target.id, block);
    }
 
-   const result = insertAfterInList(doc.children, id, block);
+   const result = insertAdjacentInList(
+      doc.children,
+      targetId,
+      block,
+      position === 'inside' ? 'after' : position,
+   );
    return result.changed ? { ...doc, children: result.blocks } : insertBlock(doc, block);
 }
 
@@ -263,49 +239,25 @@ function cloneWithNewIds(block: Block): Block {
    return { ...block, id: `${block.type}-${crypto.randomUUID()}` };
 }
 
+export function cloneBlockWithNewIds(block: Block): Block {
+   return cloneWithNewIds(block);
+}
+
 function duplicateInList(blocks: Block[], id: string, newId?: string): ListResult {
-   const index = blocks.findIndex((candidate) => candidate.id === id);
-   if (index >= 0) {
-      const original = blocks[index];
-      if (!original) return { blocks, changed: false };
+   return mapBlockLists(blocks, (list) => {
+      const index = list.findIndex((candidate) => candidate.id === id);
+      const original = index < 0 ? undefined : list[index];
+      if (original === undefined) return unchanged(list);
 
       const copy = cloneWithNewIds(original);
       if (newId !== undefined) {
          (copy as { id: string }).id = newId;
       }
 
-      const next = blocks.slice();
+      const next = list.slice();
       next.splice(index + 1, 0, copy);
       return { blocks: next, changed: true };
-   }
-
-   let changed = false;
-   const next = blocks.map((candidate) => {
-      if (candidate.type === 'columns') {
-         let columnChanged = false;
-         const columns = candidate.columns.map((column) => {
-            const result = duplicateInList(column.blocks, id, newId);
-            if (!result.changed) return column;
-            columnChanged = true;
-            return { ...column, blocks: result.blocks as LeafBlock[] };
-         });
-
-         if (!columnChanged) return candidate;
-         changed = true;
-         return { ...candidate, columns };
-      }
-
-      if (candidate.type === 'section') {
-         const result = duplicateInList(candidate.children, id, newId);
-         if (!result.changed) return candidate;
-         changed = true;
-         return { ...candidate, children: result.blocks as SectionChild[] };
-      }
-
-      return candidate;
    });
-
-   return changed ? { blocks: next, changed } : { blocks, changed };
 }
 
 export function duplicateBlock(doc: Document, id: string, newId?: string): Document {
@@ -318,6 +270,23 @@ export function insertIntoSection(doc: Document, sectionId: string, block: LeafB
    if (section?.type !== 'section') return doc;
    if (section.children.length >= SECTION_CHILD_LIMIT) return doc;
    return updateBlock(doc, sectionId, { children: [...section.children, block] });
+}
+
+export function insertIntoColumn(
+   doc: Document,
+   columnsId: string,
+   columnIndex: number,
+   block: LeafBlock,
+): Document {
+   const container = findBlock(doc, columnsId);
+   if (container?.type !== 'columns' || container.columns.length === 0) return doc;
+
+   const index = Math.max(0, Math.min(columnIndex, container.columns.length - 1));
+   const columns = container.columns.map((column, position) =>
+      position === index ? { ...column, blocks: [...column.blocks, block] } : column,
+   );
+
+   return updateBlock(doc, columnsId, { columns });
 }
 
 export function removeFromSection(doc: Document, sectionId: string, childId: string): Document {
@@ -341,56 +310,32 @@ export function moveBlock(doc: Document, id: string, delta: -1 | 1): Document {
 
 export type DropPosition = 'before' | 'after';
 
+/** Library drops may also mean "append inside this container". */
+export type InsertPosition = DropPosition | 'inside';
+
 function reorderInList(
    blocks: Block[],
    sourceId: string,
    targetId: string,
    position: DropPosition,
 ): ListResult {
-   const sourceIndex = blocks.findIndex((block) => block.id === sourceId);
-   const targetIndex = blocks.findIndex((block) => block.id === targetId);
+   return mapBlockLists(blocks, (list) => {
+      const sourceIndex = list.findIndex((block) => block.id === sourceId);
+      const targetIndex = list.findIndex((block) => block.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+         return unchanged(list);
+      }
 
-   if (sourceIndex >= 0 && targetIndex >= 0) {
-      if (sourceIndex === targetIndex) return { blocks, changed: false };
-
-      const next = blocks.slice();
+      const next = list.slice();
       const [item] = next.splice(sourceIndex, 1);
-      if (item === undefined) return { blocks, changed: false };
+      if (item === undefined) return unchanged(list);
 
       let insertAt = targetIndex;
       if (sourceIndex < targetIndex) insertAt -= 1;
       if (position === 'after') insertAt += 1;
       next.splice(insertAt, 0, item);
       return { blocks: next, changed: true };
-   }
-
-   let changed = false;
-   const next = blocks.map((block) => {
-      if (block.type === 'columns') {
-         let columnChanged = false;
-         const columns = block.columns.map((column) => {
-            const result = reorderInList(column.blocks, sourceId, targetId, position);
-            if (!result.changed) return column;
-            columnChanged = true;
-            return { ...column, blocks: result.blocks as LeafBlock[] };
-         });
-
-         if (!columnChanged) return block;
-         changed = true;
-         return { ...block, columns };
-      }
-
-      if (block.type === 'section') {
-         const result = reorderInList(block.children, sourceId, targetId, position);
-         if (!result.changed) return block;
-         changed = true;
-         return { ...block, children: result.blocks as SectionChild[] };
-      }
-
-      return block;
    });
-
-   return changed ? { blocks: next, changed } : { blocks, changed };
 }
 
 /**

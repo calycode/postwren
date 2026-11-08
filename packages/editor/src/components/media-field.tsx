@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { Button, Field, Input } from '@postwren/ui';
-import { Upload } from 'lucide-react';
+import { Images, Upload } from 'lucide-react';
 import { imageSrcIssue } from '../lib/controls';
-import type { ImageUploader } from '../lib/media';
+import type { ImagePicker, ImageUploader } from '../lib/media';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -12,9 +12,17 @@ type MediaFieldProps = {
    value: string;
    onValueChange: (value: string) => void;
    onUploadImage?: ImageUploader;
+   onPickImage?: ImagePicker;
 };
 
-export function MediaField({ id, label, value, onValueChange, onUploadImage }: MediaFieldProps) {
+export function MediaField({
+   id,
+   label,
+   value,
+   onValueChange,
+   onUploadImage,
+   onPickImage,
+}: MediaFieldProps) {
    const fileRef = useRef<HTMLInputElement>(null);
    const [uploading, setUploading] = useState(false);
    const [uploadError, setUploadError] = useState<string | null>(null);
@@ -39,6 +47,17 @@ export function MediaField({ id, label, value, onValueChange, onUploadImage }: M
       }
    };
 
+   const pickFromLibrary = async () => {
+      if (!onPickImage) return;
+      setUploadError(null);
+      try {
+         const picked = await onPickImage();
+         if (picked !== null) onValueChange(picked.url);
+      } catch (cause) {
+         setUploadError(cause instanceof Error ? cause.message : 'Could not open the library');
+      }
+   };
+
    const error = uploadError ?? imageSrcIssue(value);
 
    return (
@@ -57,6 +76,19 @@ export function MediaField({ id, label, value, onValueChange, onUploadImage }: M
                   onValueChange(event.currentTarget.value);
                }}
             />
+            {onPickImage && (
+               <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={uploading}
+                  title="Choose from the media library"
+                  onClick={() => void pickFromLibrary()}
+               >
+                  <Images className="size-3.5" />
+                  Library
+               </Button>
+            )}
             {onUploadImage && (
                <>
                   <Button

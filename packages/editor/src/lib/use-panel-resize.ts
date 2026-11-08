@@ -7,6 +7,8 @@ export type PanelResizeOptions = {
    max: number;
    /** The panel sits on the right, so dragging left should grow it. */
    invert?: boolean;
+   /** `y` resizes a stacked section by its height instead of a column width. */
+   axis?: 'x' | 'y';
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -26,10 +28,11 @@ export function usePanelResize({
    min,
    max,
    invert = false,
+   axis = 'x',
 }: PanelResizeOptions) {
    const [size, setSize] = useState(() => readStored(storageKey, defaultSize, min, max));
    const [dragging, setDragging] = useState(false);
-   const dragRef = useRef<{ startX: number; startSize: number } | null>(null);
+   const dragRef = useRef<{ start: number; startSize: number } | null>(null);
    const sizeRef = useRef(size);
    sizeRef.current = size;
 
@@ -41,7 +44,10 @@ export function usePanelResize({
 
    const onPointerDown = (event: PointerEvent) => {
       event.preventDefault();
-      dragRef.current = { startX: event.clientX, startSize: sizeRef.current };
+      dragRef.current = {
+         start: axis === 'y' ? event.clientY : event.clientX,
+         startSize: sizeRef.current,
+      };
       setDragging(true);
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
    };
@@ -49,7 +55,8 @@ export function usePanelResize({
    const onPointerMove = (event: PointerEvent) => {
       const drag = dragRef.current;
       if (drag === null) return;
-      const delta = (event.clientX - drag.startX) * (invert ? -1 : 1);
+      const position = axis === 'y' ? event.clientY : event.clientX;
+      const delta = (position - drag.start) * (invert ? -1 : 1);
       resize(drag.startSize + delta);
    };
 
@@ -61,10 +68,12 @@ export function usePanelResize({
 
    const onKeyDown = (event: KeyboardEvent) => {
       const step = event.shiftKey ? 48 : 16;
-      if (event.key === 'ArrowLeft') {
+      const decrease = axis === 'y' ? event.key === 'ArrowUp' : event.key === 'ArrowLeft';
+      const increase = axis === 'y' ? event.key === 'ArrowDown' : event.key === 'ArrowRight';
+      if (decrease) {
          event.preventDefault();
          resize(sizeRef.current + (invert ? step : -step));
-      } else if (event.key === 'ArrowRight') {
+      } else if (increase) {
          event.preventDefault();
          resize(sizeRef.current + (invert ? -step : step));
       }
@@ -76,7 +85,7 @@ export function usePanelResize({
       resize,
       separatorProps: {
          role: 'separator' as const,
-         'aria-orientation': 'vertical' as const,
+         'aria-orientation': axis === 'y' ? ('horizontal' as const) : ('vertical' as const),
          'aria-valuenow': size,
          'aria-valuemin': min,
          'aria-valuemax': max,

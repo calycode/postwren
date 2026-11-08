@@ -1,5 +1,6 @@
-import { ArrowLeft, Copy, Eye, Save, Trash2 } from 'lucide-react';
-import { Badge, Button, Input, Label, buttonVariants, cn } from '@postwren/ui';
+import { BookmarkPlus, Copy, Eye, History, Save, Trash2 } from 'lucide-react';
+import { Badge, Button, Input, Label, cn } from '@postwren/ui';
+import { Breadcrumbs } from '@/components/breadcrumbs';
 
 export type EditorHeaderProps = {
    name: string;
@@ -17,7 +18,9 @@ export type EditorHeaderProps = {
    onSubjectChange: (value: string) => void;
    onSave: () => void;
    onDuplicate: () => void;
+   onSaveAsTemplate: () => void;
    onPreview: () => void;
+   onHistory: () => void;
    onDelete: () => void;
 };
 
@@ -37,20 +40,22 @@ export function EditorHeader({
    onSubjectChange,
    onSave,
    onDuplicate,
+   onSaveAsTemplate,
    onPreview,
+   onHistory,
    onDelete,
 }: EditorHeaderProps) {
    return (
       <div className="flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm">
-         <div className="flex flex-wrap items-center gap-2">
-            <a
-               href="/templates"
-               className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-1')}
-            >
-               <ArrowLeft aria-hidden="true" />
-               Templates
-            </a>
+         <Breadcrumbs
+            items={[
+               { label: 'Templates', href: '/templates' },
+               { label: name.trim().length > 0 ? name : 'Untitled template' },
+            ]}
+            className="px-1"
+         />
 
+         <div className="flex flex-wrap items-center gap-2">
             <div className="flex min-w-24 flex-1 items-center gap-2">
                <label
                   htmlFor="template-name"
@@ -87,6 +92,15 @@ export function EditorHeader({
             <div className="flex flex-wrap items-center gap-1.5">
                <Button
                   size="sm"
+                  variant="outline"
+                  disabled={fieldsDisabled}
+                  onClick={onHistory}
+               >
+                  <History aria-hidden="true" />
+                  History
+               </Button>
+               <Button
+                  size="sm"
                   disabled={saveDisabled}
                   aria-busy={saving}
                   onClick={onSave}
@@ -102,6 +116,15 @@ export function EditorHeader({
                >
                   <Copy aria-hidden="true" />
                   {duplicateBusy ? 'Duplicating…' : 'Duplicate'}
+               </Button>
+               <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={fieldsDisabled}
+                  onClick={onSaveAsTemplate}
+               >
+                  <BookmarkPlus aria-hidden="true" />
+                  Save as template
                </Button>
                <Button
                   size="sm"

@@ -23,7 +23,7 @@ type MergeTagMenuProps = {
    ariaLabel: string;
 };
 
-type MetaScope = 'subscriber' | 'campaign';
+type MetaScope = 'subscriber' | 'campaign' | 'automation';
 
 const META_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 
@@ -52,7 +52,10 @@ export function MergeTagMenu({ kind, onInsert, ariaLabel }: MergeTagMenuProps) {
                {'{{ }}'}
             </span>
          </DropdownMenuTrigger>
-         <DropdownMenuContent className="max-h-80 w-72 overflow-y-auto">
+         <DropdownMenuContent
+            fixed
+            className="max-h-80 w-72 overflow-y-auto"
+         >
             {MERGE_TAGS.map((tag) => (
                <DropdownMenuItem
                   key={tag.path}
@@ -76,7 +79,12 @@ export function MergeTagMenu({ kind, onInsert, ariaLabel }: MergeTagMenuProps) {
                   <Select
                      value={scope}
                      onValueChange={(value) => {
-                        if (value === 'subscriber' || value === 'campaign') setScope(value);
+                        if (
+                           value === 'subscriber' ||
+                           value === 'campaign' ||
+                           value === 'automation'
+                        )
+                           setScope(value);
                      }}
                   >
                      <SelectTrigger
@@ -88,6 +96,7 @@ export function MergeTagMenu({ kind, onInsert, ariaLabel }: MergeTagMenuProps) {
                      <SelectContent>
                         <SelectItem value="subscriber">Subscriber</SelectItem>
                         <SelectItem value="campaign">Campaign</SelectItem>
+                        <SelectItem value="automation">Automation</SelectItem>
                      </SelectContent>
                   </Select>
                   <Input

@@ -56,7 +56,7 @@ import {
    SECTION_CHILD_LIMIT,
    updateBlock,
 } from '../lib/document-ops';
-import type { ImageUploader } from '../lib/media';
+import type { ImagePicker, ImageUploader } from '../lib/media';
 import { HexInput, NumberInput, OptionSelect, SpacingEditor } from './field-controls';
 import { MediaField } from './media-field';
 import { MergeTagMenu } from './merge-tag-menu';
@@ -100,6 +100,7 @@ type PropertyPanelProps = {
    /** `coalesceKey` merges rapid edits to the same field into one undo step. */
    onChange: (next: Document, coalesceKey?: string) => void;
    onUploadImage?: ImageUploader;
+   onPickImage?: ImagePicker;
 };
 
 export function PropertyPanel({
@@ -108,6 +109,7 @@ export function PropertyPanel({
    onSelect,
    onChange,
    onUploadImage,
+   onPickImage,
 }: PropertyPanelProps) {
    const block = selectedId ? findBlock(doc, selectedId) : null;
 
@@ -127,6 +129,7 @@ export function PropertyPanel({
                onChange={onChange}
                onSelect={onSelect}
                onUploadImage={onUploadImage}
+               onPickImage={onPickImage}
             />
          ) : (
             <div className="grid gap-3">
@@ -180,12 +183,14 @@ function BlockProperties({
    onChange,
    onSelect,
    onUploadImage,
+   onPickImage,
 }: {
    doc: Document;
    block: Block;
    onChange: (next: Document, coalesceKey?: string) => void;
    onSelect: (id: string) => void;
    onUploadImage?: ImageUploader;
+   onPickImage?: ImagePicker;
 }) {
    const patch: Patch = (next, coalesceKey) =>
       onChange(updateBlock(doc, block.id, next), coalesceKey);
@@ -210,6 +215,7 @@ function BlockProperties({
                : undefined
          }
          onUploadImage={onUploadImage}
+         onPickImage={onPickImage}
       />
    );
 
@@ -257,6 +263,7 @@ function BlockProperties({
                block={block}
                onChange={onChange}
                onUploadImage={onUploadImage}
+               onPickImage={onPickImage}
             />
          )}
 
@@ -425,6 +432,7 @@ type SchemaFieldProps = {
    patch: Patch;
    textareaRef?: RefObject<HTMLTextAreaElement>;
    onUploadImage?: ImageUploader;
+   onPickImage?: ImagePicker;
 };
 
 function SchemaField({
@@ -434,6 +442,7 @@ function SchemaField({
    patch,
    textareaRef,
    onUploadImage,
+   onPickImage,
 }: SchemaFieldProps) {
    const values = block as unknown as Record<string, unknown>;
    const raw = values[spec.key];
@@ -492,6 +501,7 @@ function SchemaField({
             value={stringValue}
             onValueChange={(next) => setKey(patch, spec.key, next)}
             onUploadImage={onUploadImage}
+            onPickImage={onPickImage}
          />
       );
    }
@@ -1044,11 +1054,13 @@ function GalleryEditor({
    block,
    onChange,
    onUploadImage,
+   onPickImage,
 }: {
    doc: Document;
    block: GalleryBlock;
    onChange: (next: Document) => void;
    onUploadImage?: ImageUploader;
+   onPickImage?: ImagePicker;
 }) {
    const updateImages = (images: GalleryImage[]) => {
       onChange(updateBlock(doc, block.id, { images }));
@@ -1118,6 +1130,7 @@ function GalleryEditor({
                      value={image.src}
                      onValueChange={(next) => updateImage(index, { src: next })}
                      onUploadImage={onUploadImage}
+                     onPickImage={onPickImage}
                   />
 
                   <div className="grid gap-1">

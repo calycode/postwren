@@ -10,6 +10,8 @@ import {
    cn,
 } from '@postwren/ui';
 import {
+   Maximize2,
+   Minimize2,
    Monitor,
    PanelLeftClose,
    PanelLeftOpen,
@@ -33,6 +35,10 @@ type EditorToolbarProps = {
    canRedo: boolean;
    libraryOpen: boolean;
    onToggleLibrary: () => void;
+   focusMode: boolean;
+   onToggleFocus: () => void;
+   zoom: number;
+   onZoomChange: (zoom: number) => void;
    onUndo: () => void;
    onRedo: () => void;
    onOpenDocument: () => void;
@@ -56,6 +62,10 @@ export function EditorToolbar({
    canRedo,
    libraryOpen,
    onToggleLibrary,
+   focusMode,
+   onToggleFocus,
+   zoom,
+   onZoomChange,
    onUndo,
    onRedo,
    onOpenDocument,
@@ -72,21 +82,23 @@ export function EditorToolbar({
    return (
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card/40 px-3 py-2">
          <div className="flex flex-wrap items-center gap-2">
-            <Button
-               size="icon"
-               variant="ghost"
-               className="size-8"
-               aria-label={libraryOpen ? 'Hide blocks panel' : 'Show blocks panel'}
-               aria-pressed={libraryOpen}
-               title={libraryOpen ? 'Hide blocks panel' : 'Show blocks panel'}
-               onClick={onToggleLibrary}
-            >
-               {libraryOpen ? (
-                  <PanelLeftClose aria-hidden="true" />
-               ) : (
-                  <PanelLeftOpen aria-hidden="true" />
-               )}
-            </Button>
+            {!focusMode && (
+               <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8"
+                  aria-label={libraryOpen ? 'Hide blocks panel' : 'Show blocks panel'}
+                  aria-pressed={libraryOpen}
+                  title={libraryOpen ? 'Hide blocks panel' : 'Show blocks panel'}
+                  onClick={onToggleLibrary}
+               >
+                  {libraryOpen ? (
+                     <PanelLeftClose aria-hidden="true" />
+                  ) : (
+                     <PanelLeftOpen aria-hidden="true" />
+                  )}
+               </Button>
+            )}
 
             <Button
                size="sm"
@@ -163,9 +175,42 @@ export function EditorToolbar({
                   375
                </Button>
             </div>
+
+            <DropdownMenu>
+               <DropdownMenuTrigger
+                  aria-label={`Zoom ${Math.round(zoom * 100)} percent`}
+                  title="Canvas zoom"
+                  className="h-8 px-2 text-xs"
+               >
+                  {Math.round(zoom * 100)}%
+               </DropdownMenuTrigger>
+               <DropdownMenuContent>
+                  {[1, 0.75, 0.5].map((value) => (
+                     <DropdownMenuItem
+                        key={value}
+                        aria-pressed={zoom === value}
+                        onSelect={() => onZoomChange(value)}
+                     >
+                        {value * 100}%
+                     </DropdownMenuItem>
+                  ))}
+               </DropdownMenuContent>
+            </DropdownMenu>
          </div>
 
          <div className="flex items-center gap-2">
+            <Button
+               size="icon"
+               variant="ghost"
+               className="size-8"
+               aria-label={focusMode ? 'Exit focus mode' : 'Focus on the email'}
+               aria-pressed={focusMode}
+               title={focusMode ? 'Exit focus mode' : 'Focus on the email'}
+               onClick={onToggleFocus}
+            >
+               {focusMode ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
+            </Button>
+
             <DropdownMenu>
                <DropdownMenuTrigger
                   aria-label={

@@ -1,13 +1,27 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { BlockType, Document } from '@postwren/email/ir';
+import type { BlockType, Block, Document } from '@postwren/email/ir';
 import { createBlock } from '@postwren/email/ir';
 import { renderEmail } from '@postwren/email/render';
 import type { RenderWarning } from '@postwren/email/render';
 import { applyMergeTags } from '@postwren/email/template';
 import type { MergeContext } from '@postwren/email/template';
-import { cn, useToast } from '@postwren/ui';
+import {
+   Button,
+   Dialog,
+   DialogContent,
+   DialogDescription,
+   DialogFooter,
+   DialogHeader,
+   DialogTitle,
+   Field,
+   Input,
+   cn,
+   useToast,
+} from '@postwren/ui';
 import { BlockLibrary } from './components/add-block-menu';
+import type { LibraryDrag } from './components/add-block-menu';
+import type { SavedBlockSummary } from './components/add-block-menu';
 import { BlockTree } from './components/block-outline';
 import { DocumentDialog } from './components/document-dialog';
 import { EditorToolbar } from './components/editor-toolbar';
@@ -15,18 +29,18 @@ import { EmailCanvas } from './components/email-canvas';
 import { PropertyPanel } from './components/property-panel';
 import {
    blockLabel,
+   cloneBlockWithNewIds,
    duplicateBlock,
    findBlock,
-   insertAfter,
-   insertBlock,
+   insertAtTarget,
    moveBlock,
    moveBlockTo,
    removeBlock,
 } from './lib/document-ops';
-import type { DropPosition } from './lib/document-ops';
+import type { DropPosition, InsertPosition } from './lib/document-ops';
 import { canRedo, canUndo, commit, createHistory, redo, undo } from './lib/history';
 import type { History } from './lib/history';
-import type { ImageUploader } from './lib/media';
+import type { ImagePicker, ImageUploader } from './lib/media';
 import type { BlockPattern } from './lib/patterns';
 import { usePanelResize } from './lib/use-panel-resize';
 import type { Viewport } from './lib/viewport';
@@ -45,6 +59,13 @@ export type EmailEditorProps = {
    issues?: readonly string[];
    /** Host-provided image upload, forwarded to the property panel. */
    onUploadImage?: ImageUploader;
+   /** Host-provided media-library picker, forwarded to the property panel. */
+   onPickImage?: ImagePicker;
+   /** Reusable blocks the host has saved for this workspace. */
+   savedBlocks?: readonly SavedBlockSummary[];
+   /** Persists one block as a reusable block. */
+   onSaveBlock?: (block: Block, name: string) => Promise<void>;
+   onDeleteSavedBlock?: (id: string) => void;
    className?: string;
 };
 
@@ -56,22 +77,6 @@ const PREVIEW_UNSUBSCRIBE_URL = 'https://example.com/u/preview';
  */
 const LIBRARY_INLINE_MIN_WIDTH = 720;
 const PROPERTIES_INLINE_MIN_WIDTH = 1080;
-
-function topLevelAnchor(doc: Document, id: string): string | null {
-   for (const child of doc.children) {
-      if (child.id === id) return id;
-      if (
-         child.type === 'columns' &&
-         child.columns.some((column) => column.blocks.some((block) => block.id === id))
-      ) {
-         return child.id;
-      }
-      if (child.type === 'section' && child.children.some((block) => block.id === id)) {
-         return child.id;
-      }
-   }
-   return null;
-}
 
 function isTypingTarget(target: EventTarget | null): boolean {
    if (!(target instanceof Element)) return false;
@@ -94,6 +99,10 @@ const PREVIEW_MERGE_CONTEXT: MergeContext = {
       utm_campaign: 'preview',
       meta: { edition: 'preview' },
    },
+   automation: {
+      id: 'preview-automation',
+      meta: { stage: 'preview' },
+   },
    links: {
       unsubscribe: PREVIEW_UNSUBSCRIBE_URL,
    },
@@ -105,9 +114,14 @@ export function EmailEditor({
    onRender,
    issues = [],
    onUploadImage,
+   onPickImage,
+   savedBlocks = [],
+   onSaveBlock,
+   onDeleteSavedBlock,
    className,
 }: EmailEditorProps) {
    const [selectedId, setSelectedId] = useState<string | null>(null);
+   const libraryDragRef = useRef<LibraryDrag | null>(null);
    const [confirmingId, setConfirmingId] = useState<string | null>(null);
    const [viewport, setViewport] = useState<Viewport>(() =>
       typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches
@@ -116,6 +130,13 @@ export function EmailEditor({
    );
    const [documentOpen, setDocumentOpen] = useState(false);
    const [libraryOpen, setLibraryOpen] = useState(false);
+   const [libraryDragging, setLibraryDragging] = useState(false);
+   const [focusMode, setFocusMode] = useState(false);
+   const [zoom, setZoom] = useState(1);
+   const [saveBlockId, setSaveBlockId] = useState<string | null>(null);
+   const [saveBlockName, setSaveBlockName] = useState('');
+   const [savingBlock, setSavingBlock] = useState(false);
+   const [saveBlockError, setSaveBlockError] = useState<string | null>(null);
    const [editorWidth, setEditorWidth] = useState(0);
    const [history, setHistory] = useState<History<Document>>(() => createHistory(value));
    const { toast } = useToast();
@@ -159,17 +180,24 @@ export function EmailEditor({
    };
 
    const leftPanel = usePanelResize({
-      storageKey: 'postwren-editor-left-panel',
-      defaultSize: 264,
-      min: 200,
-      max: 420,
+      storageKey: 'postwren-editor-left-panel-v2',
+      defaultSize: 220,
+      min: 190,
+      max: 360,
    });
    const rightPanel = usePanelResize({
-      storageKey: 'postwren-editor-right-panel',
-      defaultSize: 320,
-      min: 260,
-      max: 480,
+      storageKey: 'postwren-editor-right-panel-v2',
+      defaultSize: 260,
+      min: 230,
+      max: 420,
       invert: true,
+   });
+   const libraryPanel = usePanelResize({
+      storageKey: 'postwren-editor-library-height',
+      defaultSize: 340,
+      min: 160,
+      max: 720,
+      axis: 'y',
    });
 
    const historyRef = useRef(history);
@@ -278,11 +306,7 @@ export function EmailEditor({
 
    const appendBlock = (type: BlockType) => {
       const block = createBlock(type);
-      const anchor = selectedId !== null ? findBlock(doc, selectedId) : null;
-      const next =
-         anchor !== null && selectedId !== null
-            ? insertAfter(doc, selectedId, block)
-            : insertBlock(doc, block, doc.children.length);
+      const next = insertAtTarget(doc, block, selectedId, 'after');
 
       applyChange(next);
       setSelectedId(block.id);
@@ -294,15 +318,11 @@ export function EmailEditor({
       const first = blocks[0];
       if (first === undefined) return;
 
-      const anchorId = selectedId !== null ? topLevelAnchor(doc, selectedId) : null;
       let next = doc;
-      let anchor = anchorId;
+      let anchor = selectedId;
 
       for (const block of blocks) {
-         next =
-            anchor !== null
-               ? insertAfter(next, anchor, block)
-               : insertBlock(next, block, next.children.length);
+         next = insertAtTarget(next, block, anchor, 'after');
          anchor = block.id;
       }
 
@@ -310,6 +330,87 @@ export function EmailEditor({
       setSelectedId(first.id);
       setConfirmingId(null);
    };
+
+   const insertBlockFromLibrary = (
+      payload: LibraryDrag,
+      targetId: string | null,
+      position: InsertPosition,
+   ) => {
+      const blocks =
+         payload.kind === 'type'
+            ? [createBlock(payload.type)]
+            : payload.kind === 'block'
+              ? [cloneBlockWithNewIds(payload.block)]
+              : payload.pattern.build();
+      const first = blocks[0];
+      if (first === undefined) return;
+
+      let next = doc;
+      let anchor = targetId;
+      let at = position;
+
+      for (const block of blocks) {
+         next = insertAtTarget(next, block, anchor, at);
+         anchor = block.id;
+         at = 'after';
+      }
+
+      applyChange(next);
+      setSelectedId(first.id);
+      setConfirmingId(null);
+      libraryDragRef.current = null;
+      setLibraryDragging(false);
+      if (!libraryInline) setLibraryOpen(false);
+   };
+
+   const appendSavedBlock = (source: Block) => {
+      const block = cloneBlockWithNewIds(source);
+      const next = insertAtTarget(doc, block, selectedId, 'after');
+
+      applyChange(next);
+      setSelectedId(block.id);
+      setConfirmingId(null);
+   };
+
+   function requestSaveBlock(id: string) {
+      const block = findBlock(doc, id);
+      if (block === null) return;
+      setSaveBlockName(blockLabel(block));
+      setSaveBlockError(null);
+      setSaveBlockId(id);
+   }
+
+   async function submitSaveBlock(event: Event) {
+      event.preventDefault();
+      if (saveBlockId === null || onSaveBlock === undefined) return;
+
+      const block = findBlock(doc, saveBlockId);
+      const name = saveBlockName.trim();
+      if (block === null) {
+         setSaveBlockError('That block is no longer in the document.');
+         return;
+      }
+      if (name.length === 0) {
+         setSaveBlockError('Give the block a name.');
+         return;
+      }
+
+      setSavingBlock(true);
+      setSaveBlockError(null);
+      try {
+         await onSaveBlock(block, name);
+         setSaveBlockId(null);
+         toast({ title: `Saved "${name}" to your blocks`, variant: 'success' });
+      } catch (cause) {
+         setSaveBlockError(
+            cause instanceof Error && cause.message.length > 0
+               ? cause.message
+               : 'Could not save the block',
+         );
+      } finally {
+         setSavingBlock(false);
+      }
+   }
 
    const move = (id: string, delta: -1 | 1) => {
       applyChange(moveBlock(doc, id, delta));
@@ -345,6 +446,12 @@ export function EmailEditor({
 
    const selectedBlock = selectedId !== null ? findBlock(doc, selectedId) : null;
    const selectedLabel = selectedBlock !== null ? blockLabel(selectedBlock) : null;
+   const libraryHint =
+      selectedBlock?.type === 'section'
+         ? 'New blocks are added inside this section.'
+         : selectedBlock?.type === 'columns'
+           ? 'New blocks are added inside the first column.'
+           : undefined;
 
    return (
       <div
@@ -368,8 +475,12 @@ export function EmailEditor({
             bytes={preview.result.bytes}
             canUndo={canUndo(history)}
             canRedo={canRedo(history)}
-            libraryOpen={libraryOpen}
+            libraryOpen={libraryOpen && !focusMode}
             onToggleLibrary={toggleLibrary}
+            focusMode={focusMode}
+            onToggleFocus={() => setFocusMode((value) => !value)}
+            zoom={zoom}
+            onZoomChange={setZoom}
             onUndo={undoDocument}
             onRedo={redoDocument}
             onOpenDocument={() => setDocumentOpen(true)}
@@ -377,9 +488,9 @@ export function EmailEditor({
          />
 
          <div className="relative flex min-h-0 flex-1">
-            {libraryOpen && (
+            {libraryOpen && !focusMode && (
                <>
-                  {!libraryInline && (
+                  {!libraryInline && !libraryDragging && (
                      <button
                         type="button"
                         aria-label="Close blocks panel"
@@ -397,7 +508,10 @@ export function EmailEditor({
                            : 'absolute inset-y-0 left-0 z-30 w-[min(18rem,85%)] bg-card shadow-xl',
                      )}
                   >
-                     <div className="min-h-0 flex-[1.2] overflow-x-hidden overflow-y-auto p-3">
+                     <div
+                        className="min-h-0 max-h-[70%] shrink-0 overflow-x-hidden overflow-y-auto p-3"
+                        style={{ height: libraryPanel.size }}
+                     >
                         <BlockLibrary
                            onAdd={(type) => {
                               appendBlock(type);
@@ -407,11 +521,36 @@ export function EmailEditor({
                               appendPattern(pattern);
                               if (!libraryInline) setLibraryOpen(false);
                            }}
+                           savedBlocks={savedBlocks}
+                           onAddSavedBlock={(block) => {
+                              appendSavedBlock(block);
+                              if (!libraryInline) setLibraryOpen(false);
+                           }}
+                           onDeleteSavedBlock={onDeleteSavedBlock}
                            afterLabel={selectedLabel}
+                           hint={libraryHint}
+                           onDragItemStart={(payload) => {
+                              libraryDragRef.current = payload;
+                              setLibraryDragging(true);
+                           }}
+                           onDragItemEnd={() => {
+                              libraryDragRef.current = null;
+                              setLibraryDragging(false);
+                           }}
                         />
                      </div>
 
-                     <div className="border-t border-border" />
+                     <div
+                        {...libraryPanel.separatorProps}
+                        aria-label="Resize block library"
+                        aria-controls="editor-left-panel"
+                        className={cn(
+                           'relative h-2 shrink-0 cursor-row-resize touch-none outline-none',
+                           'before:absolute before:inset-x-0 before:top-1/2 before:h-px before:-translate-y-1/2 before:bg-border',
+                           'hover:before:bg-primary focus-visible:before:bg-primary',
+                           libraryPanel.dragging && 'before:bg-primary',
+                        )}
+                     />
 
                      <div className="flex min-h-0 flex-1 flex-col">
                         <div className="flex items-center justify-between px-3 py-2">
@@ -450,27 +589,31 @@ export function EmailEditor({
             <div
                className={cn(
                   'flex min-h-0 min-w-0 flex-1 flex-col',
-                  propertiesInline && 'flex-row',
+                  propertiesInline && !focusMode && 'flex-row',
                )}
             >
                <EmailCanvas
                   html={preview.html}
                   viewport={viewport}
+                  scale={zoom}
                   selectedId={selectedId}
                   selectedLabel={selectedLabel}
                   confirming={confirmingId !== null && confirmingId === selectedId}
                   onSelect={select}
                   onMove={move}
                   onMoveTo={moveTo}
+                  onDropLibrary={insertBlockFromLibrary}
+                  libraryDragRef={libraryDragRef}
                   onDuplicate={duplicate}
                   onRequestDelete={setConfirmingId}
+                  onRequestSaveBlock={onSaveBlock !== undefined ? requestSaveBlock : undefined}
                   onCancelDelete={() => setConfirmingId(null)}
                   onConfirmDelete={confirmDelete}
                   onUndo={undoDocument}
                   onRedo={redoDocument}
                />
 
-               {propertiesInline && (
+               {propertiesInline && !focusMode && (
                   <div
                      {...rightPanel.separatorProps}
                      aria-label="Resize properties panel"
@@ -488,9 +631,11 @@ export function EmailEditor({
                   id="editor-properties-panel"
                   className={cn(
                      'min-h-0 shrink-0 overflow-x-hidden overflow-y-auto bg-card/20',
-                     propertiesInline
-                        ? 'w-[var(--right-panel-width)]'
-                        : 'max-h-[38%] border-t border-border',
+                     focusMode
+                        ? 'hidden'
+                        : propertiesInline
+                          ? 'w-[var(--right-panel-width)]'
+                          : 'max-h-[38%] border-t border-border',
                   )}
                >
                   <PropertyPanel
@@ -499,10 +644,71 @@ export function EmailEditor({
                      onSelect={select}
                      onChange={applyChange}
                      onUploadImage={onUploadImage}
+                     onPickImage={onPickImage}
                   />
                </aside>
             </div>
          </div>
+
+         <Dialog
+            open={saveBlockId !== null}
+            onOpenChange={(open) => {
+               if (!open && !savingBlock) {
+                  setSaveBlockId(null);
+                  setSaveBlockError(null);
+               }
+            }}
+         >
+            <DialogContent className="max-w-md">
+               <DialogHeader>
+                  <DialogTitle>Save as reusable block</DialogTitle>
+                  <DialogDescription>
+                     This block will appear under Your blocks in the block library for every
+                     template in this workspace.
+                  </DialogDescription>
+               </DialogHeader>
+
+               <form
+                  className="grid gap-4"
+                  onSubmit={(event) => void submitSaveBlock(event)}
+               >
+                  <Field
+                     label="Block name"
+                     htmlFor="saved-block-name"
+                     error={saveBlockError ?? undefined}
+                     required
+                  >
+                     <Input
+                        id="saved-block-name"
+                        value={saveBlockName}
+                        maxLength={100}
+                        autoFocus
+                        onInput={(event) => {
+                           setSaveBlockName(event.currentTarget.value);
+                           setSaveBlockError(null);
+                        }}
+                     />
+                  </Field>
+
+                  <DialogFooter>
+                     <Button
+                        variant="outline"
+                        type="button"
+                        disabled={savingBlock}
+                        onClick={() => setSaveBlockId(null)}
+                     >
+                        Cancel
+                     </Button>
+                     <Button
+                        type="submit"
+                        disabled={savingBlock}
+                     >
+                        {savingBlock ? 'Saving…' : 'Save block'}
+                     </Button>
+                  </DialogFooter>
+               </form>
+            </DialogContent>
+         </Dialog>
 
          <DocumentDialog
             open={documentOpen}
