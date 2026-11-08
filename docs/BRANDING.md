@@ -58,7 +58,7 @@ Example lines:
 | Role                 | Hex       | Use                                                      |
 | -------------------- | --------- | -------------------------------------------------------- |
 | Action, links, focus | `#00508F` | Primary buttons, links, focus rings, selected controls   |
-| Ink and rail         | `#14293A` | Body text, the dark navigation rail, dark-mode surfaces  |
+| Ink                  | `#14293A` | Body text, dark-mode rail and card surfaces              |
 | Paper                | `#F6F4EF` | Light background                                         |
 | Warm attention       | `#FFCD82` | Trigger cards, callouts, logo tile on the rail, warnings |
 | Informational wash   | `#ADDBFF` | Info badges, dark-mode primary action, sidebar focus     |
@@ -66,7 +66,7 @@ Example lines:
 | Deep warm neutral    | `#4F3815` | Illustration and chart accents; not body copy            |
 | Dark canvas          | `#0E1B26` | Dark-mode page background, one step below `#14293A`      |
 
-The rail is dark in both modes. It uses `#14293A` in light mode and `#0A151F` in dark mode, with light text and a blue selected item. Peach is the warm signal; blue is the action colour. Do not use peach as large body-copy background.
+The rail follows the mode. Light mode uses warm paper `#F0EAE0` with navy text and a peach selected item; dark mode uses `#0A151F` with light text and a blue selected item. Peach is the warm signal; blue is the action colour. Do not use peach as large body-copy background.
 
 ## Naming architecture
 

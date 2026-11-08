@@ -26,7 +26,7 @@
    --ring: #00508f;
    --radius: 0.625rem;
    --ochre: #8f5601;
-   --sidebar: #14293a;
+   --sidebar: #f0eae0;
 }
 
 .dark {
@@ -57,9 +57,13 @@
    --sidebar: #0a151f;
 }
 
-/* The rail is dark in both modes, so it carries its own foreground tokens. */
+/* The rail is light with the rest of the light theme, and dark in dark mode. */
 .app-sidebar {
    color: var(--foreground);
+}
+
+.dark .app-sidebar {
+   color: #f3f0e8;
    --foreground: #f3f0e8;
    --muted-foreground: #a9b8c6;
    --border: rgba(255, 255, 255, 0.14);
