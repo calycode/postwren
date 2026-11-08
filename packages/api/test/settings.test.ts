@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authHeaders, baseEnv, createAppForTest, json, resetDb, seedOwner } from './helpers';
 
 const app = createAppForTest();
@@ -6,6 +6,17 @@ const app = createAppForTest();
 beforeEach(async () => {
    await resetDb();
 });
+
+afterEach(() => {
+   vi.unstubAllGlobals();
+});
+
+function cloudflareJson(body: unknown, status = 200): Response {
+   return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+   });
+}
 
 async function owner() {
    return seedOwner(baseEnv());
@@ -31,6 +42,111 @@ describe('settings senders', () => {
          is_default: 1,
       });
       expect(body.data.addresses[0].verified_at).toEqual(expect.any(Number));
+   });
+
+   it('verifies a sender domain through the Cloudflare Email Sending API', async () => {
+      const auth = await owner();
+      const listed = await json(
+         await app.request('/api/v1/settings/senders', { headers: { cookie: auth.cookie } }),
+      );
+      const address = listed.data.addresses[0] as { id: string; email: string };
+
+      const env = { CLOUDFLARE_API_TOKEN: 'test-token' };
+      const withToken = createAppForTest(env);
+      vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+         const url = String(input);
+         if (url.includes('/zones?')) {
+            return cloudflareJson({
+               success: true,
+               result: [{ id: 'zone-1', name: 'example.com', status: 'active' }],
+            });
+         }
+         if (url.includes('/email/sending/subdomains')) {
+            return cloudflareJson({
+               success: true,
+               result: [{ tag: 'sd-1', name: 'example.com', enabled: true }],
+            });
+         }
+         return cloudflareJson({ success: false, result: null }, 404);
+      });
+
+      const response = await withToken.request(`/api/v1/settings/senders/${address.id}/verify`, {
+         method: 'POST',
+         headers: authHeaders(auth),
+      });
+      expect(response.status).toBe(200);
+      const body = await json(response);
+      expect(body.data).toMatchObject({ verified: true, state: 'enabled', zone: 'example.com' });
+
+      const row = await baseEnv()
+         .DB.prepare('SELECT verified_at FROM sender_addresses WHERE id = ?')
+         .bind(address.id)
+         .first<{ verified_at: number | null }>();
+      expect(row?.verified_at).toEqual(expect.any(Number));
+   });
+
+   it('clears verification when Cloudflare reports the domain as not onboarded', async () => {
+      const auth = await owner();
+      const listed = await json(
+         await app.request('/api/v1/settings/senders', { headers: { cookie: auth.cookie } }),
+      );
+      const address = listed.data.addresses[0] as { id: string };
+
+      const withToken = createAppForTest({ CLOUDFLARE_API_TOKEN: 'test-token' });
+      vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+         const url = String(input);
+         if (url.includes('/zones?')) {
+            return cloudflareJson({
+               success: true,
+               result: [{ id: 'zone-1', name: 'example.com', status: 'active' }],
+            });
+         }
+         if (url.includes('/email/sending/subdomains')) {
+            return cloudflareJson({ success: true, result: [] });
+         }
+         return cloudflareJson({ success: false, result: null }, 404);
+      });
+
+      const response = await withToken.request(`/api/v1/settings/senders/${address.id}/verify`, {
+         method: 'POST',
+         headers: authHeaders(auth),
+      });
+      expect(response.status).toBe(200);
+      const body = await json(response);
+      expect(body.data).toMatchObject({ verified: false, state: 'not_onboarded' });
+
+      const row = await baseEnv()
+         .DB.prepare('SELECT verified_at FROM sender_addresses WHERE id = ?')
+         .bind(address.id)
+         .first<{ verified_at: number | null }>();
+      expect(row?.verified_at).toBeNull();
+   });
+
+   it('refuses to check verification without a Cloudflare token', async () => {
+      const auth = await owner();
+      const listed = await json(
+         await app.request('/api/v1/settings/senders', { headers: { cookie: auth.cookie } }),
+      );
+      const address = listed.data.addresses[0] as { id: string };
+
+      const response = await app.request(`/api/v1/settings/senders/${address.id}/verify`, {
+         method: 'POST',
+         headers: authHeaders(auth),
+      });
+      expect(response.status).toBe(400);
+      expect((await json(response)).error.code).toBe('cloudflare_not_configured');
+   });
+
+   it('reports Cloudflare discovery as unconfigured without a token', async () => {
+      const auth = await owner();
+
+      const response = await app.request('/api/v1/settings/senders/discover', {
+         headers: { cookie: auth.cookie },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await json(response);
+      expect(body.data).toEqual({ configured: false, domains: [] });
    });
 
    it('creates an unverified address and derives its domain', async () => {

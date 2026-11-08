@@ -90,6 +90,13 @@ apiKeyRoutes.delete('/:id', async (c) => {
       throw new NotFoundError('API key not found');
    }
 
+   // Revoking keeps the row as an audit trail. Deleting an already-revoked key
+   // removes it for good; a live key always has to be revoked first.
+   if (row.revoked_at !== null) {
+      await c.env.DB.prepare('DELETE FROM api_keys WHERE id = ?').bind(id).run();
+      return ok({ id, deleted: true });
+   }
+
    const now = nowSeconds();
    await c.env.DB.prepare('UPDATE api_keys SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?')
       .bind(now, id)

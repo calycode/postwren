@@ -32,6 +32,8 @@ export interface Env {
    ENVIRONMENT: string;
    EMAIL_FROM: string;
    OWNER_EMAIL?: string;
+   CLOUDFLARE_API_TOKEN?: string;
+   CLOUDFLARE_ACCOUNT_ID?: string;
 }
 
 export type AuthKind = 'session' | 'api_key' | 'service';

@@ -5,6 +5,7 @@ import { ok } from '@postwren/worker-kit/envelope';
 import { AppError, ConflictError, NotFoundError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { isUniqueViolation, readJson } from '../lib/validation';
+import { discoverSendingDomains, verifySendingDomain } from '../lib/cloudflare';
 import { nowSeconds } from '../lib/time';
 import { domainOf, seedSenderAddress, senderEmailFrom } from '../lib/senders';
 import type { SenderAddressRow } from '../lib/senders';
@@ -78,6 +79,36 @@ settingsRoutes.get('/senders', async (c) => {
       domains,
       defaultFrom: defaultAddress?.email ?? senderEmailFrom(c.env.EMAIL_FROM),
    });
+});
+
+settingsRoutes.get('/cloudflare/status', async (c) => {
+   return ok(
+      { configured: (c.env.CLOUDFLARE_API_TOKEN ?? '').trim().length > 0 },
+      { requestId: c.get('requestId') },
+   );
+});
+
+settingsRoutes.get('/senders/discover', async (c) => {
+   return ok(await discoverSendingDomains(c.env), { requestId: c.get('requestId') });
+});
+
+settingsRoutes.post('/senders/:id/verify', async (c) => {
+   const address = await findAddress(c.env.DB, c.req.param('id'));
+   if (address === null) {
+      throw new NotFoundError('Sender address not found');
+   }
+
+   const result = await verifySendingDomain(c.env, address.email);
+   if (!result.configured) {
+      throw new AppError(400, 'cloudflare_not_configured', result.detail);
+   }
+
+   const verified = result.state === 'enabled';
+   await c.env.DB.prepare('UPDATE sender_addresses SET verified_at = ? WHERE id = ?')
+      .bind(verified ? nowSeconds() : null, address.id)
+      .run();
+
+   return ok({ ...result, verified }, { requestId: c.get('requestId') });
 });
 
 settingsRoutes.post('/senders', async (c) => {

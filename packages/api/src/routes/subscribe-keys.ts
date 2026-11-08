@@ -107,17 +107,21 @@ subscribeKeyRoutes.post('/', async (c) => {
 
 subscribeKeyRoutes.delete('/:id', async (c) => {
    const id = c.req.param('id');
-   const existing = await c.env.DB.prepare('SELECT id FROM subscribe_keys WHERE id = ?')
+   const existing = await c.env.DB.prepare('SELECT id, revoked_at FROM subscribe_keys WHERE id = ?')
       .bind(id)
-      .first<{ id: string }>();
+      .first<{ id: string; revoked_at: number | null }>();
 
    if (existing === null) {
       throw new NotFoundError('Subscribe key not found');
    }
 
-   await c.env.DB.prepare(
-      'UPDATE subscribe_keys SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?',
-   )
+   // Same contract as API keys: revoke first, delete for good only once revoked.
+   if (existing.revoked_at !== null) {
+      await c.env.DB.prepare('DELETE FROM subscribe_keys WHERE id = ?').bind(id).run();
+      return ok({ id, deleted: true });
+   }
+
+   await c.env.DB.prepare('UPDATE subscribe_keys SET revoked_at = ? WHERE id = ?')
       .bind(nowSeconds(), id)
       .run();
 

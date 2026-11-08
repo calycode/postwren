@@ -151,11 +151,18 @@ oauthRoutes.post('/authorize', async (c) => {
       }
 
       const approved = await oauth.approveConsent(c.req.raw, handle);
+      const requested = approved.request.scope;
+      const selected = form
+         .getAll('scope')
+         .map((value) => String(value))
+         .filter((scope) => requested.includes(scope));
+      const granted = form.get('scope_present') === '1' ? selected : requested;
+
       const { redirectTo: location } = await oauth.completeAuthorization({
          request: approved.request,
          userId: user.id,
          metadata: { email: user.email },
-         scope: approved.request.scope,
+         scope: granted,
          props: { userId: user.id, email: user.email },
       });
 

@@ -118,7 +118,7 @@ type Approval = {
 
 async function approveConsent(
    client: Client,
-   options: { scopes?: string; verifier?: string; owner?: Auth } = {},
+   options: { scopes?: string; verifier?: string; owner?: Auth; granted?: string[] } = {},
 ): Promise<Approval> {
    const owner = options.owner ?? (await seedOwner());
    const verifier = options.verifier ?? VERIFIER;
@@ -152,6 +152,11 @@ async function approveConsent(
       csrf: owner.csrf,
       decision: 'approve',
    });
+
+   if (options.granted !== undefined) {
+      form.set('scope_present', '1');
+      for (const scope of options.granted) form.append('scope', scope);
+   }
 
    const approval = await SELF.fetch(`${APP_URL}/oauth/authorize`, {
       method: 'POST',
@@ -524,6 +529,53 @@ describe('OAuth authorization code with PKCE', () => {
       expect(tokens.scope.split(' ').sort()).toEqual(
          ['campaigns:read', 'subscribers:read', 'tags:read', 'templates:read'].sort(),
       );
+   });
+
+   it('renders each requested scope as a checked checkbox on the consent screen', async () => {
+      const client = await registerClient();
+      const owner = await seedOwner();
+      const params = new URLSearchParams({
+         response_type: 'code',
+         client_id: client.client_id,
+         redirect_uri: REDIRECT_URI,
+         scope: 'tags:read tags:write',
+         state: 'state-123',
+         code_challenge: CHALLENGE,
+         code_challenge_method: 'S256',
+      });
+
+      const consent = await SELF.fetch(`${APP_URL}/oauth/authorize?${params.toString()}`, {
+         headers: { cookie: owner.cookie },
+         redirect: 'manual',
+      });
+
+      expect(consent.status).toBe(200);
+      const html = await consent.text();
+      expect(html).toContain('name="scope" value="tags:read" checked');
+      expect(html).toContain('name="scope" value="tags:write" checked');
+      expect(html).toContain('name="scope_present" value="1"');
+   });
+
+   it('grants only the scopes the user keeps on the consent screen', async () => {
+      const client = await registerClient();
+      const approval = await approveConsent(client, {
+         scopes: 'tags:read tags:write',
+         granted: ['tags:write'],
+      });
+
+      const tokens = await json(await exchangeCode(client.client_id, approval.code));
+      expect(tokens.scope).toBe('tags:write');
+   });
+
+   it('ignores a submitted scope the client never requested', async () => {
+      const client = await registerClient();
+      const approval = await approveConsent(client, {
+         scopes: 'tags:read',
+         granted: ['tags:read', 'campaigns:write'],
+      });
+
+      const tokens = await json(await exchangeCode(client.client_id, approval.code));
+      expect(tokens.scope).toBe('tags:read');
    });
 
    it('rejects a wrong verifier, redirect mismatch and wrong resource', async () => {

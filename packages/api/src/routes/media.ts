@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { ok } from '@postwren/worker-kit/envelope';
 import { AppError, NotFoundError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { appOrigin } from '../lib/app-url';
 
 const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_NAME_LENGTH = 120;
 
 type ImageKind = { ext: string; contentType: string };
 
@@ -42,6 +44,83 @@ async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
 
 export const mediaUploadRoutes = new Hono<AppEnv>();
 
+const mediaListQuery = z.object({
+   offset: z.coerce.number().int().min(0).max(10_000).optional(),
+   limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+type MediaRow = {
+   key: string;
+   name: string;
+   content_type: string;
+   size: number;
+   created_at: number;
+};
+
+function mediaUrl(origin: string, key: string): string {
+   return `${origin}/media/${key}`;
+}
+
+mediaUploadRoutes.get('/', async (c) => {
+   const query = mediaListQuery.parse(c.req.query());
+   const origin = appOrigin(c);
+   const rows = await c.env.DB.prepare(
+      `SELECT key, name, content_type, size, created_at
+       FROM media_assets ORDER BY created_at DESC`,
+   ).all<MediaRow>();
+
+   // Objects uploaded before the registry existed still show up, named by key.
+   const known = new Set(rows.results.map((row) => row.key));
+   const stored = await c.env.MEDIA.list({ prefix: 'media/', limit: 1000 });
+   const extras = stored.objects
+      .filter((object) => !known.has(object.key))
+      .map((object) => ({
+         key: object.key,
+         name: object.key.slice('media/'.length),
+         content_type: object.httpMetadata?.contentType ?? 'application/octet-stream',
+         size: object.size,
+         created_at: Math.floor(object.uploaded.getTime() / 1000),
+      }));
+
+   const items = [...rows.results, ...extras]
+      .sort((a, b) => b.created_at - a.created_at)
+      .map((row) => ({
+         key: row.key,
+         url: mediaUrl(origin, row.key),
+         name: row.name,
+         contentType: row.content_type,
+         size: row.size,
+         uploadedAt: new Date(row.created_at * 1000).toISOString(),
+      }));
+
+   const offset = query.offset ?? 0;
+   const limit = query.limit ?? 100;
+
+   return ok(
+      {
+         items: items.slice(offset, offset + limit),
+         cursor: offset + limit < items.length ? String(offset + limit) : null,
+      },
+      { requestId: c.get('requestId') },
+   );
+});
+
+mediaUploadRoutes.delete('/', async (c) => {
+   const key = c.req.query('key')?.trim() ?? '';
+   if (!key.startsWith('media/') || key.includes('..')) {
+      throw new AppError(422, 'validation_error', 'Expected a media key');
+   }
+
+   const object = await c.env.MEDIA.head(key);
+   if (object === null) {
+      throw new NotFoundError('Image not found');
+   }
+
+   await c.env.MEDIA.delete(key);
+   await c.env.DB.prepare('DELETE FROM media_assets WHERE key = ?').bind(key).run();
+   return ok({ key, deleted: true }, { requestId: c.get('requestId') });
+});
+
 mediaUploadRoutes.post('/', async (c) => {
    const body = await c.req.parseBody();
    const file = body['file'];
@@ -62,13 +141,31 @@ mediaUploadRoutes.post('/', async (c) => {
 
    const hash = await sha256Hex(buffer);
    const key = `media/${hash}.${kind.ext}`;
+   const name = file.name.trim().slice(0, MAX_NAME_LENGTH) || key.slice('media/'.length);
+   const now = Math.floor(Date.now() / 1000);
 
    await c.env.MEDIA.put(key, buffer, {
       httpMetadata: { contentType: kind.contentType },
+      customMetadata: { name },
    });
 
+   await c.env.DB.prepare(
+      `INSERT INTO media_assets (key, name, content_type, size, created_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET name = excluded.name`,
+   )
+      .bind(key, name, kind.contentType, buffer.byteLength, now)
+      .run();
+
    return ok(
-      { url: `${appOrigin(c)}/media/${key}`, key },
+      {
+         url: mediaUrl(appOrigin(c), key),
+         key,
+         name,
+         contentType: kind.contentType,
+         size: buffer.byteLength,
+         uploadedAt: new Date(now * 1000).toISOString(),
+      },
       { status: 201, requestId: c.get('requestId') },
    );
 });

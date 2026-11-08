@@ -9,12 +9,19 @@ describe('app origin', () => {
       expect(normaliseAppOrigin('http://localhost:8787')).toBe('http://localhost:8787');
    });
 
+   it('assumes https for a bare host, and http for loopback', () => {
+      expect(normaliseAppOrigin('postwren.calycode.com')).toBe('https://postwren.calycode.com');
+      expect(normaliseAppOrigin('postwren.calycode.com/')).toBe('https://postwren.calycode.com');
+      expect(normaliseAppOrigin('localhost:8787')).toBe('http://localhost:8787');
+      expect(normaliseAppOrigin('127.0.0.1:8787')).toBe('http://127.0.0.1:8787');
+   });
+
    it('rejects empty and non-http values', () => {
       expect(normaliseAppOrigin('')).toBeNull();
       expect(normaliseAppOrigin('   ')).toBeNull();
       expect(normaliseAppOrigin(undefined)).toBeNull();
-      expect(normaliseAppOrigin('mail.example.com')).toBeNull();
       expect(normaliseAppOrigin('ftp://mail.example.com')).toBeNull();
+      expect(normaliseAppOrigin('https://')).toBeNull();
    });
 
    it('falls back to the request origin when APP_URL is unset', () => {
