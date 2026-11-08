@@ -13,9 +13,94 @@ type TagWithCount = {
    name: string;
    created_at: number;
    subscriber_count: number;
+   campaign_count: number;
+   automation_count: number;
 };
 
 const autocompleteQuery = z.object({ q: z.string().trim().optional() });
+
+/**
+ * Tag names are the public identifier inside audience queries (`tag:vip`) and
+ * inside automation tag steps, so a rename has to rewrite those references or a
+ * saved audience silently stops matching.
+ */
+function escapeRegExp(value: string): string {
+   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function newTagReference(oldName: string): RegExp {
+   return new RegExp(`tag:${escapeRegExp(oldName)}(?![A-Za-z0-9_-])`, 'g');
+}
+
+async function rewriteTagReferences(
+   db: D1Database,
+   oldName: string,
+   newName: string,
+): Promise<void> {
+   const pattern = newTagReference(oldName);
+
+   const campaigns = await db
+      .prepare(
+         `SELECT id, audience_query FROM campaigns
+          WHERE audience_query LIKE ? ESCAPE '\\'`,
+      )
+      .bind(`%${escapeLike(oldName)}%`)
+      .all<{ id: string; audience_query: string }>();
+
+   for (const campaign of campaigns.results) {
+      const next = campaign.audience_query.replace(pattern, `tag:${newName}`);
+      if (next !== campaign.audience_query) {
+         await db
+            .prepare('UPDATE campaigns SET audience_query = ? WHERE id = ?')
+            .bind(next, campaign.id)
+            .run();
+      }
+   }
+
+   const automations = await db
+      .prepare(
+         `SELECT id, entry_query, steps_json FROM automations
+          WHERE entry_query LIKE ? ESCAPE '\\' OR steps_json LIKE ? ESCAPE '\\'`,
+      )
+      .bind(`%${escapeLike(oldName)}%`, `%"tag":"${escapeLike(oldName)}"%`)
+      .all<{ id: string; entry_query: string; steps_json: string }>();
+
+   for (const automation of automations.results) {
+      const entryQuery = automation.entry_query.replace(pattern, `tag:${newName}`);
+
+      let stepsJson = automation.steps_json;
+      try {
+         const steps = JSON.parse(automation.steps_json) as unknown;
+         if (Array.isArray(steps)) {
+            let changed = false;
+            const next = steps.map((step) => {
+               if (
+                  typeof step === 'object' &&
+                  step !== null &&
+                  'type' in step &&
+                  (step.type === 'add_tag' || step.type === 'remove_tag') &&
+                  'tag' in step &&
+                  step.tag === oldName
+               ) {
+                  changed = true;
+                  return { ...step, tag: newName };
+               }
+               return step;
+            });
+            if (changed) stepsJson = JSON.stringify(next);
+         }
+      } catch {
+         // Leave an unreadable graph untouched; the tag rename still succeeds.
+      }
+
+      if (entryQuery !== automation.entry_query || stepsJson !== automation.steps_json) {
+         await db
+            .prepare('UPDATE automations SET entry_query = ?, steps_json = ? WHERE id = ?')
+            .bind(entryQuery, stepsJson, automation.id)
+            .run();
+      }
+   }
+}
 
 export const tagRoutes = new Hono<AppEnv>();
 
@@ -27,9 +112,33 @@ tagRoutes.get('/', async (c) => {
        LEFT JOIN subscriber_tags st ON st.tag_id = t.id
        GROUP BY t.id, t.name, t.created_at
        ORDER BY t.name ASC`,
-   ).all<TagWithCount>();
+   ).all<{ id: string; name: string; created_at: number; subscriber_count: number }>();
 
-   return ok(rows.results, { requestId: c.get('requestId') });
+   const [campaigns, automations] = await Promise.all([
+      c.env.DB.prepare('SELECT audience_query FROM campaigns').all<{ audience_query: string }>(),
+      c.env.DB.prepare('SELECT entry_query, steps_json FROM automations').all<{
+         entry_query: string;
+         steps_json: string;
+      }>(),
+   ]);
+
+   // Count with the same tag:name token boundary used by the rename rewrite, so
+   // `newsletter` does not claim campaigns that only use `newsletter-vip`.
+   const tags: TagWithCount[] = rows.results.map((tag) => {
+      const reference = new RegExp(`tag:${escapeRegExp(tag.name)}(?![A-Za-z0-9_-])`, 'i');
+      const stepReference = `"tag":"${tag.name}"`;
+
+      return {
+         ...tag,
+         campaign_count: campaigns.results.filter((row) => reference.test(row.audience_query))
+            .length,
+         automation_count: automations.results.filter(
+            (row) => reference.test(row.entry_query) || row.steps_json.includes(stepReference),
+         ).length,
+      };
+   });
+
+   return ok(tags, { requestId: c.get('requestId') });
 });
 
 tagRoutes.get('/autocomplete', async (c) => {
@@ -76,9 +185,9 @@ tagRoutes.patch('/:id', async (c) => {
    const body = tagInput.parse(await readJson(c));
    const name = body.name.trim().toLowerCase();
 
-   const existing = await c.env.DB.prepare('SELECT id FROM tags WHERE id = ?')
+   const existing = await c.env.DB.prepare('SELECT id, name FROM tags WHERE id = ?')
       .bind(id)
-      .first<{ id: string }>();
+      .first<{ id: string; name: string }>();
    if (existing === null) {
       throw new NotFoundError('Tag not found');
    }
@@ -90,6 +199,10 @@ tagRoutes.patch('/:id', async (c) => {
          throw new ConflictError('A tag with that name already exists');
       }
       throw error;
+   }
+
+   if (existing.name !== name) {
+      await rewriteTagReferences(c.env.DB, existing.name, name);
    }
 
    const row = await c.env.DB.prepare('SELECT id, name, created_at FROM tags WHERE id = ?')

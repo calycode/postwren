@@ -98,6 +98,36 @@ describe('campaigns', () => {
       expect((await json(sendNow)).error.code).toBe('app_url_missing');
    });
 
+   it('accepts a bare host in APP_URL', async () => {
+      const owner = await seedOwner(baseEnv());
+      const campaign = await createCampaign(owner);
+      const bare = createAppForTest({ APP_URL: 'postwren.calycode.com' });
+
+      const response = await bare.request(`/api/v1/campaigns/${campaign.id}/schedule`, {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ scheduledAt: now() + 3600 }),
+      });
+
+      expect(response.status).toBe(200);
+      expect((await json(response)).data.status).toBe('scheduled');
+   });
+
+   it('reports an invalid APP_URL separately from a missing one', async () => {
+      const owner = await seedOwner(baseEnv());
+      const campaign = await createCampaign(owner);
+      const invalid = createAppForTest({ APP_URL: 'ftp://postwren.calycode.com' });
+
+      const response = await invalid.request(`/api/v1/campaigns/${campaign.id}/schedule`, {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ scheduledAt: now() + 3600 }),
+      });
+
+      expect(response.status).toBe(422);
+      expect((await json(response)).error.code).toBe('app_url_invalid');
+   });
+
    it('schedules a campaign and snapshots its audience', async () => {
       const owner = await seedOwner(baseEnv());
       const campaign = await createCampaign(owner);

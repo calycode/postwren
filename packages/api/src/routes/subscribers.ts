@@ -10,6 +10,7 @@ import type { AppEnv } from '../env';
 import { decodeKeysetCursor, encodeKeysetCursor } from '../lib/cursor';
 import { isUniqueViolation, likePattern, readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';
+import { enrollAddedTags, enrollSubscriberCreated } from '../jobs/automation';
 import {
    attachTag,
    ensureTag,
@@ -104,19 +105,22 @@ async function tagIdByValue(
    value: string,
    now: number,
    create: boolean,
-): Promise<string | null> {
-   const byId = await db.prepare('SELECT id FROM tags WHERE id = ?').bind(value).first<{
+): Promise<{ id: string; name: string } | null> {
+   const byId = await db.prepare('SELECT id, name FROM tags WHERE id = ?').bind(value).first<{
       id: string;
+      name: string;
    }>();
-   if (byId !== null) return byId.id;
+   if (byId !== null) return byId;
 
    const normalised = value.trim().toLowerCase();
-   const byName = await db.prepare('SELECT id FROM tags WHERE name = ?').bind(normalised).first<{
-      id: string;
-   }>();
-   if (byName !== null) return byName.id;
+   const byName = await db
+      .prepare('SELECT id, name FROM tags WHERE name = ?')
+      .bind(normalised)
+      .first<{ id: string; name: string }>();
+   if (byName !== null) return byName;
 
-   return create ? ensureTag(db, normalised, now) : null;
+   if (!create) return null;
+   return { id: await ensureTag(db, normalised, now), name: normalised };
 }
 
 function csvCell(value: string | null): string {
@@ -225,6 +229,15 @@ subscriberRoutes.post('/', async (c) => {
       throw new NotFoundError('Subscriber not found');
    }
 
+   if (result.created) {
+      try {
+         await enrollSubscriberCreated(c.env, row.id, now);
+      } catch {
+         // The subscriber exists; enrollment can be retried from the automation later.
+      }
+   }
+   await enrollAddedTags(c.env, row.id, result.addedTags, now);
+
    return ok(await subscriberResource(c.env.DB, row, []), {
       status: 201,
       requestId: c.get('requestId'),
@@ -267,6 +280,15 @@ subscriberRoutes.post('/import', async (c) => {
 
       if (result.created) imported += 1;
       else updated += 1;
+
+      if (result.created) {
+         try {
+            await enrollSubscriberCreated(c.env, result.id, now);
+         } catch {
+            // Import must not fail because one automation enrollment did.
+         }
+      }
+      await enrollAddedTags(c.env, result.id, result.addedTags, now);
    }
 
    const errors = parsed.errors.filter((error) => !error.message.startsWith('Duplicate email:'));
@@ -330,25 +352,114 @@ subscriberRoutes.get('/:id', async (c) => {
    return ok(await subscriberResource(c.env.DB, row));
 });
 
+subscriberRoutes.get('/:id/activity', async (c) => {
+   const id = c.req.param('id');
+   const subscriber = await findSubscriber(c.env.DB, id);
+   if (subscriber === null) {
+      throw new NotFoundError('Subscriber not found');
+   }
+
+   const totals = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS received,
+              SUM(CASE WHEN opened_at IS NOT NULL THEN 1 ELSE 0 END) AS opened,
+              SUM(CASE WHEN clicked_at IS NOT NULL THEN 1 ELSE 0 END) AS clicked,
+              MAX(sent_at) AS last_sent_at
+       FROM campaign_recipients
+       WHERE subscriber_id = ?`,
+   )
+      .bind(id)
+      .first<{
+         received: number;
+         opened: number | null;
+         clicked: number | null;
+         last_sent_at: number | null;
+      }>();
+
+   const timeline = await c.env.DB.prepare(
+      `SELECT cr.campaign_id AS campaign_id, c.name AS campaign_name, c.subject AS subject,
+              cr.status AS status, cr.sent_at AS sent_at, cr.opened_at AS opened_at,
+              cr.clicked_at AS clicked_at
+       FROM campaign_recipients cr
+       JOIN campaigns c ON c.id = cr.campaign_id
+       WHERE cr.subscriber_id = ?
+       ORDER BY COALESCE(cr.sent_at, cr.opened_at, cr.clicked_at, 0) DESC
+       LIMIT 30`,
+   )
+      .bind(id)
+      .all<{
+         campaign_id: string;
+         campaign_name: string;
+         subject: string;
+         status: string;
+         sent_at: number | null;
+         opened_at: number | null;
+         clicked_at: number | null;
+      }>();
+
+   const clicks = await c.env.DB.prepare(
+      `SELECT lc.url AS url, lc.clicked_at AS clicked_at, lc.campaign_id AS campaign_id,
+              c.name AS campaign_name
+       FROM link_clicks lc
+       JOIN campaigns c ON c.id = lc.campaign_id
+       WHERE lc.subscriber_id = ?
+       ORDER BY lc.clicked_at DESC
+       LIMIT 30`,
+   )
+      .bind(id)
+      .all<{
+         url: string;
+         clicked_at: number;
+         campaign_id: string;
+         campaign_name: string;
+      }>();
+
+   return ok({
+      subscriberId: id,
+      totals: {
+         received: totals?.received ?? 0,
+         opened: totals?.opened ?? 0,
+         clicked: totals?.clicked ?? 0,
+         lastSentAt: totals?.last_sent_at ?? null,
+      },
+      timeline: timeline.results.map((row) => ({
+         campaignId: row.campaign_id,
+         campaignName: row.campaign_name,
+         subject: row.subject,
+         status: row.status,
+         sentAt: row.sent_at,
+         openedAt: row.opened_at,
+         clickedAt: row.clicked_at,
+      })),
+      clicks: clicks.results.map((row) => ({
+         url: row.url,
+         clickedAt: row.clicked_at,
+         campaignId: row.campaign_id,
+         campaignName: row.campaign_name,
+      })),
+   });
+});
+
 subscriberRoutes.post('/bulk-tags', async (c) => {
    const body = bulkTagsInput.parse(await readJson(c));
    const now = nowSeconds();
-   const addIds: string[] = [];
+   const addTags: { id: string; name: string }[] = [];
    const removeIds: string[] = [];
 
    for (const value of body.add ?? []) {
-      const tagId = await tagIdByValue(c.env.DB, value, now, true);
-      if (tagId !== null) addIds.push(tagId);
+      const tag = await tagIdByValue(c.env.DB, value, now, true);
+      if (tag !== null) addTags.push(tag);
    }
 
    for (const value of body.remove ?? []) {
-      const tagId = await tagIdByValue(c.env.DB, value, now, false);
-      if (tagId !== null) removeIds.push(tagId);
+      const tag = await tagIdByValue(c.env.DB, value, now, false);
+      if (tag !== null) removeIds.push(tag.id);
    }
 
    for (const subscriberId of body.subscriberIds) {
-      for (const tagId of addIds) {
-         await attachTag(c.env.DB, subscriberId, tagId);
+      for (const tag of addTags) {
+         if (await attachTag(c.env.DB, subscriberId, tag.id)) {
+            await enrollAddedTags(c.env, subscriberId, [tag.name], now);
+         }
       }
       for (const tagId of removeIds) {
          await c.env.DB.prepare(
@@ -361,7 +472,7 @@ subscriberRoutes.post('/bulk-tags', async (c) => {
 
    return ok({
       updated: body.subscriberIds.length,
-      added: addIds.length,
+      added: addTags.length,
       removed: removeIds.length,
    });
 });
@@ -509,14 +620,16 @@ subscriberRoutes.post('/:id/tags', async (c) => {
       throw new NotFoundError('Subscriber not found');
    }
 
-   const tag = await c.env.DB.prepare('SELECT id FROM tags WHERE id = ?')
+   const tag = await c.env.DB.prepare('SELECT id, name FROM tags WHERE id = ?')
       .bind(body.tagId)
-      .first<{ id: string }>();
+      .first<{ id: string; name: string }>();
    if (tag === null) {
       throw new NotFoundError('Tag not found');
    }
 
-   await attachTag(c.env.DB, id, tag.id);
+   if (await attachTag(c.env.DB, id, tag.id)) {
+      await enrollAddedTags(c.env, id, [tag.name]);
+   }
    return ok({ subscriberId: id, tagId: tag.id });
 });
 

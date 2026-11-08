@@ -4,7 +4,7 @@ import { ok } from '@postwren/worker-kit/envelope';
 import type { AppEnv } from '../env';
 import { countAudience } from '../lib/audience';
 
-const previewQuery = z.object({ q: z.string().trim().min(1) });
+const previewQuery = z.object({ q: z.string().trim().max(2000).default('') });
 
 export const audienceRoutes = new Hono<AppEnv>();
 

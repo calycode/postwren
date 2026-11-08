@@ -90,6 +90,29 @@ describe('subscribe key management', () => {
       const response = await subscribe(created.key, { email: 'ada@example.com' });
       expect(response.status).toBe(401);
    });
+
+   it('deletes a revoked key for good, and only then', async () => {
+      const owner = await seedOwner(baseEnv());
+      const created = await createKey(owner);
+      const url = `/api/v1/subscribe-keys/${created.id}`;
+
+      const first = await app.request(url, {
+         method: 'DELETE',
+         headers: authHeaders(owner),
+      });
+      expect((await json(first)).data).toMatchObject({ revoked: true });
+
+      const second = await app.request(url, {
+         method: 'DELETE',
+         headers: authHeaders(owner),
+      });
+      expect((await json(second)).data).toMatchObject({ deleted: true });
+
+      const list = await app.request('/api/v1/subscribe-keys', {
+         headers: { cookie: owner.cookie },
+      });
+      expect((await json(list)).data).toHaveLength(0);
+   });
 });
 
 describe('public subscribe', () => {

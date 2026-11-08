@@ -7,6 +7,7 @@ import type { AppEnv } from '../env';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { nowSeconds } from '../lib/time';
 import { requestClientIp } from '../middleware/context';
+import { enrollAutomations } from '../jobs/automation';
 
 const TRANSPARENT_PNG_BASE64 =
    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -42,11 +43,20 @@ trackingRoutes.get('/t/o/:token', async (c) => {
    if (payload !== null && typeof payload.m === 'string') {
       try {
          await consumeRateLimit(c.env.DB, `tracking:${requestClientIp(c)}`, TRACKING_LIMIT);
-         await c.env.DB.prepare(
+         const now = nowSeconds();
+         const updated = await c.env.DB.prepare(
             'UPDATE campaign_recipients SET opened_at = ? WHERE message_id = ? AND opened_at IS NULL',
          )
-            .bind(nowSeconds(), payload.m)
+            .bind(now, payload.m)
             .run();
+
+         if ((updated.meta.changes ?? 0) === 0) {
+            await c.env.DB.prepare(
+               'UPDATE automation_deliveries SET opened_at = ? WHERE id = ? AND opened_at IS NULL',
+            )
+               .bind(now, payload.m)
+               .run();
+         }
       } catch {
          // A pixel must always render, even when the write is rate limited.
       }
@@ -102,8 +112,46 @@ trackingRoutes.get('/t/c/:token', async (c) => {
       .bind(payload.m)
       .first<{ campaign_id: string; subscriber_id: string }>();
 
+   const now = nowSeconds();
+   await consumeRateLimit(c.env.DB, `tracking:${requestClientIp(c)}`, TRACKING_LIMIT);
+
    if (recipient === null) {
-      throw new NotFoundError();
+      const delivery = await c.env.DB.prepare(
+         'SELECT automation_id, subscriber_id FROM automation_deliveries WHERE id = ?',
+      )
+         .bind(payload.m)
+         .first<{ automation_id: string; subscriber_id: string }>();
+
+      if (delivery === null) throw new NotFoundError();
+
+      await c.env.DB.prepare(
+         `INSERT INTO automation_link_clicks
+            (delivery_id, automation_id, subscriber_id, url, link_id, clicked_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+         .bind(
+            payload.m,
+            delivery.automation_id,
+            delivery.subscriber_id,
+            destination.toString(),
+            payload.l ?? null,
+            now,
+         )
+         .run();
+
+      await c.env.DB.prepare(
+         'UPDATE automation_deliveries SET clicked_at = ? WHERE id = ? AND clicked_at IS NULL',
+      )
+         .bind(now, payload.m)
+         .run();
+
+      return new Response(null, {
+         status: 302,
+         headers: {
+            location: destination.toString(),
+            'cache-control': 'no-store',
+         },
+      });
    }
 
    const campaign = await c.env.DB.prepare(
@@ -116,9 +164,6 @@ trackingRoutes.get('/t/c/:token', async (c) => {
       appendUtm(destination, campaign, payload.l);
    }
 
-   await consumeRateLimit(c.env.DB, `tracking:${requestClientIp(c)}`, TRACKING_LIMIT);
-
-   const now = nowSeconds();
    await c.env.DB.prepare(
       `INSERT INTO link_clicks (campaign_id, message_id, subscriber_id, url, link_id, clicked_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -138,6 +183,22 @@ trackingRoutes.get('/t/c/:token', async (c) => {
    )
       .bind(now, payload.m)
       .run();
+
+   try {
+      await enrollAutomations(
+         c.env,
+         {
+            kind: 'campaign.clicked',
+            subscriberId: recipient.subscriber_id,
+            campaignId: recipient.campaign_id,
+            messageId: payload.m,
+            ...(payload.l === undefined ? {} : { linkId: payload.l }),
+         },
+         now,
+      );
+   } catch {
+      // Tracking redirects must keep working even when enrolment fails.
+   }
 
    return new Response(null, {
       status: 302,

@@ -373,22 +373,24 @@ campaignRoutes.get('/:id/recipients', async (c) => {
    await findCampaign(c.env.DB, id);
    const query = recipientsQuery.parse(c.req.query());
 
-   const clauses = ['campaign_id = ?'];
+   const clauses = ['cr.campaign_id = ?'];
    const params: string[] = [id];
 
    if (query.cursor !== undefined) {
-      clauses.push('subscriber_id > ?');
+      clauses.push('cr.subscriber_id > ?');
       params.push(decodeCursor(query.cursor));
    }
 
    const rows = await c.env.DB.prepare(
-      `SELECT * FROM campaign_recipients
+      `SELECT cr.*, s.email AS email
+       FROM campaign_recipients cr
+       LEFT JOIN subscribers s ON s.id = cr.subscriber_id
        WHERE ${clauses.join(' AND ')}
-       ORDER BY subscriber_id ASC
+       ORDER BY cr.subscriber_id ASC
        LIMIT ?`,
    )
       .bind(...params, query.limit + 1)
-      .all<RecipientRow>();
+      .all<RecipientRow & { email: string | null }>();
 
    const hasMore = rows.results.length > query.limit;
    const page = hasMore ? rows.results.slice(0, query.limit) : rows.results;
@@ -455,6 +457,29 @@ campaignRoutes.get('/:id/stats', async (c) => {
       .bind(id)
       .first<{ count: number }>();
 
+   const links = await c.env.DB.prepare(
+      `SELECT url, COUNT(*) AS clicks, COUNT(DISTINCT subscriber_id) AS clickers,
+              MAX(clicked_at) AS last_clicked_at
+       FROM link_clicks
+       WHERE campaign_id = ?
+       GROUP BY url
+       ORDER BY clicks DESC, url ASC
+       LIMIT 8`,
+   )
+      .bind(id)
+      .all<{ url: string; clicks: number; clickers: number; last_clicked_at: number }>();
+
+   const recentClicks = await c.env.DB.prepare(
+      `SELECT s.email AS email, lc.url AS url, lc.clicked_at AS clicked_at
+       FROM link_clicks lc
+       LEFT JOIN subscribers s ON s.id = lc.subscriber_id
+       WHERE lc.campaign_id = ?
+       ORDER BY lc.clicked_at DESC
+       LIMIT 8`,
+   )
+      .bind(id)
+      .all<{ email: string | null; url: string; clicked_at: number }>();
+
    const audienceSize = campaign.audience_count ?? total;
    const uniqueClicks = clicks?.count ?? 0;
 
@@ -466,6 +491,17 @@ campaignRoutes.get('/:id/stats', async (c) => {
       uniqueOpens: opens?.count ?? 0,
       uniqueClicks,
       clickThroughRate: audienceSize > 0 ? uniqueClicks / audienceSize : 0,
+      topLinks: links.results.map((row) => ({
+         url: row.url,
+         clicks: row.clicks,
+         clickers: row.clickers,
+         lastClickedAt: row.last_clicked_at,
+      })),
+      recentClicks: recentClicks.results.map((row) => ({
+         email: row.email,
+         url: row.url,
+         clickedAt: row.clicked_at,
+      })),
    };
 
    statsCache.set(id, { expiresAt: Date.now() + STATS_TTL_MS, value });

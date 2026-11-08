@@ -9,6 +9,7 @@ import type { AppEnv } from '../env';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';
+import { enrollAddedTags, enrollSubscriberCreated } from '../jobs/automation';
 import { upsertSubscriber } from '../lib/subscribers';
 import { requestClientIp } from '../middleware/context';
 
@@ -126,7 +127,7 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
       const body = publicSubscribeInput.parse(raw);
 
       const tags = [...stringArray(key.default_tags), ...(body.tags ?? [])];
-      await upsertSubscriber(
+      const result = await upsertSubscriber(
          c.env.DB,
          {
             email: body.email,
@@ -141,6 +142,15 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
          },
          nowSeconds(),
       );
+
+      if (result.created) {
+         try {
+            await enrollSubscriberCreated(c.env, result.id);
+         } catch {
+            // A failed enrollment must not turn a valid signup into an error.
+         }
+      }
+      await enrollAddedTags(c.env, result.id, result.addedTags);
 
       // Same answer for new and existing addresses: the endpoint is public and
       // must not become a list-membership oracle.

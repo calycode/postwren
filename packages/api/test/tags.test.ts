@@ -7,6 +7,7 @@ import {
    resetDb,
    seedOwner,
    seedSubscribers,
+   seedTemplate,
 } from './helpers';
 
 const app = createAppForTest();
@@ -70,6 +71,106 @@ describe('tags', () => {
          body,
       });
       expect(second.status).toBe(409);
+   });
+
+   it('rewrites saved audiences and automation steps when a tag is renamed', async () => {
+      const owner = await seedOwner(baseEnv());
+      const tag = (
+         await json(
+            await app.request('/api/v1/tags', {
+               method: 'POST',
+               headers: authHeaders(owner),
+               body: JSON.stringify({ name: 'vip' }),
+            }),
+         )
+      ).data as { id: string };
+
+      const template = await seedTemplate(baseEnv(), { name: 'Audience', subject: 'Audience' });
+      const senderSettings = (
+         await json(
+            await app.request('/api/v1/settings/senders', {
+               headers: { cookie: owner.cookie },
+            }),
+         )
+      ).data as { defaultFrom: string };
+      const campaignResponse = await app.request('/api/v1/campaigns', {
+         method: 'POST',
+         headers: authHeaders(owner),
+         body: JSON.stringify({
+            name: 'Tagged send',
+            templateId: template.id,
+            subject: 'Tagged',
+            fromName: 'Sender',
+            fromEmail: senderSettings.defaultFrom,
+            audienceQuery: 'tag:vip tag:vip2',
+         }),
+      });
+      expect(campaignResponse.status).toBe(201);
+      const campaign = (await json(campaignResponse)).data as { id: string };
+
+      const automation = (
+         await json(
+            await app.request('/api/v1/automations', {
+               method: 'POST',
+               headers: authHeaders(owner),
+               body: JSON.stringify({
+                  name: 'Tag rename',
+                  triggerType: 'subscriber.created',
+                  entryQuery: 'tag:vip',
+                  fromName: 'Sender',
+                  fromEmail: senderSettings.defaultFrom,
+                  steps: [
+                     { id: 'add', type: 'add_tag', tag: 'vip' },
+                     { id: 'exit', type: 'exit' },
+                  ],
+               }),
+            }),
+         )
+      ).data as { id: string };
+
+      const list = (
+         await json(
+            await app.request('/api/v1/tags', {
+               headers: { cookie: owner.cookie },
+            }),
+         )
+      ).data as Array<{
+         id: string;
+         name: string;
+         campaign_count: number;
+         automation_count: number;
+      }>;
+      const before = list.find((item) => item.name === 'vip');
+      expect(before?.campaign_count).toBe(1);
+      expect(before?.automation_count).toBe(1);
+
+      const renamed = await app.request(`/api/v1/tags/${tag.id}`, {
+         method: 'PATCH',
+         headers: authHeaders(owner),
+         body: JSON.stringify({ name: 'vip-members' }),
+      });
+      expect(renamed.status).toBe(200);
+
+      const campaignAfter = (
+         await json(
+            await app.request(`/api/v1/campaigns/${campaign.id}`, {
+               headers: { cookie: owner.cookie },
+            }),
+         )
+      ).data as { audience_query: string };
+      expect(campaignAfter.audience_query).toBe('tag:vip-members tag:vip2');
+
+      const automationAfter = (
+         await json(
+            await app.request(`/api/v1/automations/${automation.id}`, {
+               headers: { cookie: owner.cookie },
+            }),
+         )
+      ).data as { entryQuery: string; steps: Array<{ type: string; tag?: string }> };
+      expect(automationAfter.entryQuery).toBe('tag:vip-members');
+      expect(automationAfter.steps.find((step) => step.type === 'add_tag')?.tag).toBe(
+         'vip-members',
+      );
    });
 
    it('returns subscriber counts and autocomplete results', async () => {
