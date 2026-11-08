@@ -1,6 +1,13 @@
 import { ApiError, apiFetchPage, apiRequest } from './client';
 import { parseEnvelope } from './envelope';
-import type { ImportResult, PageMeta, Subscriber, SubscriberStatus, Tag } from './types';
+import type {
+   ImportResult,
+   PageMeta,
+   Subscriber,
+   SubscriberActivity,
+   SubscriberStatus,
+   Tag,
+} from './types';
 
 export type SubscriberListParams = {
    cursor?: string;
@@ -44,6 +51,12 @@ export function list(
    params: SubscriberListParams = {},
 ): Promise<{ data: Subscriber[]; meta: PageMeta }> {
    return apiFetchPage<Subscriber[]>(`/api/v1/subscribers${queryString(params)}`);
+}
+
+export function activity(id: string): Promise<SubscriberActivity> {
+   return apiFetchPage<SubscriberActivity>(
+      `/api/v1/subscribers/${encodeURIComponent(id)}/activity`,
+   ).then((result) => result.data);
 }
 
 export function create(input: SubscriberInput): Promise<Subscriber> {

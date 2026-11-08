@@ -1,5 +1,11 @@
 import { apiFetch } from './client';
-import type { RenderWarning, Template, TemplatePreview } from './types';
+import type {
+   RenderWarning,
+   Template,
+   TemplatePreview,
+   TemplateVersion,
+   TemplateVersionSummary,
+} from './types';
 
 export type TemplateInput = {
    name: string;
@@ -65,4 +71,23 @@ export function renderWarnings(id: string): Promise<RenderWarning[]> {
    return apiFetch<RenderWarning[]>(`/api/v1/templates/${encodeURIComponent(id)}/render-warnings`, {
       method: 'POST',
    });
+}
+
+export function listVersions(id: string): Promise<TemplateVersionSummary[]> {
+   return apiFetch<{ versions: TemplateVersionSummary[] }>(
+      `/api/v1/templates/${encodeURIComponent(id)}/versions`,
+   ).then((result) => result.versions);
+}
+
+export function getVersion(id: string, revision: number): Promise<TemplateVersion> {
+   return apiFetch<TemplateVersion>(
+      `/api/v1/templates/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(revision))}`,
+   );
+}
+
+export function restoreVersion(id: string, revision: number): Promise<Template> {
+   return apiFetch<Template>(
+      `/api/v1/templates/${encodeURIComponent(id)}/versions/${encodeURIComponent(String(revision))}/restore`,
+      { method: 'POST' },
+   );
 }

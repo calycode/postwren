@@ -23,3 +23,11 @@ export function revoke(id: string): Promise<void> {
       method: 'DELETE',
    }).then(() => undefined);
 }
+
+/** Only works on an already-revoked key; the API refuses to delete a live one. */
+export function remove(id: string): Promise<{ id: string; deleted: boolean }> {
+   return apiFetch<{ id: string; deleted: boolean }>(
+      `/api/v1/subscribe-keys/${encodeURIComponent(id)}`,
+      { method: 'DELETE' },
+   );
+}

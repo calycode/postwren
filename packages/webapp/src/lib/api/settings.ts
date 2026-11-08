@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { EmbedSettings, SenderAddress, SenderSettings } from './types';
+import type { DiscoveredDomain, EmbedSettings, SenderAddress, SenderSettings } from './types';
 
 export type SenderInput = {
    email: string;
@@ -14,6 +14,31 @@ export type SenderPatch = {
 
 export function listSenders(): Promise<SenderSettings> {
    return apiFetch<SenderSettings>('/api/v1/settings/senders');
+}
+
+export function discoverSenders(): Promise<{ configured: boolean; domains: DiscoveredDomain[] }> {
+   return apiFetch<{ configured: boolean; domains: DiscoveredDomain[] }>(
+      '/api/v1/settings/senders/discover',
+   );
+}
+
+export function cloudflareStatus(): Promise<{ configured: boolean }> {
+   return apiFetch<{ configured: boolean }>('/api/v1/settings/cloudflare/status');
+}
+
+export type SenderVerification = {
+   verified: boolean;
+   state: 'enabled' | 'disabled' | 'not_onboarded' | 'no_zone';
+   detail: string;
+   domain: string;
+   zone: string | null;
+};
+
+export function verifySender(id: string): Promise<SenderVerification> {
+   return apiFetch<SenderVerification>(
+      `/api/v1/settings/senders/${encodeURIComponent(id)}/verify`,
+      { method: 'POST' },
+   );
 }
 
 export function createSender(input: SenderInput): Promise<SenderAddress> {

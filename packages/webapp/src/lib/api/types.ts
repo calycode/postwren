@@ -1,9 +1,21 @@
-export type SubscriberStatus = 'active' | 'unsubscribed' | 'bounced' | 'complained' | 'deleted';
+import type { Block } from '@postwren/email/ir';
+import type {
+   AutomationStatus,
+   AutomationStep,
+   AutomationTrigger,
+   AutomationTriggerConfig,
+} from '@postwren/shared/automation';
+
+export type { AutomationStatus, AutomationStep, AutomationTrigger, AutomationTriggerConfig };
+
+export type SubscriberStatus = 'subscribed' | 'unsubscribed' | 'bounced' | 'complained' | 'deleted';
 
 export type Tag = {
    id: string;
    name: string;
    subscriber_count?: number;
+   campaign_count?: number;
+   automation_count?: number;
    created_at?: number;
 };
 
@@ -25,8 +37,21 @@ export type Template = {
    subject: string;
    revision: number;
    irJson: unknown;
+   preview_html: string | null;
    created_at: number;
    updated_at: number;
+};
+
+export type TemplateVersionSummary = {
+   revision: number;
+   name: string;
+   subject: string;
+   createdAt: number;
+};
+
+export type TemplateVersion = TemplateVersionSummary & {
+   ir: unknown;
+   previewHtml: string;
 };
 
 export type CampaignStatus =
@@ -50,16 +75,24 @@ export type Campaign = {
 };
 
 export type CampaignStats = {
-   total: number;
-   queued: number;
-   sent: number;
-   delivered: number;
-   opened: number;
-   clicked: number;
-   bounced: number;
-   complained: number;
-   unsubscribed: number;
-   failed: number;
+   campaignId: string;
+   audienceSize: number;
+   totalRecipients: number;
+   statuses: Record<string, number>;
+   uniqueOpens: number;
+   uniqueClicks: number;
+   clickThroughRate: number;
+   topLinks: {
+      url: string;
+      clicks: number;
+      clickers: number;
+      lastClickedAt: number;
+   }[];
+   recentClicks: {
+      email: string | null;
+      url: string;
+      clickedAt: number;
+   }[];
 };
 
 export type CampaignRecipient = {
@@ -70,6 +103,8 @@ export type CampaignRecipient = {
    messageId: string | null;
    status: 'queued' | 'sent' | 'delivered' | 'bounced' | 'failed' | 'skipped';
    sentAt: number | null;
+   opened_at?: number | null;
+   clicked_at?: number | null;
    created_at: number;
 };
 
@@ -108,11 +143,12 @@ export type TemplatePreview = {
 };
 
 export type MediaAsset = {
-   id: string;
+   key: string;
    url: string;
-   filename?: string;
-   contentType?: string;
-   size?: number;
+   name: string;
+   contentType: string;
+   size: number;
+   uploadedAt?: string;
 };
 
 export type AuthUser = {
@@ -156,6 +192,18 @@ export type SenderSettings = {
    defaultFrom: string;
 };
 
+export type DiscoveredDomain = {
+   id: string;
+   name: string;
+   status: string;
+   emailRouting: boolean | null;
+   mx: boolean;
+   spf: boolean;
+   dkim: boolean;
+   dmarc: boolean;
+   suggestedAddress: string;
+};
+
 export type EmbedSettings = {
    origins: string[];
 };
@@ -169,4 +217,167 @@ export type SubscribeKey = {
    created_at: number;
    revoked_at: number | null;
    key?: string;
+};
+
+export type DashboardCampaign = {
+   id: string;
+   name: string;
+   subject: string;
+   status: CampaignStatus;
+   audienceCount: number | null;
+   scheduledAt: number | null;
+   startedAt: number | null;
+   completedAt: number | null;
+   createdAt: number;
+   updatedAt: number;
+};
+
+export type Dashboard = {
+   generatedAt: number;
+   counts: {
+      activeSubscribers: number;
+      totalSubscribers: number;
+      unsubscribed: number;
+      templates: number;
+      campaignsSent: number;
+      scheduled: number;
+   };
+   engagement: {
+      windowDays: number;
+      sent: number;
+      opened: number;
+      clicked: number;
+      openRate: number | null;
+      clickRate: number | null;
+   };
+   growth: { weekStart: number; count: number }[];
+   recent: DashboardCampaign[];
+   upcoming: DashboardCampaign[];
+   automations: {
+      activeAutomations: number;
+      activeRuns: number;
+      runs7d: number;
+      finished7d: number;
+      sent7d: number;
+      windowDays: number;
+      recent: {
+         id: string;
+         automationId: string;
+         automationName: string;
+         email: string;
+         status: string;
+         enteredAt: number;
+         completedAt: number | null;
+         exitReason: string | null;
+      }[];
+   };
+   setup: {
+      verifiedSender: boolean;
+      template: boolean;
+      sentCampaign: boolean;
+   };
+};
+
+export type SubscriberTimelineEntry = {
+   campaignId: string;
+   campaignName: string;
+   subject: string;
+   status: string;
+   sentAt: number | null;
+   openedAt: number | null;
+   clickedAt: number | null;
+};
+
+export type SubscriberActivity = {
+   subscriberId: string;
+   totals: {
+      received: number;
+      opened: number;
+      clicked: number;
+      lastSentAt: number | null;
+   };
+   timeline: SubscriberTimelineEntry[];
+   clicks: {
+      url: string;
+      clickedAt: number;
+      campaignId: string;
+      campaignName: string;
+   }[];
+};
+
+export type ApiKey = {
+   id: string;
+   name: string;
+   prefix: string;
+   scopes: string[];
+   created_at: number;
+   last_used_at: number | null;
+   expires_at: number | null;
+   revoked_at: number | null;
+   key?: string;
+};
+
+export type SavedBlock = {
+   id: string;
+   name: string;
+   block: Block;
+   created_at: number;
+   updated_at: number;
+};
+
+export type Automation = {
+   id: string;
+   name: string;
+   status: AutomationStatus;
+   triggerType: AutomationTrigger;
+   triggerConfig: AutomationTriggerConfig;
+   entryQuery: string;
+   fromName: string;
+   fromEmail: string;
+   replyTo: string | null;
+   steps: AutomationStep[];
+   metadata: Record<string, string>;
+   version: number;
+   created_at: number;
+   updated_at: number;
+   activated_at: number | null;
+   activeRuns?: number;
+   totalRuns?: number;
+   sentCount?: number;
+   runs?: AutomationRun[];
+};
+
+export type AutomationRun = {
+   id: string;
+   status: string;
+   subscriberId: string;
+   email: string;
+   automationVersion: number;
+   currentStep: string;
+   nextRunAt: number | null;
+   enteredAt: number;
+   startedAt: number | null;
+   lastStepAt: number | null;
+   completedAt: number | null;
+   durationMs: number | null;
+   stepsExecuted: number;
+   sentCount: number;
+   attempts: number;
+   exitReason: string | null;
+   lastError: string | null;
+   deliveries: AutomationDelivery[];
+};
+
+export type AutomationDelivery = {
+   id: string;
+   email: string;
+   subject: string;
+   status: string;
+   stepIndex: number | null;
+   sentAt: number | null;
+   openedAt: number | null;
+   clickedAt: number | null;
+   queuedAt: number | null;
+   durationMs: number | null;
+   errorCode: string | null;
 };
