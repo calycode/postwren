@@ -1,0 +1,60 @@
+export type AutomationRow = {
+   id: string;
+   name: string;
+   status: string;
+   trigger_type: string;
+   trigger_config_json: string;
+   entry_query: string;
+   from_name: string;
+   from_email: string;
+   reply_to: string | null;
+   steps_json: string;
+   metadata_json: string;
+   version: number;
+   created_at: number;
+   updated_at: number;
+   activated_at: number | null;
+};
+
+export type AutomationRunRow = {
+   id: string;
+   automation_id: string;
+   automation_version: number;
+   subscriber_id: string;
+   status: string;
+   graph_json: string;
+   current_step_index: number;
+   next_run_at: number | null;
+   attempts: number;
+   entered_at: number;
+   completed_at: number | null;
+   exit_reason: string | null;
+   last_error: string | null;
+   started_at: number | null;
+   last_step_at: number | null;
+   steps_executed: number;
+   sent_count: number;
+   idempotency_key: string | null;
+};
+
+export type AutomationDeliveryRow = {
+   id: string;
+   run_id: string;
+   automation_id: string;
+   subscriber_id: string;
+   template_id: string;
+   template_revision: number;
+   subject: string;
+   from_name: string;
+   from_email: string;
+   status: string;
+   provider_message_id: string | null;
+   sent_at: number | null;
+   opened_at: number | null;
+   clicked_at: number | null;
+   error_code: string | null;
+   created_at: number;
+   step_index: number | null;
+   queued_at: number | null;
+   duration_ms: number | null;
+};
