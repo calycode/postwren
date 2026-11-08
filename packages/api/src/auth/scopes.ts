@@ -1,28 +1,12 @@
 import { z } from 'zod';
+import { SCOPES, isScope } from '@postwren/shared/scopes';
+import type { Scope } from '@postwren/shared/scopes';
 
-export const SCOPES = [
-   'subscribers:read',
-   'subscribers:write',
-   'campaigns:read',
-   'campaigns:write',
-   'templates:read',
-   'templates:write',
-   'tags:read',
-   'tags:write',
-   'media:write',
-   'send:write',
-] as const;
-
-export type Scope = (typeof SCOPES)[number];
+export type { Scope } from '@postwren/shared/scopes';
+export { SCOPES, isScope };
 
 export const scopeSchema = z.enum(SCOPES);
 export const scopeListSchema = z.array(scopeSchema).min(1).max(SCOPES.length);
-
-const SCOPE_SET: ReadonlySet<string> = new Set(SCOPES);
-
-export function isScope(value: string): value is Scope {
-   return SCOPE_SET.has(value);
-}
 
 export function parseScopes(json: string): Scope[] {
    let parsed: unknown;
@@ -94,10 +78,16 @@ export function requiredScope(method: string, path: string): Scope | null {
          if (TEMPLATE_READ_ACTIONS.has(segments[2] ?? '')) return 'templates:read';
          return 'templates:write';
       }
+      case 'saved-blocks':
+         return method === 'GET' ? 'templates:read' : 'templates:write';
       case 'audience':
          return method === 'GET' ? 'campaigns:read' : null;
       case 'media':
          return method === 'POST' ? 'media:write' : null;
+      case 'emails':
+         return method === 'POST' ? 'emails:write' : null;
+      case 'events':
+         return method === 'POST' ? 'events:write' : null;
       default:
          return null;
    }

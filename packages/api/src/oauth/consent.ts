@@ -12,6 +12,8 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
    'tags:write': 'Create, rename and delete tags',
    'media:write': 'Upload images to the media library',
    'send:write': 'Schedule, send, pause and resume campaigns',
+   'emails:write': 'Send transactional email',
+   'events:write': 'Send subscriber events that can start automations',
 };
 
 export type ConsentInput = {
@@ -40,9 +42,11 @@ export function renderConsentPage(input: ConsentInput): string {
    const scopeItems = details.scope
       .map(
          (scope) =>
-            `<li><code>${escapeHtml(scope)}</code><span>${escapeHtml(
+            `<li><label><input type="checkbox" name="scope" value="${escapeHtml(
+               scope,
+            )}" checked><span><code>${escapeHtml(scope)}</code><em>${escapeHtml(
                scopeDescription(scope),
-            )}</span></li>`,
+            )}</em></span></label></li>`,
       )
       .join('');
 
@@ -75,9 +79,11 @@ dl { margin: 0 0 18px; display: grid; grid-template-columns: max-content 1fr; ga
 dt { font-weight: 600; }
 dd { margin: 0; overflow-wrap: anywhere; opacity: .85; }
 ul { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 8px; }
-li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px;
-  background: color-mix(in srgb, CanvasText 5%, transparent); }
-li span { opacity: .8; font-size: 14px; }
+li { padding: 0; border-radius: 10px; background: color-mix(in srgb, CanvasText 5%, transparent); }
+li label { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; cursor: pointer; }
+li input { margin: 3px 0 0; accent-color: #1d6f42; }
+li span { display: grid; gap: 2px; }
+li em { font-style: normal; opacity: .8; font-size: 14px; }
 code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 button { font: inherit; padding: 9px 16px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; }
@@ -91,8 +97,8 @@ button[value="deny"] { background: transparent; color: inherit;
 <main>
 <h1>Authorize ${escapeHtml(details.clientName)}</h1>
 <p>Signed in as <span class="username">${escapeHtml(username)}</span>.</p>
-<p>This client is asking for API access to your Postwren workspace. It will act with the scopes below
-until you revoke its grant.</p>
+<p>This client is asking for API access to your Postwren workspace. Uncheck anything it does not need.
+It will act with the selected scopes until you revoke its grant.</p>
 ${loopback}
 <dl>
 <dt>Client</dt><dd>${escapeHtml(details.clientName)}</dd>
@@ -104,6 +110,7 @@ ${domain}
 <form method="post" action="/oauth/authorize">
 <input type="hidden" name="handle" value="${escapeHtml(handle)}">
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}">
+<input type="hidden" name="scope_present" value="1">
 <div class="actions">
 <button type="submit" name="decision" value="deny">Deny</button>
 <button type="submit" name="decision" value="approve">Allow access</button>
