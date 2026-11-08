@@ -11,6 +11,8 @@
       "test": "vitest run"
    },
    "dependencies": {
+      "@fontsource-variable/newsreader": "^5.3.0",
+      "@fontsource-variable/public-sans": "^5.3.0",
       "@postwren/editor": "workspace:*",
       "@postwren/email": "workspace:*",
       "@postwren/shared": "workspace:*",

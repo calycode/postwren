@@ -1,9 +1,15 @@
 {
    "$schema": "https://turbo.build/schema.json",
+   "remoteCache": {
+      "apiUrl": "https://trc.calycode.com",
+      "teamId": "team_calycode"
+   },
    "tasks": {
       "build": {
          "dependsOn": ["^build"],
-         "outputs": ["dist/**"]
+         "outputs": ["dist/**"],
+         "env": ["VITE_API_BASE_URL"],
+         "inputs": ["$TURBO_DEFAULT$", ".env*"]
       },
       "test": {
          "dependsOn": ["^build"]

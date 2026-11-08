@@ -5,6 +5,14 @@ SESSION_SECRET=replace-with-32-plus-random-bytes
 # random bytes. Rotating it invalidates links and keys already in the wild.
 TOKEN_SECRET=replace-with-32-plus-random-bytes
 
+# Optional. Read-only Cloudflare API token (Zone Read, DNS Read, Email Sending
+# Read) that powers Settings -> Sending domains: zone discovery and the
+# "Check verification" action for sending domains. Leave blank to fall back to
+# marking addresses as verified manually. Set CLOUDFLARE_ACCOUNT_ID as well only
+# when the token can see more than one account.
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
+
 # Copy this file to `.dev.vars` for a production-like local Worker. `wrangler dev`
 # reads it and overrides vars from wrangler.dev.jsonc. Appflare reads this file too:
 # each NAME= line becomes a secret in the install form, with the comment above it as

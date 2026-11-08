@@ -4,11 +4,13 @@
    "private": true,
    "type": "module",
    "exports": {
+      "./automation": "./src/automation/index.ts",
       "./audience": "./src/audience/index.ts",
       "./tokens": "./src/tokens/index.ts",
       "./csv": "./src/csv/index.ts",
       "./contracts": "./src/contracts/index.ts",
-      "./metadata": "./src/metadata/index.ts"
+      "./metadata": "./src/metadata/index.ts",
+      "./scopes": "./src/scopes/index.ts"
    },
    "scripts": {
       "test": "vitest run",

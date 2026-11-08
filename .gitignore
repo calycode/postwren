@@ -3,6 +3,9 @@ dist
 .turbo
 .wrangler
 .dev.vars
+.env
+.env.*
+!.env.example
 *.local
 artifacts
 .DS_Store
