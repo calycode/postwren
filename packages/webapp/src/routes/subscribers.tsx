@@ -29,13 +29,14 @@ import {
    SelectContent,
    SelectItem,
    SelectTrigger,
-   SelectValue,
+   cn,
    useToast,
 } from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { SubscriberPanel } from '@/components/subscriber-panel';
 import { TagPicker } from '@/components/tag-picker';
 import { MetadataEditor } from '@/components/metadata-editor';
 import {
@@ -49,7 +50,6 @@ import {
    list as listSubscribers,
    remove as removeSubscriber,
    removeTag,
-   update as updateSubscriber,
 } from '@/lib/api/subscribers';
 import { list as listTags } from '@/lib/api/tags';
 import { ApiError } from '@/lib/api/client';
@@ -65,12 +65,7 @@ import {
    titleCase,
 } from '@/lib/format';
 import { useDebouncedValue } from '@/lib/hooks';
-import {
-   metadataPatchFromRows,
-   metadataToRows,
-   rowsToMetadata,
-   validateMetadataRows,
-} from '@/lib/metadata';
+import { rowsToMetadata, validateMetadataRows } from '@/lib/metadata';
 import type { MetadataRow } from '@/lib/metadata';
 import { appendCursorPage, cursorStateFrom, emptyCursorState } from '@/lib/pagination';
 import type { CursorState } from '@/lib/pagination';
@@ -80,7 +75,7 @@ import type { TagFailure } from '@/lib/tag-diff';
 type StatusFilter = 'all' | SubscriberStatus;
 
 const STATUS_OPTIONS: SubscriberStatus[] = [
-   'active',
+   'subscribed',
    'unsubscribed',
    'bounced',
    'complained',
@@ -100,7 +95,7 @@ function statusVariant(
    status: SubscriberStatus,
 ): 'success' | 'secondary' | 'warning' | 'destructive' | 'outline' {
    switch (status) {
-      case 'active':
+      case 'subscribed':
          return 'success';
       case 'bounced':
          return 'warning';
@@ -147,21 +142,15 @@ export function Subscribers() {
    const [tagsError, setTagsError] = useState<string | null>(null);
 
    const [formOpen, setFormOpen] = useState(false);
-   const [editing, setEditing] = useState<Subscriber | null>(null);
    const [form, setForm] = useState<SubscriberForm>(EMPTY_FORM);
    const [formErrors, setFormErrors] = useState<FieldErrors>({});
    const [formError, setFormError] = useState<string | null>(null);
    const [formTags, setFormTags] = useState<Tag[]>([]);
    const [savedTags, setSavedTags] = useState<Tag[]>([]);
-   const [savedMetadata, setSavedMetadata] = useState<Record<string, string>>({});
    const [tagError, setTagError] = useState<string | null>(null);
    const [saving, setSaving] = useState(false);
 
-   const [tagEditing, setTagEditing] = useState<Subscriber | null>(null);
-   const [tagEditTags, setTagEditTags] = useState<Tag[]>([]);
-   const [tagEditSaved, setTagEditSaved] = useState<Tag[]>([]);
-   const [tagEditError, setTagEditError] = useState<string | null>(null);
-   const [tagEditBusy, setTagEditBusy] = useState(false);
+   const [panelSubscriber, setPanelSubscriber] = useState<Subscriber | null>(null);
 
    const [deleting, setDeleting] = useState<Subscriber | null>(null);
    const [deleteBusy, setDeleteBusy] = useState(false);
@@ -265,13 +254,11 @@ export function Subscribers() {
    }
 
    function resetForm() {
-      setEditing(null);
       setForm(EMPTY_FORM);
       setFormErrors({});
       setFormError(null);
       setFormTags([]);
       setSavedTags([]);
-      setSavedMetadata({});
       setTagError(null);
    }
 
@@ -280,28 +267,8 @@ export function Subscribers() {
       setFormOpen(true);
    }
 
-   function openEdit(subscriber: Subscriber) {
-      setEditing(subscriber);
-      setForm({
-         email: subscriber.email,
-         first_name: subscriber.first_name ?? '',
-         last_name: subscriber.last_name ?? '',
-         metadata: metadataToRows(subscriber.metadata),
-      });
-      setFormErrors({});
-      setFormError(null);
-      setFormTags(subscriber.tags ?? []);
-      setSavedTags(subscriber.tags ?? []);
-      setSavedMetadata(subscriber.metadata ?? {});
-      setTagError(null);
-      setFormOpen(true);
-   }
-
-   function openTagEdit(subscriber: Subscriber) {
-      setTagEditing(subscriber);
-      setTagEditTags(subscriber.tags ?? []);
-      setTagEditSaved(subscriber.tags ?? []);
-      setTagEditError(null);
+   function openPanel(subscriber: Subscriber) {
+      setPanelSubscriber(subscriber);
    }
 
    async function saveTagsFor(
@@ -354,28 +321,12 @@ export function Subscribers() {
 
       setSaving(true);
       try {
-         let subscriberId: string;
-         let created: Subscriber | null = null;
-
-         if (editing) {
-            await updateSubscriber(editing.id, {
-               ...fields,
-               metadata: metadataPatchFromRows(savedMetadata, form.metadata),
-            });
-            subscriberId = editing.id;
-         } else {
-            created = await createSubscriber({ ...fields, metadata });
-            subscriberId = created.id;
-         }
-
-         const tagResult = await saveTagsFor(subscriberId, savedTags, formTags);
+         const created = await createSubscriber({ ...fields, metadata });
+         const tagResult = await saveTagsFor(created.id, savedTags, formTags);
 
          if (tagResult.failure !== null) {
             setSavedTags(tagResult.saved);
             setTagError(tagFailureMessage(tagResult.failure));
-            if (created !== null) {
-               setEditing({ ...created, tags: tagResult.saved });
-            }
             setReloadKey((key) => key + 1);
             return;
          }
@@ -391,35 +342,13 @@ export function Subscribers() {
       }
    }
 
-   async function saveTagEdit() {
-      if (!tagEditing) return;
-      setTagEditBusy(true);
-      setTagEditError(null);
-      try {
-         const result = await saveTagsFor(tagEditing.id, tagEditSaved, tagEditTags);
-
-         if (result.failure !== null) {
-            setTagEditSaved(result.saved);
-            setTagEditError(tagFailureMessage(result.failure));
-            setReloadKey((key) => key + 1);
-            return;
-         }
-
-         setTagEditing(null);
-         setReloadKey((key) => key + 1);
-      } catch (cause) {
-         setTagEditError(errorMessage(cause, 'Could not save tags'));
-      } finally {
-         setTagEditBusy(false);
-      }
-   }
-
    async function confirmDelete() {
       if (!deleting) return;
       setDeleteBusy(true);
       setDeleteError(null);
       try {
          await removeSubscriber(deleting.id);
+         if (panelSubscriber?.id === deleting.id) setPanelSubscriber(null);
          setDeleting(null);
          setReloadKey((key) => key + 1);
       } catch (cause) {
@@ -693,23 +622,15 @@ export function Subscribers() {
                <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Edit tags for ${subscriber.email}`}
-                  onClick={() => openTagEdit(subscriber)}
-               >
-                  <TagIcon aria-hidden="true" />
-               </Button>
-               <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Edit ${subscriber.email}`}
-                  onClick={() => openEdit(subscriber)}
+                  aria-label={`Open ${subscriber.email}`}
+                  onClick={() => openPanel(subscriber)}
                >
                   <Pencil aria-hidden="true" />
                </Button>
                <Button
                   variant="ghost"
                   size="icon"
-                  className="text-destructive hover:text-destructive"
+                  className="text-muted-foreground hover:text-destructive"
                   aria-label={`Delete ${subscriber.email}`}
                   onClick={() => {
                      setDeleting(subscriber);
@@ -724,232 +645,263 @@ export function Subscribers() {
    ];
 
    return (
-      <div className="grid gap-6">
-         <PageHeader
-            title="Subscribers"
-            description="Everyone who can receive a campaign. Suppressed subscribers are never enqueued."
-            actionGuideId="subscribers-actions"
-            actions={
-               <>
-                  <Button onClick={openCreate}>
-                     <UserPlus aria-hidden="true" />
-                     Add subscriber
-                  </Button>
-                  <Button
-                     variant="outline"
-                     onClick={openImport}
-                  >
-                     <Upload aria-hidden="true" />
-                     Import CSV
-                  </Button>
-                  <Button
-                     variant="outline"
-                     disabled={exporting}
-                     onClick={() => void handleExport()}
-                  >
-                     <Download aria-hidden="true" />
-                     {exporting ? 'Exporting…' : 'Export CSV'}
-                  </Button>
-               </>
-            }
-         />
-
-         {actionError !== null && (
-            <Alert variant="destructive">
-               <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
-         )}
-
-         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="relative flex-1">
-               <label
-                  htmlFor="subscriber-search"
-                  className="sr-only"
-               >
-                  Search subscribers
-               </label>
-               <Search
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-               />
-               <Input
-                  id="subscriber-search"
-                  value={search}
-                  placeholder="Search by email or name"
-                  className="pl-9"
-                  onInput={(event) => setSearch(event.currentTarget.value)}
-               />
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-               <div className="w-full sm:w-44">
-                  <Select
-                     value={statusFilter}
-                     onValueChange={(value) => {
-                        if (value && isStatusFilter(value)) setStatusFilter(value);
-                     }}
-                  >
-                     <SelectTrigger aria-label="Filter by status">
-                        <SelectValue placeholder="Status" />
-                     </SelectTrigger>
-                     <SelectContent>
-                        <SelectItem value="all">All statuses</SelectItem>
-                        {STATUS_OPTIONS.map((status) => (
-                           <SelectItem
-                              key={status}
-                              value={status}
-                           >
-                              {titleCase(status)}
-                           </SelectItem>
-                        ))}
-                     </SelectContent>
-                  </Select>
-               </div>
-
-               <div className="w-full sm:w-48">
-                  <Select
-                     value={tagFilter}
-                     onValueChange={(value) => {
-                        if (value) setTagFilter(value);
-                     }}
-                  >
-                     <SelectTrigger aria-label="Filter by tag">
-                        <SelectValue placeholder="Tag" />
-                     </SelectTrigger>
-                     <SelectContent>
-                        <SelectItem value="all">All tags</SelectItem>
-                        {tags.map((tag) => (
-                           <SelectItem
-                              key={tag.id}
-                              value={tag.name}
-                           >
-                              {tag.name}
-                           </SelectItem>
-                        ))}
-                     </SelectContent>
-                  </Select>
-               </div>
-            </div>
-         </div>
-
-         {tagsError !== null && (
-            <p
-               role="status"
-               className="text-xs text-muted-foreground"
-            >
-               Tag filter unavailable: {tagsError}
-            </p>
-         )}
-
-         <p
-            className="sr-only"
-            role="status"
-            aria-live="polite"
+      <>
+         <div
+            className={cn(
+               'grid gap-6 transition-[padding] duration-200',
+               panelSubscriber !== null && 'xl:pr-[26rem]',
+            )}
          >
-            {loading
-               ? 'Loading subscribers'
-               : `${pluralise(state.items.length, 'subscriber')} loaded`}
-         </p>
-
-         {selectedIds.size > 0 && (
-            <div
-               role="region"
-               aria-label="Bulk actions"
-               className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2"
-            >
-               <p className="text-sm font-medium">
-                  {pluralise(selectedIds.size, 'subscriber')} selected
-               </p>
-               <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={openBulkTags}
-               >
-                  <TagIcon aria-hidden="true" />
-                  Add tags
-               </Button>
-               <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={openBulkMetadata}
-               >
-                  <SlidersHorizontal aria-hidden="true" />
-                  Set custom field
-               </Button>
-               <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => {
-                     setBulkDeleteError(null);
-                     setBulkDeleteOpen(true);
-                  }}
-               >
-                  <Trash2 aria-hidden="true" />
-                  Delete
-               </Button>
-               <Button
-                  size="sm"
-                  variant="ghost"
-                  className="ml-auto"
-                  onClick={clearSelection}
-               >
-                  Clear selection
-               </Button>
-            </div>
-         )}
-
-         <div data-guide="subscribers-table">
-            <DataTable
-               caption="Subscribers. Tick rows to update several at once. Double-click a row to edit it."
-               selectable
-               selectedKeys={selectedIds}
-               onSelectionChange={setSelectedIds}
-               onRowDoubleClick={openEdit}
-               columns={columns}
-               rows={state.items}
-               rowKey={(subscriber) => subscriber.id}
-               loading={loading}
-               error={error}
-               onRetry={() => setReloadKey((key) => key + 1)}
-               empty={{
-                  title: filtersActive ? 'No subscribers match' : 'No subscribers yet',
-                  description: filtersActive
-                     ? 'Try a different search or filter.'
-                     : 'Add a subscriber by hand or import a CSV to get started.',
-                  icon: <Users aria-hidden="true" />,
-                  action: filtersActive ? undefined : (
+            <PageHeader
+               title="Subscribers"
+               description="Everyone who can receive a campaign. Suppressed subscribers are never enqueued."
+               actionGuideId="subscribers-actions"
+               actions={
+                  <>
                      <Button onClick={openCreate}>
-                        <Plus aria-hidden="true" />
+                        <UserPlus aria-hidden="true" />
                         Add subscriber
                      </Button>
-                  ),
-               }}
+                     <Button
+                        variant="outline"
+                        onClick={openImport}
+                     >
+                        <Upload aria-hidden="true" />
+                        Import CSV
+                     </Button>
+                     <Button
+                        variant="outline"
+                        disabled={exporting}
+                        onClick={() => void handleExport()}
+                     >
+                        <Download aria-hidden="true" />
+                        {exporting ? 'Exporting…' : 'Export CSV'}
+                     </Button>
+                  </>
+               }
             />
-         </div>
 
-         {moreError !== null && (
-            <Alert variant="destructive">
-               <AlertDescription>{moreError}</AlertDescription>
-            </Alert>
-         )}
+            {actionError !== null && (
+               <Alert variant="destructive">
+                  <AlertDescription>{actionError}</AlertDescription>
+               </Alert>
+            )}
 
-         {!loading && error === null && state.items.length > 0 && (
-            <div className="flex flex-col items-center gap-2">
-               <p className="text-xs text-muted-foreground">
-                  Showing {formatNumber(state.items.length)} subscribers
-               </p>
-               {state.hasMore && (
-                  <Button
-                     variant="outline"
-                     disabled={loadingMore}
-                     onClick={() => void loadMore()}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+               <div className="relative min-w-0 flex-1">
+                  <label
+                     htmlFor="subscriber-search"
+                     className="sr-only"
                   >
-                     {loadingMore ? 'Loading…' : 'Load more'}
+                     Search subscribers
+                  </label>
+                  <Search
+                     className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                     aria-hidden="true"
+                  />
+                  <Input
+                     id="subscriber-search"
+                     value={search}
+                     placeholder="Search by email or name"
+                     className="pl-9"
+                     onInput={(event) => setSearch(event.currentTarget.value)}
+                  />
+               </div>
+
+               <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="w-full sm:w-44">
+                     <Select
+                        value={statusFilter}
+                        onValueChange={(value) => {
+                           if (value && isStatusFilter(value)) setStatusFilter(value);
+                        }}
+                     >
+                        <SelectTrigger aria-label="Filter by status">
+                           <span className="truncate">
+                              {statusFilter === 'all' ? 'All statuses' : titleCase(statusFilter)}
+                           </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="all">All statuses</SelectItem>
+                           {STATUS_OPTIONS.map((status) => (
+                              <SelectItem
+                                 key={status}
+                                 value={status}
+                              >
+                                 {titleCase(status)}
+                              </SelectItem>
+                           ))}
+                        </SelectContent>
+                     </Select>
+                  </div>
+
+                  <div className="w-full sm:w-48">
+                     <Select
+                        value={tagFilter}
+                        onValueChange={(value) => {
+                           if (value) setTagFilter(value);
+                        }}
+                     >
+                        <SelectTrigger aria-label="Filter by tag">
+                           <span className="truncate">
+                              {tagFilter === 'all' ? 'All tags' : tagFilter}
+                           </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="all">All tags</SelectItem>
+                           {tags.map((tag) => (
+                              <SelectItem
+                                 key={tag.id}
+                                 value={tag.name}
+                              >
+                                 {tag.name}
+                              </SelectItem>
+                           ))}
+                        </SelectContent>
+                     </Select>
+                  </div>
+               </div>
+            </div>
+
+            {tagsError !== null && (
+               <p
+                  role="status"
+                  className="text-xs text-muted-foreground"
+               >
+                  Tag filter unavailable: {tagsError}
+               </p>
+            )}
+
+            <p
+               className="sr-only"
+               role="status"
+               aria-live="polite"
+            >
+               {loading
+                  ? 'Loading subscribers'
+                  : `${pluralise(state.items.length, 'subscriber')} loaded`}
+            </p>
+
+            {selectedIds.size > 0 && (
+               <div
+                  role="region"
+                  aria-label="Bulk actions"
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2"
+               >
+                  <p className="text-sm font-medium">
+                     {pluralise(selectedIds.size, 'subscriber')} selected
+                  </p>
+                  <Button
+                     size="sm"
+                     variant="outline"
+                     onClick={openBulkTags}
+                  >
+                     <TagIcon aria-hidden="true" />
+                     Add tags
                   </Button>
+                  <Button
+                     size="sm"
+                     variant="outline"
+                     onClick={openBulkMetadata}
+                  >
+                     <SlidersHorizontal aria-hidden="true" />
+                     Set custom field
+                  </Button>
+                  <Button
+                     size="sm"
+                     variant="outline"
+                     className="text-destructive hover:text-destructive"
+                     onClick={() => {
+                        setBulkDeleteError(null);
+                        setBulkDeleteOpen(true);
+                     }}
+                  >
+                     <Trash2 aria-hidden="true" />
+                     Delete
+                  </Button>
+                  <Button
+                     size="sm"
+                     variant="ghost"
+                     className="ml-auto"
+                     onClick={clearSelection}
+                  >
+                     Clear selection
+                  </Button>
+               </div>
+            )}
+
+            <div
+               data-guide="subscribers-table"
+               className="grid min-w-0 gap-3"
+            >
+               <DataTable
+                  caption="Subscribers. Tick rows to update several at once. Select a row to open its details."
+                  selectable
+                  selectedKeys={selectedIds}
+                  onSelectionChange={setSelectedIds}
+                  onRowClick={openPanel}
+                  onRowDoubleClick={openPanel}
+                  highlightedKey={panelSubscriber?.id ?? null}
+                  columns={columns}
+                  rows={state.items}
+                  rowKey={(subscriber) => subscriber.id}
+                  loading={loading}
+                  error={error}
+                  onRetry={() => setReloadKey((key) => key + 1)}
+                  empty={{
+                     title: filtersActive ? 'No subscribers match' : 'No subscribers yet',
+                     description: filtersActive
+                        ? 'Try a different search or filter.'
+                        : 'Add a subscriber by hand or import a CSV to get started.',
+                     icon: <Users aria-hidden="true" />,
+                     action: filtersActive ? undefined : (
+                        <Button onClick={openCreate}>
+                           <Plus aria-hidden="true" />
+                           Add subscriber
+                        </Button>
+                     ),
+                  }}
+               />
+
+               {moreError !== null && (
+                  <Alert variant="destructive">
+                     <AlertDescription>{moreError}</AlertDescription>
+                  </Alert>
+               )}
+
+               {!loading && error === null && state.items.length > 0 && (
+                  <div className="flex flex-col items-center gap-2">
+                     <p className="text-xs text-muted-foreground">
+                        Showing {formatNumber(state.items.length)} subscribers
+                     </p>
+                     {state.hasMore && (
+                        <Button
+                           variant="outline"
+                           disabled={loadingMore}
+                           onClick={() => void loadMore()}
+                        >
+                           {loadingMore ? 'Loading…' : 'Load more'}
+                        </Button>
+                     )}
+                  </div>
                )}
             </div>
-         )}
+
+            {panelSubscriber !== null && (
+               <SubscriberPanel
+                  subscriber={panelSubscriber}
+                  onClose={() => setPanelSubscriber(null)}
+                  onSaved={(next) => {
+                     setPanelSubscriber(next);
+                     setReloadKey((key) => key + 1);
+                  }}
+                  onDeleted={(subscriber) => {
+                     setDeleting(subscriber);
+                     setDeleteError(null);
+                  }}
+               />
+            )}
+         </div>
 
          <Dialog
             open={bulkTagsOpen}
@@ -1030,7 +982,9 @@ export function Subscribers() {
                         }}
                      >
                         <SelectTrigger id="bulk-metadata-mode">
-                           <SelectValue />
+                           <span>
+                              {bulkMetadataMode === 'set' ? 'Set the value' : 'Remove the field'}
+                           </span>
                         </SelectTrigger>
                         <SelectContent>
                            <SelectItem value="set">Set the value</SelectItem>
@@ -1118,11 +1072,9 @@ export function Subscribers() {
          >
             <DialogContent>
                <DialogHeader>
-                  <DialogTitle>{editing ? 'Edit subscriber' : 'Add subscriber'}</DialogTitle>
+                  <DialogTitle>Add subscriber</DialogTitle>
                   <DialogDescription>
-                     {editing
-                        ? 'Update the subscriber record and its tags. Email addresses are lowercased.'
-                        : 'Create a subscriber record and choose any tags it should start with.'}
+                     Create a subscriber record and choose any tags it should start with.
                   </DialogDescription>
                </DialogHeader>
 
@@ -1145,7 +1097,10 @@ export function Subscribers() {
                         aria-invalid={formErrors.email ? 'true' : undefined}
                         aria-describedby={formErrors.email ? 'subscriber-email-error' : undefined}
                         onInput={(event) =>
-                           setForm((current) => ({ ...current, email: event.currentTarget.value }))
+                           setForm((current) => ({
+                              ...current,
+                              email: event.currentTarget.value,
+                           }))
                         }
                      />
                   </Field>
@@ -1225,11 +1180,7 @@ export function Subscribers() {
                   <Field
                      label="Tags"
                      htmlFor="subscriber-tags"
-                     hint={
-                        editing
-                           ? 'Changes to tags are saved with the subscriber.'
-                           : 'Tags are attached after the subscriber is created.'
-                     }
+                     hint="Tags are attached after the subscriber is created."
                   >
                      <TagPicker
                         id="subscriber-tags"
@@ -1260,7 +1211,7 @@ export function Subscribers() {
                         type="submit"
                         disabled={saving}
                      >
-                        {saving ? 'Saving…' : editing ? 'Save changes' : 'Add subscriber'}
+                        {saving ? 'Saving…' : 'Add subscriber'}
                      </Button>
                   </DialogFooter>
                </form>
@@ -1369,52 +1320,6 @@ export function Subscribers() {
             </DialogContent>
          </Dialog>
 
-         <Dialog
-            open={tagEditing !== null}
-            onOpenChange={(open) => {
-               if (!open) setTagEditing(null);
-            }}
-         >
-            <DialogContent>
-               <DialogHeader>
-                  <DialogTitle>Edit tags</DialogTitle>
-                  <DialogDescription>
-                     {tagEditing
-                        ? `Choose the tags for ${tagEditing.email}.`
-                        : 'Choose the tags for this subscriber.'}
-                  </DialogDescription>
-               </DialogHeader>
-
-               <Field
-                  label="Tags"
-                  htmlFor="subscriber-tag-edit"
-               >
-                  <TagPicker
-                     id="subscriber-tag-edit"
-                     value={tagEditTags}
-                     onChange={setTagEditTags}
-                     disabled={tagEditBusy}
-                  />
-               </Field>
-
-               {tagEditError !== null && (
-                  <Alert variant="destructive">
-                     <AlertDescription>{tagEditError}</AlertDescription>
-                  </Alert>
-               )}
-
-               <DialogFooter>
-                  <DialogClose disabled={tagEditBusy}>Cancel</DialogClose>
-                  <Button
-                     disabled={tagEditBusy}
-                     onClick={() => void saveTagEdit()}
-                  >
-                     {tagEditBusy ? 'Saving…' : 'Save tags'}
-                  </Button>
-               </DialogFooter>
-            </DialogContent>
-         </Dialog>
-
          <ConfirmDialog
             open={deleting !== null}
             onOpenChange={(open) => {
@@ -1432,6 +1337,6 @@ export function Subscribers() {
             error={deleteError}
             onConfirm={confirmDelete}
          />
-      </div>
+      </>
    );
 }

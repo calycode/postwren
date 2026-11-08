@@ -1,3 +1,4 @@
+import { errorMessage } from './form-errors';
 import type { Tag } from './api/types';
 
 export type TagDiff = {
@@ -21,6 +22,11 @@ export type TagWrites = {
    add: (tagId: string) => Promise<void>;
    remove: (tagId: string) => Promise<void>;
 };
+
+export function tagFailureMessage(failure: TagFailure): string {
+   const action = failure.action === 'add' ? 'add' : 'remove';
+   return `Could not ${action} tag "${failure.tag.name}": ${errorMessage(failure.cause)}`;
+}
 
 export function diffTags(saved: readonly Tag[], desired: readonly Tag[]): TagDiff {
    const savedIds = new Set(saved.map((tag) => tag.id));

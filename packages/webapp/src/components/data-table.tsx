@@ -13,6 +13,7 @@ import {
    TableHead,
    TableHeader,
    TableRow,
+   cn,
 } from '@postwren/ui';
 
 export type DataTableColumn<Row> = {
@@ -45,6 +46,10 @@ type DataTableProps<Row> = {
    onSelectionChange?: (keys: Set<string>) => void;
    /** Double-clicking anywhere on a row is a shortcut for its primary action. */
    onRowDoubleClick?: (row: Row) => void;
+   /** Single click on a row, ignoring clicks on buttons, links and inputs. */
+   onRowClick?: (row: Row) => void;
+   /** Marks the row that owns the open detail view without selecting it. */
+   highlightedKey?: string | null;
 };
 
 export function DataTable<Row>({
@@ -61,6 +66,8 @@ export function DataTable<Row>({
    selectedKeys,
    onSelectionChange,
    onRowDoubleClick,
+   onRowClick,
+   highlightedKey,
 }: DataTableProps<Row>) {
    if (error) {
       return (
@@ -118,87 +125,106 @@ export function DataTable<Row>({
    }
 
    return (
-      <Table>
-         {caption !== undefined && <caption className="sr-only">{caption}</caption>}
-         <TableHeader>
-            <TableRow>
-               {selectable && (
-                  <TableHead className="w-10">
-                     <Checkbox
-                        aria-label={allSelected ? 'Clear this page' : 'Select this page'}
-                        checked={allSelected}
-                        indeterminate={!allSelected && someSelected}
-                        disabled={loading || rows.length === 0}
-                        onChange={toggleAll}
-                     />
-                  </TableHead>
-               )}
-               {columns.map((column) => (
-                  <TableHead
-                     key={column.id}
-                     className={column.headerClassName}
-                  >
-                     {column.header}
-                  </TableHead>
-               ))}
-            </TableRow>
-         </TableHeader>
-         <TableBody>
-            {loading && rows.length === 0
-               ? Array.from({ length: skeletonRows }, (_, rowIndex) => (
-                    <TableRow key={`skeleton-${rowIndex}`}>
-                       {selectable && (
-                          <TableCell>
-                             <Skeleton className="size-4" />
-                          </TableCell>
-                       )}
-                       {columns.map((column) => (
-                          <TableCell key={column.id}>
-                             <Skeleton className="h-4 w-full max-w-40" />
-                          </TableCell>
-                       ))}
-                    </TableRow>
-                 ))
-               : rows.map((row) => {
-                    const key = rowKey(row);
-                    const isSelected = selected.has(key);
-
-                    return (
-                       <TableRow
-                          key={key}
-                          data-state={isSelected ? 'selected' : undefined}
-                          className={
-                             onRowDoubleClick === undefined
-                                ? undefined
-                                : 'cursor-pointer select-none'
-                          }
-                          onDblClick={
-                             onRowDoubleClick === undefined
-                                ? undefined
-                                : () => onRowDoubleClick(row)
-                          }
-                       >
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+         <Table>
+            {caption !== undefined && <caption className="sr-only">{caption}</caption>}
+            <TableHeader>
+               <TableRow>
+                  {selectable && (
+                     <TableHead className="w-10">
+                        <Checkbox
+                           aria-label={allSelected ? 'Clear this page' : 'Select this page'}
+                           checked={allSelected}
+                           indeterminate={!allSelected && someSelected}
+                           disabled={loading || rows.length === 0}
+                           onChange={toggleAll}
+                        />
+                     </TableHead>
+                  )}
+                  {columns.map((column) => (
+                     <TableHead
+                        key={column.id}
+                        className={column.headerClassName}
+                     >
+                        {column.header}
+                     </TableHead>
+                  ))}
+               </TableRow>
+            </TableHeader>
+            <TableBody>
+               {loading && rows.length === 0
+                  ? Array.from({ length: skeletonRows }, (_, rowIndex) => (
+                       <TableRow key={`skeleton-${rowIndex}`}>
                           {selectable && (
                              <TableCell>
-                                <Checkbox
-                                   aria-label={`Select ${key}`}
-                                   checked={isSelected}
-                                   onChange={() => toggleRow(key)}
-                                />
+                                <Skeleton className="size-4" />
                              </TableCell>
                           )}
                           {columns.map((column) => (
-                             <TableCell
-                                key={column.id}
-                                className={column.className}
-                             >
-                                {column.cell(row)}
+                             <TableCell key={column.id}>
+                                <Skeleton className="h-4 w-full max-w-40" />
                              </TableCell>
                           ))}
                        </TableRow>
-                    );
-                 })}
-         </TableBody>
-      </Table>
+                    ))
+                  : rows.map((row) => {
+                       const key = rowKey(row);
+                       const isSelected = selected.has(key);
+                       const isHighlighted = highlightedKey === key;
+
+                       return (
+                          <TableRow
+                             key={key}
+                             data-state={isSelected ? 'selected' : undefined}
+                             aria-selected={isHighlighted || undefined}
+                             className={cn(
+                                (onRowDoubleClick !== undefined || onRowClick !== undefined) &&
+                                   'cursor-pointer select-none',
+                                isHighlighted && 'bg-accent/55 hover:bg-accent/60',
+                             )}
+                             onClick={
+                                onRowClick === undefined
+                                   ? undefined
+                                   : (event) => {
+                                        const target = event.target;
+                                        if (
+                                           target instanceof Element &&
+                                           target.closest('button, a, input, label, select') !==
+                                              null
+                                        ) {
+                                           return;
+                                        }
+                                        onRowClick(row);
+                                     }
+                             }
+                             onDblClick={
+                                onRowDoubleClick === undefined
+                                   ? undefined
+                                   : () => onRowDoubleClick(row)
+                             }
+                          >
+                             {selectable && (
+                                <TableCell>
+                                   <Checkbox
+                                      aria-label={`Select ${key}`}
+                                      checked={isSelected}
+                                      onChange={() => toggleRow(key)}
+                                   />
+                                </TableCell>
+                             )}
+                             {columns.map((column) => (
+                                <TableCell
+                                   key={column.id}
+                                   className={column.className}
+                                >
+                                   {column.cell(row)}
+                                </TableCell>
+                             ))}
+                          </TableRow>
+                       );
+                    })}
+            </TableBody>
+         </Table>
+      </div>
    );
 }

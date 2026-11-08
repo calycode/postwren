@@ -4,8 +4,6 @@ import {
    Alert,
    AlertDescription,
    Button,
-   Card,
-   CardContent,
    Dialog,
    DialogClose,
    DialogContent,
@@ -158,6 +156,20 @@ export function Tags() {
          ),
       },
       {
+         id: 'campaigns',
+         header: 'Campaigns',
+         cell: (tag) => (
+            <span className="text-muted-foreground">{formatNumber(tag.campaign_count ?? 0)}</span>
+         ),
+      },
+      {
+         id: 'automations',
+         header: 'Automations',
+         cell: (tag) => (
+            <span className="text-muted-foreground">{formatNumber(tag.automation_count ?? 0)}</span>
+         ),
+      },
+      {
          id: 'actions',
          header: <span className="sr-only">Actions</span>,
          headerClassName: 'text-right',
@@ -175,7 +187,7 @@ export function Tags() {
                <Button
                   variant="ghost"
                   size="icon"
-                  className="text-destructive hover:text-destructive"
+                  className="text-muted-foreground hover:text-destructive"
                   aria-label={`Delete ${tag.name}`}
                   onClick={() => {
                      setDeleting(tag);
@@ -196,58 +208,53 @@ export function Tags() {
             description="Group subscribers so campaigns can target them with the audience query language."
          />
 
-         <Card data-guide="tags-create">
-            <CardContent className="pt-6">
-               <form
-                  className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-start"
-                  onSubmit={submitCreate}
-                  noValidate
+         <form
+            className="flex flex-col gap-3 sm:flex-row sm:items-start"
+            onSubmit={submitCreate}
+            noValidate
+            data-guide="tags-create"
+         >
+            <div className="w-full max-w-sm">
+               <Field
+                  label="New tag"
+                  htmlFor="new-tag"
+                  error={createErrors.name}
                >
-                  <div className="flex-1">
-                     <Field
-                        label="New tag"
-                        htmlFor="new-tag"
-                        error={createErrors.name}
-                     >
-                        <Input
-                           id="new-tag"
-                           value={newName}
-                           placeholder="e.g. newsletter"
-                           aria-invalid={createErrors.name ? 'true' : undefined}
-                           aria-describedby={createErrors.name ? 'new-tag-error' : undefined}
-                           onInput={(event) => setNewName(event.currentTarget.value)}
-                        />
-                     </Field>
-                  </div>
-                  <Button
-                     type="submit"
-                     disabled={creating}
-                     className="sm:mt-6"
-                  >
-                     <Plus aria-hidden="true" />
-                     {creating ? 'Adding…' : 'Add tag'}
-                  </Button>
-               </form>
+                  <Input
+                     id="new-tag"
+                     value={newName}
+                     placeholder="e.g. newsletter"
+                     aria-invalid={createErrors.name ? 'true' : undefined}
+                     aria-describedby={createErrors.name ? 'new-tag-error' : undefined}
+                     onInput={(event) => setNewName(event.currentTarget.value)}
+                  />
+               </Field>
+            </div>
+            <Button
+               type="submit"
+               disabled={creating}
+               className="sm:mt-6"
+            >
+               <Plus aria-hidden="true" />
+               {creating ? 'Adding…' : 'Add tag'}
+            </Button>
+         </form>
 
-               {createError !== null && (
-                  <Alert
-                     variant="destructive"
-                     className="mt-4"
-                  >
-                     <AlertDescription>{createError}</AlertDescription>
-                  </Alert>
-               )}
-            </CardContent>
-         </Card>
+         {createError !== null && (
+            <Alert variant="destructive">
+               <AlertDescription>{createError}</AlertDescription>
+            </Alert>
+         )}
 
          <DataTable
-            caption="Tags"
+            caption="Tags. Double-click a row to rename it."
             columns={columns}
             rows={tags}
             rowKey={(tag) => tag.id}
             loading={loading}
             error={loadError}
             onRetry={() => setReloadKey((key) => key + 1)}
+            onRowDoubleClick={openRename}
             empty={{
                title: 'No tags yet',
                description: 'Create a tag above, then assign it to subscribers.',
@@ -265,7 +272,8 @@ export function Tags() {
                <DialogHeader>
                   <DialogTitle>Rename tag</DialogTitle>
                   <DialogDescription>
-                     Renaming updates every subscriber that uses this tag.
+                     Renaming updates every subscriber that uses this tag, plus saved campaign
+                     audiences and automation tag steps that reference it.
                   </DialogDescription>
                </DialogHeader>
                <Field
