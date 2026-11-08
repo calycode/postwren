@@ -29,7 +29,9 @@ the catalog, not checked_ and Appflare never updates it on its own.
    `main`.
 3. Build command: **Work it out** runs `pnpm build`; **None** works too, because
    `wrangler.jsonc` carries `build.command: "pnpm build"`. Either way the admin SPA is
-   built before the Worker is bundled.
+   built before the Worker is bundled. The container holds no credentials, so this build
+   cannot use the Turborepo remote cache and logs `Remote caching unavailable`; see
+   [REMOTE-CACHE.md](REMOTE-CACHE.md).
 4. Confirm the cost and choose **Build for review**. Nothing is deployed yet.
 
 The review list should show:
@@ -66,7 +68,8 @@ vars from `wrangler.jsonc` become settings you can change: `APP_URL`, `ENVIRONME
   on, which is what makes a fresh `workers.dev` or Appflare domain work before you know
   the final address. Campaign mail is the exception, because the queue consumer has no
   request to derive an origin from: set `APP_URL` before scheduling or sending a
-  campaign, otherwise the API answers `app_url_missing`.
+  campaign, otherwise the API answers `app_url_missing`. A bare host such as
+  `postwren.example.com` is accepted and assumed to be https.
 
 ## After the install
 

@@ -40,7 +40,7 @@ are out of charter.
 - **Wordmark:** `postwren` in lowercase, with the wren's tail forming the descender of the `p` or a
   small comma after the word.
 - **Mark:** a wren perched on a post that is also an envelope edge. One colour works at 16 px.
-- **Palette:** ink `#1B2A41`, ochre `#C98A3B`, paper `#F7F3EA`, slate `#5B6673`. No gradients.
+- **Palette:** action blue `#00508F`, harbour ink `#14293A`, peach `#FFCD82`, sky `#ADDBFF`, burnt ochre `#8F5601`, paper `#F6F4EF`, espresso `#4F3815`. No gradients.
 - **Type:** an editorial serif for headlines (the "post" half) and a plain grotesk for UI (the
   "worker" half).
 - **Voice:** plain, dry, confident. Short sentences. Name the tradeoff instead of hiding it. No
@@ -52,6 +52,21 @@ Example lines:
 - "Own the list. Own the send."
 - "A small mailer with a long reach."
 - "No chimp. No circus. Just a wren."
+
+## Colour roles
+
+| Role                 | Hex       | Use                                                      |
+| -------------------- | --------- | -------------------------------------------------------- |
+| Action, links, focus | `#00508F` | Primary buttons, links, focus rings, selected controls   |
+| Ink and rail         | `#14293A` | Body text, the dark navigation rail, dark-mode surfaces  |
+| Paper                | `#F6F4EF` | Light background                                         |
+| Warm attention       | `#FFCD82` | Trigger cards, callouts, logo tile on the rail, warnings |
+| Informational wash   | `#ADDBFF` | Info badges, dark-mode primary action, sidebar focus     |
+| Editorial mark       | `#8F5601` | Eyebrows, rules, active-indicator details, warm links    |
+| Deep warm neutral    | `#4F3815` | Illustration and chart accents; not body copy            |
+| Dark canvas          | `#0E1B26` | Dark-mode page background, one step below `#14293A`      |
+
+The rail is dark in both modes. It uses `#14293A` in light mode and `#0A151F` in dark mode, with light text and a blue selected item. Peach is the warm signal; blue is the action colour. Do not use peach as large body-copy background.
 
 ## Naming architecture
 

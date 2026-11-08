@@ -26,6 +26,8 @@ Read scopes never imply write scopes. A credential only gets exactly what was gr
 | `tags:write`        | Create/rename/delete tags                                                  |
 | `media:write`       | Upload images through `POST /api/v1/media`                                 |
 | `send:write`        | Schedule, send now, pause, resume and cancel campaigns; send a test email  |
+| `emails:write`      | Send transactional email through `POST /api/v1/emails`                     |
+| `events:write`      | Post named subscriber events through `POST /api/v1/events`                 |
 
 `send:write` is deliberately separate from `campaigns:write`. An agent that drafts campaigns cannot send mail until it is also granted `send:write`.
 
@@ -201,6 +203,52 @@ curl -X POST "$POSTWREN_URL/api/v1/media" \
   -H "authorization: Bearer $POSTWREN_KEY" \
   -F "file=@./hero.png"
 ```
+
+#### Transactional email
+
+Send one message to one recipient with `emails:write`. This does not create
+campaign or recipient rows, and it is separate from sending an existing campaign
+(`POST /api/v1/campaigns/{id}/send-now`, `send:write`).
+
+```sh
+curl -X POST "$POSTWREN_URL/api/v1/emails" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "to": "customer@example.com",
+    "subject": "Your receipt",
+    "html": "<p>Thanks for your order.</p>"
+  }'
+```
+
+- `to` and `subject` are required. Provide `html`, `text`, or both; the missing
+  one is derived.
+- `from` defaults to `EMAIL_FROM`. The address must be a verified sender in
+  Settings → Sending domains.
+- Recipients that hard-bounced, complained, or were deleted are refused.
+- 60 messages per minute per credential.
+
+#### Automation events
+
+Post a named event with an `events:write` key. It enrols the subscriber in any
+active automation whose trigger is that event name. The endpoint returns `202`
+whether or not the address is on the list.
+
+```sh
+curl -X POST "$POSTWREN_URL/api/v1/events" \
+  -H "authorization: Bearer $POSTWREN_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "email": "customer@example.com",
+    "event": "purchase.completed",
+    "properties": { "plan": "pro" },
+    "idempotencyKey": "order-1234"
+  }'
+```
+
+- Event names use lowercase letters, digits, dots, dashes and underscores.
+- Reusing an `idempotencyKey` with the same credential enrols at most once.
+- 120 events per minute per credential and 30 per email.
 
 ### Failure envelopes
 

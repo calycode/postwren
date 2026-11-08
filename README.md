@@ -6,11 +6,11 @@
 
 Appflare builds this repository in your own Cloudflare account, provisions D1, KV, R2 and the queues, and keeps the app updatable and removable. The install is not catalog-checked, and it needs Workers Paid and **Build in your account** turned on; see [docs/APPFLARE.md](docs/APPFLARE.md).
 
-Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, per-recipient rendering, open/click tracking, and one-click unsubscribe.
+Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, linear automations, per-recipient rendering, open/click tracking, and one-click unsubscribe.
 
-Deliberately narrow: no automation builder, no A/B testing, no multi-tenant billing.
+Deliberately narrow: no workflow canvas, no A/B testing, no multi-tenant billing.
 
-Beyond the admin UI, the Worker exposes three integration surfaces: a public subscribe endpoint for marketing sites, scoped API keys for scripts, and an OAuth-protected MCP server for agent clients such as ChatGPT or Claude.
+Beyond the admin UI, the Worker exposes four integration surfaces: a public subscribe endpoint for marketing sites, scoped API keys for scripts (including transactional email), an OAuth-protected MCP server for agent clients such as ChatGPT or Claude, and media uploads for the editor.
 
 ## Why the email layer is its own package
 
@@ -97,10 +97,16 @@ pnpm db:migrate:remote
 pnpm deploy
 ```
 
-`APP_URL` ships empty on purpose: magic links, media URLs and OAuth metadata then follow the origin the request arrived on, so `workers.dev` and a custom domain both work before anything is configured. Campaign mail is rendered in the queue consumer, which has no request, so set `APP_URL` to the public origin before scheduling or sending one; the API answers `app_url_missing` until you do.
+`APP_URL` ships empty on purpose: magic links, media URLs and OAuth metadata then follow the origin the request arrived on, so `workers.dev` and a custom domain both work before anything is configured. Campaign mail is rendered in the queue consumer, which has no request, so set `APP_URL` to the public origin before scheduling or sending one; the API answers `app_url_missing` until you do. A bare host such as `mail.example.com` is accepted and assumed to be https.
 
 4. **Onboard the sending domain** in the Cloudflare dashboard under Email Service, and set `EMAIL_FROM` to an address on it. Use a dedicated subdomain (`marketing.example.com`) so marketing complaints cannot damage transactional reputation. New domains start with conservative daily quotas that scale with reputation — do not open with a large blast.
 5. Add the same address in **Settings → Sending domains**. Campaigns can only send from a verified address in that list, which is what stops a typo from burning the domain.
+
+Optional: set a scoped `CLOUDFLARE_API_TOKEN` (Zone Read, DNS Read and Email Sending Read, plus `CLOUDFLARE_ACCOUNT_ID` if the token can see more than one account) to let **Settings → Sending domains** list your zones, flag missing MX, SPF, DKIM and DMARC records, and check whether a domain is onboarded for Email Sending. Postwren only reads Cloudflare; it never edits DNS. Cloudflare verifies sending **domains**, not individual addresses — once a domain is onboarded under Email Service → Email Sending, every address on it may send.
+
+```sh
+pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN
+```
 
 `send_email` is deliberately unrestricted in `wrangler.jsonc`. If you want a hard platform-level allowlist, set `allowed_sender_addresses` there as well — an empty array blocks every send.
 
@@ -118,8 +124,11 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 
 ## Project
 
+- [UI and UX review](docs/UI-REVIEW.md)
+- [Automation module proposal](docs/AUTOMATIONS.md)
 - [Brand and naming](docs/BRANDING.md)
 - [Appflare deployment](docs/APPFLARE.md)
+- [Turborepo remote cache](docs/REMOTE-CACHE.md)
 - [Release and remote checklist](docs/RELEASING.md)
 - [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
 - [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
