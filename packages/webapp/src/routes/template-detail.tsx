@@ -1,38 +1,204 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useRoute } from 'preact-iso';
-import { ArrowLeft, FileText } from 'lucide-react';
-import { documentIssues } from '@postwren/email/ir';
+import { ArrowLeft, FileText, RotateCcw } from 'lucide-react';
+import { documentIssues, parseDocument } from '@postwren/email/ir';
 import type { Document } from '@postwren/email/ir';
+import { renderEmail } from '@postwren/email/render';
 import { EmailEditor } from '@postwren/editor';
 import {
    Alert,
    AlertDescription,
    AlertTitle,
+   Badge,
    Button,
+   Dialog,
+   DialogContent,
+   DialogDescription,
+   DialogFooter,
+   DialogHeader,
+   DialogTitle,
    EmptyState,
+   Field,
+   Input,
    Skeleton,
    buttonVariants,
+   cn,
 } from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EditorHeader } from '@/components/editor/editor-header';
 import { EmailPreviewDialog } from '@/components/editor/preview-dialog';
+import { MediaPickerDialog } from '@/components/media/media-picker';
 import { issuesFromDetails } from '@/components/editor/server-issues';
 import { parseTemplateDocument } from '@/components/editor/template-document';
 import { upload } from '@/lib/api/media';
 import {
+   create as createSavedBlock,
+   list as listSavedBlocks,
+   remove as removeSavedBlock,
+} from '@/lib/api/saved-blocks';
+import {
+   create as createTemplate,
    duplicate as duplicateTemplate,
    get as getTemplate,
+   getVersion,
+   listVersions,
    remove as removeTemplate,
+   restoreVersion,
    update as updateTemplate,
 } from '@/lib/api/templates';
 import { ApiError } from '@/lib/api/client';
-import type { Template } from '@/lib/api/types';
+import type { Template, TemplateVersion, TemplateVersionSummary } from '@/lib/api/types';
+import type { SavedBlock } from '@/lib/api/types';
 import { errorMessage } from '@/lib/form-errors';
+import { formatDateTime, relativeTime } from '@/lib/format';
 
 type RenderResult = {
    html: string;
    text: string;
 };
+
+type DocumentDiff = {
+   added: number;
+   removed: number;
+   changed: number;
+   settingsChanged: boolean;
+   addedIds: string[];
+   removedIds: string[];
+   changedIds: string[];
+};
+
+function stableValue(value: unknown): unknown {
+   if (Array.isArray(value)) return value.map(stableValue);
+   if (value !== null && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return Object.keys(record)
+         .sort()
+         .reduce<Record<string, unknown>>((result, key) => {
+            result[key] = stableValue(record[key]);
+            return result;
+         }, {});
+   }
+   return value;
+}
+
+function signature(value: unknown): string {
+   return JSON.stringify(stableValue(value));
+}
+
+function diffDocuments(selected: Document, current: Document): DocumentDiff {
+   const selectedById = new Map(selected.children.map((block) => [block.id, block]));
+   const currentById = new Map(current.children.map((block) => [block.id, block]));
+   const addedIds: string[] = [];
+   const removedIds: string[] = [];
+   const changedIds: string[] = [];
+
+   for (const block of current.children) {
+      const before = selectedById.get(block.id);
+      if (before === undefined) {
+         addedIds.push(block.id);
+      } else if (signature(before) !== signature(block)) {
+         changedIds.push(block.id);
+      }
+   }
+
+   for (const block of selected.children) {
+      if (!currentById.has(block.id)) removedIds.push(block.id);
+   }
+
+   return {
+      added: addedIds.length,
+      removed: removedIds.length,
+      changed: changedIds.length,
+      settingsChanged:
+         signature(selected.settings) !== signature(current.settings) ||
+         selected.preheader !== current.preheader,
+      addedIds,
+      removedIds,
+      changedIds,
+   };
+}
+
+const HIGHLIGHT_COLOURS = {
+   added: '#15803d',
+   removed: '#b91c1c',
+   changed: '#b45309',
+} as const;
+
+function escapeSelector(value: string): string {
+   return value.replace(/["\\]/g, '\\$&');
+}
+
+/** Injects git-style block highlights into an annotated email preview. */
+function highlightPreview(
+   html: string,
+   sections: { ids: string[]; kind: keyof typeof HIGHLIGHT_COLOURS }[],
+): string {
+   const rules = sections.flatMap(({ ids, kind }) => {
+      const colour = HIGHLIGHT_COLOURS[kind];
+      // Only background/outline: pseudo-elements on table rows break the
+      // email's table layout, which is exactly what the preview is showing.
+      return ids.map(
+         (id) =>
+            `[data-block-id="${escapeSelector(id)}"]{outline:3px solid ${colour}!important;outline-offset:-3px;background:color-mix(in srgb, ${colour} 9%, transparent)!important;box-shadow:inset 4px 0 0 0 ${colour}!important;}`,
+      );
+   });
+
+   if (rules.length === 0) return html;
+   const style = `<style>${rules.join('')}</style>`;
+   return html.includes('</head>') ? html.replace('</head>', `${style}</head>`) : `${style}${html}`;
+}
+
+function renderAnnotatedPreview(document: Document): string {
+   try {
+      return renderEmail(document, { annotateBlocks: true }).html;
+   } catch {
+      return '';
+   }
+}
+
+function VersionPreview({ label, html }: { label: string; html: string }) {
+   const frameRef = useRef<HTMLDivElement>(null);
+   const [scale, setScale] = useState(1);
+
+   useEffect(() => {
+      const element = frameRef.current;
+      if (element === null) return;
+
+      const update = () => {
+         const width = element.clientWidth - 2;
+         if (width > 0) setScale(Math.min(1, width / 600));
+      };
+
+      update();
+      if (typeof ResizeObserver === 'undefined') return;
+      const observer = new ResizeObserver(update);
+      observer.observe(element);
+      return () => observer.disconnect();
+   }, []);
+
+   return (
+      <div className="grid min-w-0 gap-1.5">
+         <span className="text-xs font-medium text-muted-foreground">{label}</span>
+         <div
+            ref={frameRef}
+            className="h-[38dvh] min-h-56 w-full min-w-0 overflow-hidden rounded-lg border border-border bg-white"
+         >
+            <iframe
+               title={label}
+               srcDoc={html}
+               sandbox=""
+               style={{
+                  width: 600,
+                  height: `calc(38dvh / ${scale})`,
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                  border: 0,
+               }}
+            />
+         </div>
+      </div>
+   );
+}
 
 type PersistOptions = {
    bumpRevision: boolean;
@@ -70,9 +236,28 @@ export function TemplateDetail() {
    const [deleteOpen, setDeleteOpen] = useState(false);
    const [deleteBusy, setDeleteBusy] = useState(false);
    const [deleteError, setDeleteError] = useState<string | null>(null);
+   const [savedBlocks, setSavedBlocks] = useState<SavedBlock[]>([]);
+   const [saveAsOpen, setSaveAsOpen] = useState(false);
+   const [saveAsName, setSaveAsName] = useState('');
+   const [saveAsSubject, setSaveAsSubject] = useState('');
+   const [saveAsBusy, setSaveAsBusy] = useState(false);
+   const [saveAsError, setSaveAsError] = useState<string | null>(null);
+   const [historyOpen, setHistoryOpen] = useState(false);
+   const [versions, setVersions] = useState<TemplateVersionSummary[]>([]);
+   const [versionsLoading, setVersionsLoading] = useState(false);
+   const [versionsError, setVersionsError] = useState<string | null>(null);
+   const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
+   const [selectedVersion, setSelectedVersion] = useState<TemplateVersion | null>(null);
+   const [versionLoading, setVersionLoading] = useState(false);
+   const [versionError, setVersionError] = useState<string | null>(null);
+   const [restoreOpen, setRestoreOpen] = useState(false);
+   const [restoreBusy, setRestoreBusy] = useState(false);
+   const [restoreError, setRestoreError] = useState<string | null>(null);
 
    const idRef = useRef(id);
    idRef.current = id;
+   const templateRef = useRef<Template | null>(null);
+   templateRef.current = template;
    const docRef = useRef<Document | null>(null);
    const savedDocRef = useRef<Document | null>(null);
    const nameRef = useRef('');
@@ -221,6 +406,47 @@ export function TemplateDetail() {
       return { url: asset.url, alt: file.name.replace(/\.[^.]+$/, '') };
    }, []);
 
+   const [mediaOpen, setMediaOpen] = useState(false);
+   const mediaResolveRef = useRef<((value: { url: string; alt?: string } | null) => void) | null>(
+      null,
+   );
+
+   const handlePickImage = useCallback(
+      () =>
+         new Promise<{ url: string; alt?: string } | null>((resolve) => {
+            mediaResolveRef.current = resolve;
+            setMediaOpen(true);
+         }),
+      [],
+   );
+
+   const handleSaveBlock = useCallback(async (block: unknown, name: string) => {
+      const saved = await createSavedBlock({ name, block });
+      setSavedBlocks((current) => [saved, ...current]);
+   }, []);
+
+   const handleDeleteSavedBlock = useCallback((id: string) => {
+      setSavedBlocks((current) => current.filter((block) => block.id !== id));
+      void removeSavedBlock(id).catch(() => {
+         // Re-listing on the next open restores a block when the delete failed.
+      });
+   }, []);
+
+   useEffect(() => {
+      let cancelled = false;
+      listSavedBlocks()
+         .then((result) => {
+            if (!cancelled) setSavedBlocks(result);
+         })
+         .catch(() => {
+            // The editor stays usable when saved blocks cannot be listed.
+         });
+
+      return () => {
+         cancelled = true;
+      };
+   }, []);
+
    useEffect(() => {
       mountedRef.current = true;
 
@@ -306,6 +532,70 @@ export function TemplateDetail() {
       };
    }, [id, reloadKey]);
 
+   useEffect(() => {
+      if (!historyOpen) return;
+
+      let cancelled = false;
+      setVersionsLoading(true);
+      setVersionsError(null);
+
+      listVersions(idRef.current)
+         .then((result) => {
+            if (cancelled) return;
+            setVersions(result);
+            setSelectedRevision((current) => {
+               if (current !== null && result.some((version) => version.revision === current)) {
+                  return current;
+               }
+
+               const currentRevision = templateRef.current?.revision;
+               const candidate =
+                  result.find((version) => version.revision !== currentRevision) ?? result[0];
+               return candidate?.revision ?? null;
+            });
+         })
+         .catch((cause: unknown) => {
+            if (!cancelled) {
+               setVersionsError(errorMessage(cause, 'Could not load the version history'));
+            }
+         })
+         .finally(() => {
+            if (!cancelled) setVersionsLoading(false);
+         });
+
+      return () => {
+         cancelled = true;
+      };
+   }, [historyOpen]);
+
+   useEffect(() => {
+      if (!historyOpen || selectedRevision === null) {
+         setSelectedVersion(null);
+         return;
+      }
+
+      let cancelled = false;
+      setVersionLoading(true);
+      setVersionError(null);
+
+      getVersion(idRef.current, selectedRevision)
+         .then((result) => {
+            if (!cancelled) setSelectedVersion(result);
+         })
+         .catch((cause: unknown) => {
+            if (!cancelled) {
+               setVersionError(errorMessage(cause, 'Could not load this version'));
+            }
+         })
+         .finally(() => {
+            if (!cancelled) setVersionLoading(false);
+         });
+
+      return () => {
+         cancelled = true;
+      };
+   }, [historyOpen, selectedRevision]);
+
    const liveIssues = useMemo(() => (doc === null ? [] : documentIssues(doc)), [doc]);
    const dirty =
       doc !== null && (doc !== savedDoc || name !== savedName || subject !== savedSubject);
@@ -322,6 +612,34 @@ export function TemplateDetail() {
    const statusError = saveError !== null || documentUnavailable;
    const fieldsDisabled = doc === null;
    const saveDisabled = !dirty || saving || doc === null || liveIssues.length > 0;
+
+   const selectedDocument = useMemo(() => {
+      if (selectedVersion === null) return null;
+      try {
+         return parseDocument(selectedVersion.ir);
+      } catch {
+         return null;
+      }
+   }, [selectedVersion]);
+
+   const versionDiff = useMemo(() => {
+      if (selectedDocument === null || savedDoc === null) return null;
+      return diffDocuments(selectedDocument, savedDoc);
+   }, [selectedDocument, savedDoc]);
+
+   const currentPreviewHtml = useMemo(() => {
+      const fallback = template?.preview_html ?? render?.html ?? '';
+      if (savedDoc === null) return fallback;
+      const annotated = renderAnnotatedPreview(savedDoc);
+      return annotated.length > 0 ? annotated : fallback;
+   }, [savedDoc, template?.preview_html, render?.html]);
+
+   const selectedPreviewHtml = useMemo(() => {
+      const fallback = selectedVersion?.previewHtml ?? '';
+      if (selectedDocument === null) return fallback;
+      const annotated = renderAnnotatedPreview(selectedDocument);
+      return annotated.length > 0 ? annotated : fallback;
+   }, [selectedDocument, selectedVersion?.previewHtml]);
 
    useEffect(() => {
       if (!dirty) return;
@@ -420,6 +738,88 @@ export function TemplateDetail() {
       }
    }
 
+   function openSaveAs() {
+      setSaveAsName(name.length > 0 ? `${name} copy` : 'Untitled template');
+      setSaveAsSubject(subject);
+      setSaveAsError(null);
+      setSaveAsOpen(true);
+   }
+
+   async function confirmSaveAs(event: Event) {
+      event.preventDefault();
+      const current = docRef.current;
+      if (current === null) return;
+
+      const trimmedName = saveAsName.trim();
+      if (trimmedName.length === 0) {
+         setSaveAsError('Give the template a name.');
+         return;
+      }
+
+      setSaveAsBusy(true);
+      setSaveAsError(null);
+      try {
+         const flushed = await flush({ bumpRevision: false, surfaceIssues: true });
+         if (!flushed) return;
+
+         const created = await createTemplate({
+            name: trimmedName,
+            subject: saveAsSubject.trim().length > 0 ? saveAsSubject.trim() : 'Untitled template',
+            irJson: current,
+         });
+         skipUnmountSaveRef.current = true;
+         route(`/templates/${created.id}`);
+      } catch (cause) {
+         setSaveAsError(errorMessage(cause, 'Could not save the template'));
+      } finally {
+         if (mountedRef.current) setSaveAsBusy(false);
+      }
+   }
+
+   function openHistory() {
+      setVersionsError(null);
+      setVersionError(null);
+      setSelectedRevision(null);
+      setSelectedVersion(null);
+      setRestoreError(null);
+      setHistoryOpen(true);
+   }
+
+   async function confirmRestore() {
+      if (selectedVersion === null) return;
+
+      setRestoreBusy(true);
+      setRestoreError(null);
+      try {
+         if (isDirtyNow()) {
+            const flushed = await flush({ bumpRevision: true, surfaceIssues: true });
+            if (!flushed) {
+               if (mountedRef.current) {
+                  setRestoreError('Save the current changes before restoring this version.');
+               }
+               return;
+            }
+         }
+
+         const updated = await restoreVersion(idRef.current, selectedVersion.revision);
+         if (!mountedRef.current) return;
+
+         setRestoreOpen(false);
+         setHistoryOpen(false);
+         setSelectedRevision(null);
+         setSelectedVersion(null);
+         setActionError(null);
+         setTemplate(updated);
+         setReloadKey((key) => key + 1);
+      } catch (cause) {
+         if (mountedRef.current) {
+            setRestoreError(errorMessage(cause, 'Could not restore this version'));
+         }
+      } finally {
+         if (mountedRef.current) setRestoreBusy(false);
+      }
+   }
+
    if (loading) {
       return (
          <div className="grid gap-4">
@@ -480,7 +880,9 @@ export function TemplateDetail() {
             onSubjectChange={handleSubjectChange}
             onSave={handleManualSave}
             onDuplicate={() => void handleDuplicate()}
+            onSaveAsTemplate={openSaveAs}
             onPreview={() => setPreviewOpen(true)}
+            onHistory={openHistory}
             onDelete={() => {
                setDeleteError(null);
                setDeleteOpen(true);
@@ -548,6 +950,10 @@ export function TemplateDetail() {
                   onRender={handleRender}
                   issues={liveIssues}
                   onUploadImage={handleUploadImage}
+                  onPickImage={handlePickImage}
+                  savedBlocks={savedBlocks}
+                  onSaveBlock={handleSaveBlock}
+                  onDeleteSavedBlock={handleDeleteSavedBlock}
                   className="h-full min-h-0"
                />
             </div>
@@ -560,6 +966,354 @@ export function TemplateDetail() {
             html={render?.html ?? ''}
             text={render?.text ?? ''}
          />
+
+         <MediaPickerDialog
+            open={mediaOpen}
+            onOpenChange={(next) => {
+               setMediaOpen(next);
+               if (!next) {
+                  mediaResolveRef.current?.(null);
+                  mediaResolveRef.current = null;
+               }
+            }}
+            onSelect={(asset) => {
+               mediaResolveRef.current?.({
+                  url: asset.url,
+                  alt: asset.name.replace(/\.[^.]+$/, ''),
+               });
+               mediaResolveRef.current = null;
+               setMediaOpen(false);
+            }}
+         />
+
+         <Dialog
+            open={historyOpen}
+            onOpenChange={(open) => {
+               if (!open && !restoreBusy) {
+                  setHistoryOpen(false);
+                  setSelectedRevision(null);
+                  setSelectedVersion(null);
+                  setRestoreError(null);
+               }
+            }}
+         >
+            <DialogContent className="flex h-[min(88dvh,46rem)] flex-col overflow-hidden sm:max-w-6xl">
+               <DialogHeader>
+                  <DialogTitle>Version history</DialogTitle>
+                  <DialogDescription>
+                     Compare a saved revision with the current one. Restoring a version always
+                     creates a new revision.
+                  </DialogDescription>
+               </DialogHeader>
+
+               {versionsError !== null && (
+                  <Alert variant="destructive">
+                     <AlertTitle>Could not load version history</AlertTitle>
+                     <AlertDescription>{versionsError}</AlertDescription>
+                  </Alert>
+               )}
+
+               <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-[16rem_minmax(0,1fr)]">
+                  <div className="min-h-0 overflow-y-auto pr-1">
+                     {versionsLoading ? (
+                        <div className="grid gap-2">
+                           <Skeleton className="h-16 w-full" />
+                           <Skeleton className="h-16 w-full" />
+                           <Skeleton className="h-16 w-full" />
+                        </div>
+                     ) : versions.length === 0 ? (
+                        <EmptyState
+                           icon={<FileText aria-hidden="true" />}
+                           title="No versions yet"
+                           description="Versions appear here after the first save."
+                           className="px-3 py-8"
+                        />
+                     ) : (
+                        <ol className="grid gap-1">
+                           {versions.map((version) => {
+                              const isCurrent = version.revision === template.revision;
+                              const isSelected = version.revision === selectedRevision;
+
+                              return (
+                                 <li key={version.revision}>
+                                    <button
+                                       type="button"
+                                       aria-pressed={isSelected}
+                                       onClick={() => setSelectedRevision(version.revision)}
+                                       className={cn(
+                                          'w-full rounded-lg border px-3 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+                                          isSelected
+                                             ? 'border-ochre/60 bg-accent text-accent-foreground'
+                                             : 'border-transparent hover:border-border hover:bg-accent/40',
+                                       )}
+                                    >
+                                       <span className="flex items-center gap-1.5">
+                                          <span className="font-heading text-sm font-semibold">
+                                             v{version.revision}
+                                          </span>
+                                          {isCurrent && (
+                                             <Badge
+                                                variant="secondary"
+                                                className="px-1.5 py-0 text-[10px]"
+                                             >
+                                                Current
+                                             </Badge>
+                                          )}
+                                          <span
+                                             className="ml-auto text-[11px] text-muted-foreground"
+                                             title={formatDateTime(version.createdAt)}
+                                          >
+                                             {relativeTime(version.createdAt)}
+                                          </span>
+                                       </span>
+                                       <span className="mt-0.5 block truncate text-sm font-medium">
+                                          {version.name}
+                                       </span>
+                                       <span className="block truncate text-xs text-muted-foreground">
+                                          {version.subject.trim().length > 0
+                                             ? version.subject
+                                             : 'No subject'}
+                                       </span>
+                                    </button>
+                                 </li>
+                              );
+                           })}
+                        </ol>
+                     )}
+                  </div>
+
+                  <div className="relative grid min-h-0 content-start gap-3 overflow-y-auto pr-1">
+                     {selectedRevision === null ? (
+                        <EmptyState
+                           icon={<FileText aria-hidden="true" />}
+                           title="Pick a version"
+                           description="Select a revision on the left to compare it with the current one."
+                           className="py-10"
+                        />
+                     ) : selectedVersion === null ? (
+                        versionError !== null ? (
+                           <Alert variant="destructive">
+                              <AlertTitle>Could not load this version</AlertTitle>
+                              <AlertDescription>{versionError}</AlertDescription>
+                           </Alert>
+                        ) : (
+                           <div className="grid gap-3">
+                              <Skeleton className="h-5 w-64" />
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                 <Skeleton className="h-64 w-full rounded-lg" />
+                                 <Skeleton className="h-64 w-full rounded-lg" />
+                              </div>
+                           </div>
+                        )
+                     ) : (
+                        <>
+                           {versionError !== null && (
+                              <Alert variant="destructive">
+                                 <AlertDescription>{versionError}</AlertDescription>
+                              </Alert>
+                           )}
+
+                           <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm text-muted-foreground">
+                                 Comparing{' '}
+                                 <span className="font-medium text-foreground">
+                                    v{selectedRevision}
+                                 </span>{' '}
+                                 with{' '}
+                                 <span className="font-medium text-foreground">
+                                    v{template.revision}
+                                 </span>
+                              </p>
+                              {versionDiff !== null &&
+                                 (versionDiff.added === 0 &&
+                                 versionDiff.removed === 0 &&
+                                 versionDiff.changed === 0 &&
+                                 !versionDiff.settingsChanged ? (
+                                    <Badge variant="secondary">No block changes</Badge>
+                                 ) : (
+                                    <span className="flex flex-wrap items-center gap-1.5">
+                                       <Badge variant="success">+{versionDiff.added} added</Badge>
+                                       <Badge variant="destructive">
+                                          −{versionDiff.removed} removed
+                                       </Badge>
+                                       <Badge variant="warning">
+                                          {versionDiff.changed} changed
+                                       </Badge>
+                                       {versionDiff.settingsChanged && (
+                                          <Badge variant="warning">Settings changed</Badge>
+                                       )}
+                                    </span>
+                                 ))}
+                           </div>
+
+                           <div className="grid gap-3 sm:grid-cols-2">
+                              <VersionPreview
+                                 label={`v${selectedRevision} (selected)`}
+                                 html={highlightPreview(selectedPreviewHtml, [
+                                    {
+                                       ids: versionDiff?.removedIds ?? [],
+                                       kind: 'removed',
+                                    },
+                                    {
+                                       ids: versionDiff?.changedIds ?? [],
+                                       kind: 'changed',
+                                    },
+                                 ])}
+                              />
+                              <VersionPreview
+                                 label={`v${template.revision} (current)`}
+                                 html={highlightPreview(currentPreviewHtml, [
+                                    {
+                                       ids: versionDiff?.addedIds ?? [],
+                                       kind: 'added',
+                                    },
+                                    {
+                                       ids: versionDiff?.changedIds ?? [],
+                                       kind: 'changed',
+                                    },
+                                 ])}
+                              />
+                           </div>
+
+                           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                              <span className="inline-flex items-center gap-1.5">
+                                 <span className="size-2 rounded-full bg-[#15803d]" />
+                                 Added
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                 <span className="size-2 rounded-full bg-[#b91c1c]" />
+                                 Removed
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                 <span className="size-2 rounded-full bg-[#b45309]" />
+                                 Changed
+                              </span>
+                           </div>
+
+                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                              <p className="max-w-md text-xs text-muted-foreground">
+                                 Restoring copies this version into a new revision. Campaigns
+                                 already pinned to old revisions keep their content.
+                              </p>
+                              <Button
+                                 size="sm"
+                                 variant="outline"
+                                 disabled={restoreBusy}
+                                 onClick={() => {
+                                    setRestoreError(null);
+                                    setRestoreOpen(true);
+                                 }}
+                              >
+                                 <RotateCcw aria-hidden="true" />
+                                 Restore this version
+                              </Button>
+                           </div>
+                        </>
+                     )}
+
+                     {versionLoading && selectedVersion !== null && (
+                        <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-background/50 pt-16 backdrop-blur-[1px]">
+                           <Badge variant="secondary">Loading version…</Badge>
+                        </div>
+                     )}
+                  </div>
+               </div>
+            </DialogContent>
+         </Dialog>
+
+         <ConfirmDialog
+            open={restoreOpen}
+            onOpenChange={(open) => {
+               if (!open && !restoreBusy) {
+                  setRestoreOpen(false);
+                  setRestoreError(null);
+               }
+            }}
+            title="Restore this version"
+            description={
+               selectedVersion === null
+                  ? 'Restore this version as a new revision?'
+                  : `Restore v${selectedVersion.revision} as v${template.revision + 1}? The current draft is replaced by this version. Campaigns already pinned to older revisions are unaffected.${
+                       dirty ? ' Unsaved editor changes are saved as their own revision first.' : ''
+                    }`
+            }
+            confirmLabel="Restore version"
+            loading={restoreBusy}
+            error={restoreError}
+            onConfirm={confirmRestore}
+         />
+
+         <Dialog
+            open={saveAsOpen}
+            onOpenChange={(open) => {
+               if (!open && !saveAsBusy) {
+                  setSaveAsOpen(false);
+                  setSaveAsError(null);
+               }
+            }}
+         >
+            <DialogContent>
+               <DialogHeader>
+                  <DialogTitle>Save as template</DialogTitle>
+                  <DialogDescription>
+                     Create a new template from this document. The current template stays as it is.
+                  </DialogDescription>
+               </DialogHeader>
+
+               <form
+                  className="grid gap-4"
+                  onSubmit={(event) => void confirmSaveAs(event)}
+               >
+                  <Field
+                     label="Template name"
+                     htmlFor="save-as-name"
+                     error={saveAsError ?? undefined}
+                     required
+                  >
+                     <Input
+                        id="save-as-name"
+                        value={saveAsName}
+                        maxLength={200}
+                        autoFocus
+                        onInput={(event) => {
+                           setSaveAsName(event.currentTarget.value);
+                           setSaveAsError(null);
+                        }}
+                     />
+                  </Field>
+
+                  <Field
+                     label="Subject"
+                     htmlFor="save-as-subject"
+                     hint="You can change this later."
+                  >
+                     <Input
+                        id="save-as-subject"
+                        value={saveAsSubject}
+                        maxLength={998}
+                        onInput={(event) => setSaveAsSubject(event.currentTarget.value)}
+                     />
+                  </Field>
+
+                  <DialogFooter>
+                     <Button
+                        variant="outline"
+                        type="button"
+                        disabled={saveAsBusy}
+                        onClick={() => setSaveAsOpen(false)}
+                     >
+                        Cancel
+                     </Button>
+                     <Button
+                        type="submit"
+                        disabled={saveAsBusy}
+                     >
+                        {saveAsBusy ? 'Saving…' : 'Save template'}
+                     </Button>
+                  </DialogFooter>
+               </form>
+            </DialogContent>
+         </Dialog>
 
          <ConfirmDialog
             open={deleteOpen}

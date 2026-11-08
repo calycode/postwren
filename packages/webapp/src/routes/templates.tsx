@@ -1,11 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'preact-iso';
-import { Copy, FileText, Plus, Search, Trash2 } from 'lucide-react';
-import { Alert, AlertDescription, Badge, Button, Input } from '@postwren/ui';
+import { Copy, FileText, LayoutTemplate, Plus, Search, Trash2 } from 'lucide-react';
+import {
+   Alert,
+   AlertDescription,
+   Badge,
+   Button,
+   Dialog,
+   DialogClose,
+   DialogContent,
+   DialogDescription,
+   DialogHeader,
+   DialogTitle,
+   EmptyState,
+   Input,
+   Skeleton,
+} from '@postwren/ui';
 import { createDocument } from '@postwren/email/ir';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { DataTable } from '@/components/data-table';
-import type { DataTableColumn } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import {
    create as createTemplate,
@@ -17,6 +29,156 @@ import type { Template } from '@/lib/api/types';
 import { errorMessage } from '@/lib/form-errors';
 import { formatDate, relativeTime } from '@/lib/format';
 import { useDebouncedValue } from '@/lib/hooks';
+import { STARTERS } from '@/lib/starters';
+import type { Starter } from '@/lib/starters';
+
+function TemplatePreview({ template }: { template: Template }) {
+   const containerRef = useRef<HTMLDivElement>(null);
+   const [scale, setScale] = useState(0.5);
+
+   useEffect(() => {
+      const element = containerRef.current;
+      if (element === null) return;
+
+      const update = (width: number) => {
+         setScale(Math.max(0.2, width / 600));
+      };
+
+      update(element.getBoundingClientRect().width);
+      const observer = new ResizeObserver((entries) => {
+         const entry = entries[0];
+         if (entry !== undefined) update(entry.contentRect.width);
+      });
+      observer.observe(element);
+      return () => observer.disconnect();
+   }, []);
+
+   return (
+      <div
+         ref={containerRef}
+         className="relative h-44 overflow-hidden border-b border-border bg-white"
+      >
+         {template.preview_html === null ? (
+            <div className="flex h-full items-center justify-center bg-muted/40 text-muted-foreground">
+               <FileText
+                  className="size-6"
+                  aria-hidden="true"
+               />
+            </div>
+         ) : (
+            <iframe
+               title={`Preview of ${template.name}`}
+               srcDoc={template.preview_html}
+               sandbox=""
+               tabIndex={-1}
+               aria-hidden="true"
+               loading="lazy"
+               scrolling="no"
+               className="pointer-events-none absolute top-0 left-0 origin-top-left border-0"
+               style={{
+                  width: '600px',
+                  height: '560px',
+                  transform: `scale(${scale})`,
+               }}
+            />
+         )}
+      </div>
+   );
+}
+
+function TemplateCard({
+   template,
+   duplicating,
+   onDuplicate,
+   onDelete,
+}: {
+   template: Template;
+   duplicating: boolean;
+   onDuplicate: () => void;
+   onDelete: () => void;
+}) {
+   const href = `/templates/${template.id}`;
+
+   return (
+      <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md">
+         <a
+            href={href}
+            className="block outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            aria-label={`Open ${template.name}`}
+         >
+            <TemplatePreview template={template} />
+         </a>
+
+         <div className="flex flex-1 items-start gap-2 p-4">
+            <div className="min-w-0 flex-1">
+               <a
+                  href={href}
+                  className="block truncate text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+               >
+                  {template.name}
+               </a>
+               <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {template.subject.trim().length > 0 ? template.subject : 'No subject yet'}
+               </p>
+               <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <Badge variant="secondary">v{template.revision}</Badge>
+                  <span title={formatDate(template.updated_at)}>
+                     Edited {relativeTime(template.updated_at)}
+                  </span>
+               </div>
+            </div>
+
+            <div className="flex shrink-0 items-center">
+               <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Duplicate ${template.name}`}
+                  disabled={duplicating}
+                  onClick={onDuplicate}
+               >
+                  <Copy aria-hidden="true" />
+               </Button>
+               <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-destructive"
+                  aria-label={`Delete ${template.name}`}
+                  onClick={onDelete}
+               >
+                  <Trash2 aria-hidden="true" />
+               </Button>
+            </div>
+         </div>
+      </article>
+   );
+}
+
+function StarterCard({
+   starter,
+   busy,
+   onUse,
+}: {
+   starter: Starter;
+   busy: boolean;
+   onUse: () => void;
+}) {
+   return (
+      <button
+         type="button"
+         disabled={busy}
+         onClick={onUse}
+         className="grid gap-1 rounded-lg border border-border bg-card p-4 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+      >
+         <span className="text-sm font-medium">{starter.name}</span>
+         <span className="text-xs leading-relaxed text-muted-foreground">
+            {starter.description}
+         </span>
+         <span className="mt-1 text-[11px] font-medium text-ochre">
+            {busy ? 'Creating…' : 'Use this starter'}
+         </span>
+      </button>
+   );
+}
 
 export function Templates() {
    const { route } = useLocation();
@@ -28,6 +190,8 @@ export function Templates() {
    const [search, setSearch] = useState('');
    const debouncedSearch = useDebouncedValue(search, 250);
    const [creating, setCreating] = useState(false);
+   const [creatingStarterId, setCreatingStarterId] = useState<string | null>(null);
+   const [startersOpen, setStartersOpen] = useState(false);
    const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
    const [deleting, setDeleting] = useState<Template | null>(null);
    const [deleteBusy, setDeleteBusy] = useState(false);
@@ -70,7 +234,7 @@ export function Templates() {
       setSearch('');
    }
 
-   async function createTemplateAndOpen() {
+   async function createBlank() {
       setActionError(null);
       setCreating(true);
       try {
@@ -84,6 +248,23 @@ export function Templates() {
          setActionError(errorMessage(cause, 'Could not create the template'));
       } finally {
          setCreating(false);
+      }
+   }
+
+   async function createFromStarter(starter: Starter) {
+      setActionError(null);
+      setCreatingStarterId(starter.id);
+      try {
+         const template = await createTemplate({
+            name: starter.name,
+            subject: starter.subject,
+            irJson: starter.build(),
+         });
+         route(`/templates/${template.id}`);
+      } catch (cause) {
+         setActionError(errorMessage(cause, 'Could not create the template'));
+      } finally {
+         setCreatingStarterId(null);
       }
    }
 
@@ -115,74 +296,6 @@ export function Templates() {
       }
    }
 
-   const columns: DataTableColumn<Template>[] = [
-      {
-         id: 'name',
-         header: 'Name',
-         cell: (template) => (
-            <a
-               href={`/templates/${template.id}`}
-               className="font-medium underline-offset-4 hover:underline"
-            >
-               {template.name}
-            </a>
-         ),
-      },
-      {
-         id: 'subject',
-         header: 'Subject',
-         cell: (template) => <span className="text-muted-foreground">{template.subject}</span>,
-      },
-      {
-         id: 'revision',
-         header: 'Revision',
-         cell: (template) => <Badge variant="secondary">v{template.revision}</Badge>,
-      },
-      {
-         id: 'updated',
-         header: 'Updated',
-         cell: (template) => (
-            <span
-               className="text-muted-foreground"
-               title={formatDate(template.updated_at)}
-            >
-               {relativeTime(template.updated_at)}
-            </span>
-         ),
-      },
-      {
-         id: 'actions',
-         header: <span className="sr-only">Actions</span>,
-         headerClassName: 'text-right',
-         className: 'text-right',
-         cell: (template) => (
-            <div className="flex justify-end gap-1">
-               <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Duplicate ${template.name}`}
-                  disabled={duplicatingId === template.id}
-                  onClick={() => void duplicate(template)}
-               >
-                  <Copy aria-hidden="true" />
-               </Button>
-               <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:text-destructive"
-                  aria-label={`Delete ${template.name}`}
-                  onClick={() => {
-                     setDeleting(template);
-                     setDeleteError(null);
-                  }}
-               >
-                  <Trash2 aria-hidden="true" />
-               </Button>
-            </div>
-         ),
-      },
-   ];
-
    return (
       <div className="grid gap-6">
          <PageHeader
@@ -190,13 +303,22 @@ export function Templates() {
             description="Reusable email documents. Campaigns pin a template revision when they are sent."
             actionGuideId="templates-actions"
             actions={
-               <Button
-                  disabled={creating}
-                  onClick={() => void createTemplateAndOpen()}
-               >
-                  <Plus aria-hidden="true" />
-                  {creating ? 'Creating…' : 'New template'}
-               </Button>
+               <>
+                  <Button
+                     variant="outline"
+                     onClick={() => setStartersOpen(true)}
+                  >
+                     <LayoutTemplate aria-hidden="true" />
+                     Browse starters
+                  </Button>
+                  <Button
+                     disabled={creating}
+                     onClick={() => void createBlank()}
+                  >
+                     <Plus aria-hidden="true" />
+                     {creating ? 'Creating…' : 'New template'}
+                  </Button>
+               </>
             }
          />
 
@@ -241,47 +363,134 @@ export function Templates() {
             </Alert>
          )}
 
-         <div data-guide="templates-table">
-            <DataTable
-               caption="Templates"
-               columns={columns}
-               rows={filteredTemplates}
-               rowKey={(template) => template.id}
-               loading={loading}
-               error={loadError}
-               onRetry={() => setReloadKey((key) => key + 1)}
-               empty={
-                  searchActive
-                     ? {
-                          title: 'No templates match your search',
-                          description: 'Try a different name or subject.',
-                          icon: <Search aria-hidden="true" />,
-                          action: (
-                             <Button
-                                variant="outline"
-                                onClick={clearSearch}
-                             >
-                                Clear search
-                             </Button>
-                          ),
-                       }
-                     : {
-                          title: 'No templates yet',
-                          description: 'Create a template to start building an email document.',
-                          icon: <FileText aria-hidden="true" />,
-                          action: (
-                             <Button
-                                disabled={creating}
-                                onClick={() => void createTemplateAndOpen()}
-                             >
-                                <Plus aria-hidden="true" />
-                                New template
-                             </Button>
-                          ),
-                       }
+         {loadError !== null ? (
+            <Alert variant="destructive">
+               <AlertDescription>
+                  <p>{loadError}</p>
+                  <Button
+                     variant="outline"
+                     size="sm"
+                     className="mt-3"
+                     onClick={() => setReloadKey((key) => key + 1)}
+                  >
+                     Try again
+                  </Button>
+               </AlertDescription>
+            </Alert>
+         ) : loading && templates.length === 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+               {Array.from({ length: 6 }, (_, index) => (
+                  <div
+                     key={index}
+                     className="overflow-hidden rounded-xl border border-border bg-card"
+                  >
+                     <Skeleton className="h-44 rounded-none" />
+                     <div className="grid gap-2 p-4">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-56" />
+                     </div>
+                  </div>
+               ))}
+            </div>
+         ) : templates.length === 0 ? (
+            <div className="grid gap-8">
+               <EmptyState
+                  icon={<LayoutTemplate aria-hidden="true" />}
+                  title="Start with a template"
+                  description="Pick a starter, replace the copy, and send it to a campaign. You can also start from a blank document."
+                  action={
+                     <Button
+                        variant="outline"
+                        disabled={creating}
+                        onClick={() => void createBlank()}
+                     >
+                        <Plus aria-hidden="true" />
+                        Start blank
+                     </Button>
+                  }
+               />
+
+               <section className="grid gap-3">
+                  <div className="grid gap-1">
+                     <h2 className="font-display text-xl font-medium">Starters</h2>
+                     <p className="text-sm text-muted-foreground">
+                        Five email shapes that cover most of what a small list sends.
+                     </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                     {STARTERS.map((starter) => (
+                        <StarterCard
+                           key={starter.id}
+                           starter={starter}
+                           busy={creatingStarterId === starter.id}
+                           onUse={() => void createFromStarter(starter)}
+                        />
+                     ))}
+                  </div>
+               </section>
+            </div>
+         ) : filteredTemplates.length === 0 ? (
+            <EmptyState
+               icon={<Search aria-hidden="true" />}
+               title="No templates match your search"
+               description="Try a different name or subject."
+               action={
+                  <Button
+                     variant="outline"
+                     onClick={clearSearch}
+                  >
+                     Clear search
+                  </Button>
                }
             />
-         </div>
+         ) : (
+            <div
+               data-guide="templates-table"
+               className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            >
+               {filteredTemplates.map((template) => (
+                  <TemplateCard
+                     key={template.id}
+                     template={template}
+                     duplicating={duplicatingId === template.id}
+                     onDuplicate={() => void duplicate(template)}
+                     onDelete={() => {
+                        setDeleting(template);
+                        setDeleteError(null);
+                     }}
+                  />
+               ))}
+            </div>
+         )}
+
+         <Dialog
+            open={startersOpen}
+            onOpenChange={setStartersOpen}
+         >
+            <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+               <DialogHeader>
+                  <DialogTitle>Start from a starter</DialogTitle>
+                  <DialogDescription>
+                     Each starter creates a new template with real copy you can replace.
+                  </DialogDescription>
+               </DialogHeader>
+
+               <div className="grid gap-3 sm:grid-cols-2">
+                  {STARTERS.map((starter) => (
+                     <StarterCard
+                        key={starter.id}
+                        starter={starter}
+                        busy={creatingStarterId === starter.id}
+                        onUse={() => void createFromStarter(starter)}
+                     />
+                  ))}
+               </div>
+
+               <div className="flex justify-end">
+                  <DialogClose>Close</DialogClose>
+               </div>
+            </DialogContent>
+         </Dialog>
 
          <ConfirmDialog
             open={deleting !== null}
