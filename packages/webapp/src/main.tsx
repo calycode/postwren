@@ -1,6 +1,8 @@
 import { render } from 'preact';
 import { LocationProvider } from 'preact-iso';
 import { ToastProvider } from '@postwren/ui';
+import '@fontsource-variable/public-sans';
+import '@fontsource-variable/newsreader';
 import { App } from './App';
 import { AuthProvider } from './lib/auth';
 import { ThemeProvider } from './lib/theme';

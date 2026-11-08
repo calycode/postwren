@@ -1,11 +1,13 @@
 import type { ComponentType } from 'preact';
-import { useEffect } from 'react';
-import { Route, Router, useLocation } from 'preact-iso';
+import { Route, Router } from 'preact-iso';
 import { AppShell } from './components/app-shell';
 import { RequireAuth } from './components/require-auth';
 import { GuideProvider } from './lib/guide';
 import { CampaignDetail } from './routes/campaign-detail';
 import { Campaigns } from './routes/campaigns';
+import { AutomationDetail } from './routes/automation-detail';
+import { Automations } from './routes/automations';
+import { Home } from './routes/home';
 import { Login } from './routes/login';
 import { NotFound } from './routes/not-found';
 import { Settings } from './routes/settings';
@@ -26,16 +28,6 @@ function guarded(Component: ComponentType) {
    };
 }
 
-function HomeRedirect() {
-   const { route } = useLocation();
-
-   useEffect(() => {
-      route('/subscribers', true);
-   }, [route]);
-
-   return null;
-}
-
 export function App() {
    return (
       <GuideProvider>
@@ -46,7 +38,7 @@ export function App() {
             />
             <Route
                path="/"
-               component={HomeRedirect}
+               component={guarded(Home)}
             />
             <Route
                path="/subscribers"
@@ -71,6 +63,14 @@ export function App() {
             <Route
                path="/campaigns/:id"
                component={guarded(CampaignDetail)}
+            />
+            <Route
+               path="/automations"
+               component={guarded(Automations)}
+            />
+            <Route
+               path="/automations/:id"
+               component={guarded(AutomationDetail)}
             />
             <Route
                path="/settings"
