@@ -4,6 +4,7 @@ import type { CampaignRow } from '../lib/rows';
 import { compileAudience } from '@postwren/shared/audience';
 import { countAudience } from '../lib/audience';
 import { nowSeconds } from '../lib/time';
+import { runAutomationSweep } from './automation';
 
 const PAGE_SIZE = 500;
 const INSERT_ROWS_PER_STATEMENT = 20;
@@ -191,6 +192,7 @@ export async function handleScheduled(
    ctx.waitUntil(
       (async () => {
          await runDispatch(env, now);
+         await runAutomationSweep(env, now);
          await pruneExpired(env, now);
       })(),
    );

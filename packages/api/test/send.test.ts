@@ -53,6 +53,9 @@ describe('queue consumer', () => {
       expect(email.sent[0]?.to).toBe('reader@example.com');
       expect(email.sent[0]?.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
       expect(email.sent[0]?.headers?.['List-Unsubscribe']).toContain('/u/');
+      expect(email.sent[0]?.headers?.['List-Unsubscribe']).toContain(
+         '<mailto:unsubscribe@example.com>',
+      );
       expect(email.sent[0]?.html).toContain('/t/o/');
       expect(email.sent[0]?.text).toContain('Write something');
 

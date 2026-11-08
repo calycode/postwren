@@ -1,146 +1,14 @@
-import { signToken } from '@postwren/shared/tokens';
 import type { Env, CampaignJob } from '../env';
 import { parseDocument } from '@postwren/email/ir';
-import type { Block, Document } from '@postwren/email/ir';
-import { renderEmail } from '@postwren/email/render';
-import { applyMergeTags } from '@postwren/email/template';
-import type { MergeContext } from '@postwren/email/template';
 import { parseMetadataJson } from '@postwren/shared/metadata';
 import type { CampaignRow, MailSubscriberRow } from '../lib/rows';
-import { createCloudflareAdapter, errorCodeOf } from '../adapters/email';
+import { createCloudflareAdapter } from '../adapters/email';
 import { configuredAppOrigin } from '../lib/app-url';
 import { nowSeconds } from '../lib/time';
-import { loadSubscriberMetadata } from '../lib/subscribers';
+import { loadSubscriberMetadata, loadSubscriberTags } from '../lib/subscribers';
+import { deliverEmail } from '../lib/delivery';
 
-const CLICK_TTL_SECONDS = 60 * 60 * 24;
-const OPEN_TTL_SECONDS = 60 * 60 * 24;
-const UNSUBSCRIBE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_ATTEMPTS = 3;
-const TRANSPARENT_PNG =
-   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-const INLINE_LINK = /\[[^\]]+\]\((https:\/\/[^\s)]+)\)/g;
-
-type LinkTarget = { href: string; linkId: string };
-
-function collectLinks(document: Document): LinkTarget[] {
-   const targets: LinkTarget[] = [];
-
-   const visit = (block: Block): void => {
-      switch (block.type) {
-         case 'button':
-            targets.push({ href: block.href, linkId: block.id });
-            return;
-         case 'image':
-            if (block.href !== undefined) targets.push({ href: block.href, linkId: block.id });
-            return;
-         case 'social':
-            for (const link of block.links) targets.push({ href: link.href, linkId: block.id });
-            return;
-         case 'heading':
-         case 'text':
-         case 'markdown':
-            for (const match of block.text.matchAll(INLINE_LINK)) {
-               const href = match[1];
-               if (href !== undefined) targets.push({ href, linkId: block.id });
-            }
-            return;
-         case 'list':
-            for (const item of block.items.split('\n')) {
-               for (const match of item.matchAll(INLINE_LINK)) {
-                  const href = match[1];
-                  if (href !== undefined) targets.push({ href, linkId: block.id });
-               }
-            }
-            return;
-         case 'quote':
-            for (const match of block.text.matchAll(INLINE_LINK)) {
-               const href = match[1];
-               if (href !== undefined) targets.push({ href, linkId: block.id });
-            }
-            return;
-         case 'link':
-            targets.push({ href: block.href, linkId: block.id });
-            return;
-         case 'code':
-            return;
-         case 'avatar':
-            if (block.href !== undefined) targets.push({ href: block.href, linkId: block.id });
-            return;
-         case 'gallery':
-            for (const image of block.images) {
-               if (image.href !== undefined) targets.push({ href: image.href, linkId: block.id });
-            }
-            return;
-         case 'table':
-            for (const value of [block.header, block.rows]) {
-               for (const match of value.matchAll(INLINE_LINK)) {
-                  const href = match[1];
-                  if (href !== undefined) targets.push({ href, linkId: block.id });
-               }
-            }
-            return;
-         case 'section':
-            for (const child of block.children) visit(child);
-            return;
-         case 'columns':
-            for (const column of block.columns) {
-               for (const child of column.blocks) visit(child);
-            }
-            return;
-         default:
-            return;
-      }
-   };
-
-   for (const block of document.children) visit(block);
-   return targets;
-}
-
-function linkKey(linkId: string, href: string): string {
-   return `${linkId}\u0000${href}`;
-}
-
-async function signClickLinks(
-   env: Env,
-   origin: string,
-   document: Document,
-   messageId: string,
-): Promise<Map<string, string>> {
-   const resolved = new Map<string, string>();
-   const seen = new Set<string>();
-
-   for (const target of collectLinks(document)) {
-      const key = linkKey(target.linkId, target.href);
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const token = await signToken(
-         { m: messageId, u: target.href, l: target.linkId },
-         { secret: env.TOKEN_SECRET, purpose: 'click', ttlSeconds: CLICK_TTL_SECONDS },
-      );
-      resolved.set(key, `${origin}/t/c/${token}`);
-   }
-
-   return resolved;
-}
-
-async function loadSubscriberTags(db: D1Database, subscriberId: string): Promise<string[]> {
-   const rows = await db
-      .prepare(
-         `SELECT t.name FROM tags t JOIN subscriber_tags st ON st.tag_id = t.id
-          WHERE st.subscriber_id = ? ORDER BY t.name`,
-      )
-      .bind(subscriberId)
-      .all<{ name: string }>();
-
-   return rows.results.map((row) => row.name);
-}
-
-function mailDomain(env: Env): string {
-   const at = env.EMAIL_FROM.lastIndexOf('@');
-   return at === -1 ? 'example.com' : env.EMAIL_FROM.slice(at + 1);
-}
 
 export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): Promise<void> {
    const origin = configuredAppOrigin(env);
@@ -254,138 +122,91 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
 
          const tags = await loadSubscriberTags(env.DB, subscriberId);
          const metadata = await loadSubscriberMetadata(env.DB, subscriberId);
-         const unsubToken = await signToken(
-            { s: subscriberId, c: campaignId },
-            {
-               secret: env.TOKEN_SECRET,
-               purpose: 'unsubscribe',
-               ttlSeconds: UNSUBSCRIBE_TTL_SECONDS,
-            },
-         );
-         const unsubscribeUrl = `${origin}/u/${unsubToken}`;
 
-         const mergeContext: MergeContext = {
-            subscriber: {
-               id: subscriber.id,
-               email: subscriber.email,
-               first_name: subscriber.first_name,
-               last_name: subscriber.last_name,
-               tags,
-               meta: metadata,
-            },
+         const outcome = await deliverEmail({
+            env,
+            adapter,
+            origin,
+            messageId: recipient.message_id,
+            document,
+            subscriber,
+            tags,
+            metadata,
+            from: { name: campaign.from_name, email: campaign.from_email },
+            replyTo: campaign.reply_to,
+            subject: campaign.subject,
             campaign: {
                id: campaign.id,
-               subject: campaign.subject,
-               utm_campaign: campaign.utm_campaign,
-               meta: parseMetadataJson(campaign.metadata_snapshot ?? campaign.metadata_json),
+               utmCampaign: campaign.utm_campaign,
+               metadata: parseMetadataJson(campaign.metadata_snapshot ?? campaign.metadata_json),
             },
-            links: { unsubscribe: unsubscribeUrl },
-         };
+         });
 
-         let html: string;
-         let text: string;
-
-         try {
-            const merged = applyMergeTags(document, mergeContext);
-            const links = await signClickLinks(env, origin, merged, recipient.message_id);
-            const rendered = renderEmail(merged, {
-               unsubscribeUrl,
-               resolveLink: (href, linkId) => links.get(linkKey(linkId, href)) ?? href,
-            });
-
-            const openToken = await signToken(
-               { m: recipient.message_id },
-               {
-                  secret: env.TOKEN_SECRET,
-                  purpose: 'open',
-                  ttlSeconds: OPEN_TTL_SECONDS,
-               },
-            );
-            const pixel = `<img src="${origin}/t/o/${openToken}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;outline:none;text-decoration:none;">`;
-
-            html = rendered.html.replace('</body>', `${pixel}</body>`);
-            if (!html.includes(pixel)) html = `${html}${pixel}`;
-            text = rendered.text;
-         } catch (error) {
-            const code = errorCodeOf(error) ?? 'render_error';
-            await env.DB.prepare(
-               `UPDATE campaign_recipients SET status = 'failed', error_code = ?
-                WHERE campaign_id = ? AND subscriber_id = ?`,
-            )
-               .bind(code, campaignId, subscriberId)
-               .run();
-            continue;
-         }
-
-         const headers: Record<string, string> = {
-            'List-Unsubscribe': `<${unsubscribeUrl}>, <mailto:unsubscribe@${mailDomain(env)}>`,
-            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-         };
-
-         try {
-            const result = await adapter.send({
-               from: { name: campaign.from_name, email: campaign.from_email },
-               ...(campaign.reply_to === null ? {} : { replyTo: campaign.reply_to }),
-               to: subscriber.email,
-               subject: campaign.subject,
-               html,
-               text,
-               headers,
-            });
-
+         if (outcome.ok) {
             await env.DB.prepare(
                `UPDATE campaign_recipients
                 SET status = 'sent', sent_at = ?, provider_message_id = ?, error_code = NULL
                 WHERE campaign_id = ? AND subscriber_id = ?`,
             )
-               .bind(nowSeconds(), result.providerMessageId, campaignId, subscriberId)
+               .bind(nowSeconds(), outcome.providerMessageId, campaignId, subscriberId)
                .run();
-         } catch (error) {
-            const failure = adapter.classifyError(error);
-            const code = errorCodeOf(error) ?? failure;
+            continue;
+         }
 
-            if (failure === 'daily_quota' || failure === 'account') {
-               await env.DB.prepare(
-                  `UPDATE campaigns SET status = 'paused', updated_at = ? WHERE id = ?`,
-               )
-                  .bind(nowSeconds(), campaignId)
-                  .run();
+         if (outcome.stage === 'render') {
+            await env.DB.prepare(
+               `UPDATE campaign_recipients SET status = 'failed', error_code = ?
+                WHERE campaign_id = ? AND subscriber_id = ?`,
+            )
+               .bind(outcome.code ?? 'render_error', campaignId, subscriberId)
+               .run();
+            continue;
+         }
+
+         const failure = outcome.failure;
+         const code = outcome.code ?? failure;
+
+         if (failure === 'daily_quota' || failure === 'account') {
+            await env.DB.prepare(
+               `UPDATE campaigns SET status = 'paused', updated_at = ? WHERE id = ?`,
+            )
+               .bind(nowSeconds(), campaignId)
+               .run();
+            await env.DB.prepare(
+               `UPDATE campaign_recipients SET status = 'queued', error_code = ?
+                WHERE campaign_id = ? AND subscriber_id = ?`,
+            )
+               .bind(code, campaignId, subscriberId)
+               .run();
+            break;
+         }
+
+         if (failure === 'retry' || failure === 'rate') {
+            if (recipient.attempts < MAX_ATTEMPTS) {
                await env.DB.prepare(
                   `UPDATE campaign_recipients SET status = 'queued', error_code = ?
                    WHERE campaign_id = ? AND subscriber_id = ?`,
                )
                   .bind(code, campaignId, subscriberId)
                   .run();
-               break;
+               retryIds.push(subscriberId);
+            } else {
+               await env.DB.prepare(
+                  `UPDATE campaign_recipients SET status = 'failed', error_code = ?
+                   WHERE campaign_id = ? AND subscriber_id = ?`,
+               )
+                  .bind(code, campaignId, subscriberId)
+                  .run();
             }
-
-            if (failure === 'retry' || failure === 'rate') {
-               if (recipient.attempts < MAX_ATTEMPTS) {
-                  await env.DB.prepare(
-                     `UPDATE campaign_recipients SET status = 'queued', error_code = ?
-                      WHERE campaign_id = ? AND subscriber_id = ?`,
-                  )
-                     .bind(code, campaignId, subscriberId)
-                     .run();
-                  retryIds.push(subscriberId);
-               } else {
-                  await env.DB.prepare(
-                     `UPDATE campaign_recipients SET status = 'failed', error_code = ?
-                      WHERE campaign_id = ? AND subscriber_id = ?`,
-                  )
-                     .bind(code, campaignId, subscriberId)
-                     .run();
-               }
-               continue;
-            }
-
-            await env.DB.prepare(
-               `UPDATE campaign_recipients SET status = 'failed', error_code = ?
-                WHERE campaign_id = ? AND subscriber_id = ?`,
-            )
-               .bind(code, campaignId, subscriberId)
-               .run();
+            continue;
          }
+
+         await env.DB.prepare(
+            `UPDATE campaign_recipients SET status = 'failed', error_code = ?
+             WHERE campaign_id = ? AND subscriber_id = ?`,
+         )
+            .bind(code, campaignId, subscriberId)
+            .run();
       }
 
       if (retryIds.length > 0) {
@@ -415,5 +236,3 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
       for (const message of group.messages) message.ack();
    }
 }
-
-export { TRANSPARENT_PNG };

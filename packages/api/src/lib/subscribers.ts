@@ -18,7 +18,7 @@ export type SubscriberUpsertInput = {
    createOnly?: boolean;
 };
 
-export type SubscriberUpsertResult = { id: string; created: boolean };
+export type SubscriberUpsertResult = { id: string; created: boolean; addedTags: string[] };
 
 type ExistingSubscriber = { id: string; deleted_at: number | null };
 
@@ -63,11 +63,12 @@ export async function attachTag(
    db: D1Database,
    subscriberId: string,
    tagId: string,
-): Promise<void> {
-   await db
+): Promise<boolean> {
+   const result = await db
       .prepare('INSERT OR IGNORE INTO subscriber_tags (subscriber_id, tag_id) VALUES (?, ?)')
       .bind(subscriberId, tagId)
       .run();
+   return (result.meta.changes ?? 0) > 0;
 }
 
 function metadataStatements(
@@ -109,6 +110,18 @@ export async function writeSubscriberMetadata(
    assertMetadata(metadata);
    const statements = metadataStatements(db, subscriberId, metadata, deletes);
    if (statements.length > 0) await db.batch(statements);
+}
+
+export async function loadSubscriberTags(db: D1Database, subscriberId: string): Promise<string[]> {
+   const rows = await db
+      .prepare(
+         `SELECT t.name FROM tags t JOIN subscriber_tags st ON st.tag_id = t.id
+          WHERE st.subscriber_id = ? ORDER BY t.name`,
+      )
+      .bind(subscriberId)
+      .all<{ name: string }>();
+
+   return rows.results.map((row) => row.name);
 }
 
 export async function loadSubscriberMetadata(
@@ -156,11 +169,13 @@ async function applyTags(
    subscriberId: string,
    tags: string[],
    now: number,
-): Promise<void> {
+): Promise<string[]> {
+   const added: string[] = [];
    for (const name of new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))) {
       const tagId = await ensureTag(db, name, now);
-      await attachTag(db, subscriberId, tagId);
+      if (await attachTag(db, subscriberId, tagId)) added.push(name);
    }
+   return added;
 }
 
 export async function upsertSubscriber(
@@ -214,9 +229,9 @@ export async function upsertSubscriber(
          .run();
 
       await writeSubscriberMetadata(db, existing.id, metadata, input.metadataDeletes ?? []);
-      await applyTags(db, existing.id, tags, now);
+      const addedTags = await applyTags(db, existing.id, tags, now);
 
-      return { id: existing.id, created: false };
+      return { id: existing.id, created: false, addedTags };
    }
 
    const id = createId('sub');
@@ -249,7 +264,7 @@ export async function upsertSubscriber(
    }
 
    await writeSubscriberMetadata(db, id, metadata);
-   await applyTags(db, id, tags, now);
+   const addedTags = await applyTags(db, id, tags, now);
 
-   return { id, created: true };
+   return { id, created: true, addedTags };
 }
