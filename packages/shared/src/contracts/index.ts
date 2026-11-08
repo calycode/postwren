@@ -102,6 +102,8 @@ export const RATE_LIMITS = {
    publicUnsubscribe: { windowSeconds: 60, max: 20 },
    apiRead: { windowSeconds: 60, max: 120 },
    apiWrite: { windowSeconds: 60, max: 60 },
+   apiEvents: { windowSeconds: 60, max: 120 },
+   apiEventsPerEmail: { windowSeconds: 60, max: 30 },
    send: { windowSeconds: 60, max: 1000 },
 } as const;
 
