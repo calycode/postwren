@@ -1,6 +1,6 @@
 import { createContext } from 'preact';
 import type { JSX } from 'preact';
-import { useContext, useEffect, useRef, useState } from 'preact/hooks';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 import { nextMenuIndex } from '../lib/menu-keyboard';
 import { withoutRef } from '../lib/preact-compat';
@@ -124,13 +124,105 @@ type DivProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, 'className'> & {
    className?: string;
 };
 
-export function DropdownMenuContent({ className, ...props }: DivProps) {
+/**
+ * A transformed ancestor (page transitions, dialogs) becomes the containing
+ * block for `position: fixed`. Coordinates must be relative to it, not the
+ * viewport, or the menu lands somewhere else entirely.
+ */
+function fixedOrigin(element: HTMLElement): {
+   top: number;
+   left: number;
+   width: number;
+   height: number;
+} {
+   let node = element.parentElement;
+   while (node !== null) {
+      const style = window.getComputedStyle(node);
+      if (
+         style.transform !== 'none' ||
+         style.filter !== 'none' ||
+         style.perspective !== 'none' ||
+         style.contain.includes('paint') ||
+         style.contain.includes('layout')
+      ) {
+         const rect = node.getBoundingClientRect();
+         return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+      }
+      node = node.parentElement;
+   }
+   return { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+}
+
+/**
+ * `fixed` escapes an ancestor's `overflow` clipping (for menus inside scrollable
+ * panels). It positions itself against the trigger and flips above when needed.
+ */
+export function DropdownMenuContent({
+   className,
+   fixed = false,
+   ...props
+}: DivProps & { fixed?: boolean }) {
+   const open = useContext(MenuOpenContext);
+   const ref = useRef<HTMLDivElement>(null);
+   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+
+   useLayoutEffect(() => {
+      if (!fixed || !open) {
+         setCoords(null);
+         return;
+      }
+
+      const content = ref.current;
+      const trigger = content?.closest('details')?.querySelector('summary');
+      if (content === null || trigger === undefined || trigger === null) return;
+
+      const place = () => {
+         const rect = trigger.getBoundingClientRect();
+         const origin = fixedOrigin(content);
+         const width = Math.max(content.offsetWidth || 0, rect.width);
+         const height = content.offsetHeight || 320;
+         const left = Math.max(
+            8,
+            Math.min(rect.right - width - origin.left, origin.width - width - 8),
+         );
+         const fitsBelow = origin.top + origin.height - rect.bottom > Math.min(height, 220);
+         const top = fitsBelow
+            ? rect.bottom + 4 - origin.top
+            : Math.max(8, rect.top - origin.top - Math.min(height, origin.height - 16) - 4);
+         setCoords({ top, left, width });
+      };
+
+      place();
+      window.addEventListener('resize', place);
+      window.addEventListener('scroll', place, true);
+
+      return () => {
+         window.removeEventListener('resize', place);
+         window.removeEventListener('scroll', place, true);
+      };
+   }, [fixed, open]);
+
    return (
       <div
+         ref={ref}
          data-slot="dropdown-menu-content"
          role="menu"
+         style={
+            fixed
+               ? {
+                    position: 'fixed',
+                    top: coords?.top ?? 0,
+                    left: coords?.left ?? 0,
+                    width: coords?.width,
+                    visibility: coords === null ? 'hidden' : undefined,
+                    marginTop: 0,
+                 }
+               : undefined
+         }
          className={cn(
-            'absolute right-0 z-50 mt-1 min-w-40 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md',
+            fixed
+               ? 'z-[60] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md'
+               : 'absolute right-0 z-50 mt-1 min-w-40 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md',
             className,
          )}
          {...withoutRef(props)}

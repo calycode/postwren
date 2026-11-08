@@ -1,15 +1,17 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { Button, Input } from '@postwren/ui';
+import { Button, Input, cn } from '@postwren/ui';
 import { MAX_METADATA_KEYS, MAX_METADATA_VALUE_LENGTH } from '@postwren/shared/metadata';
 import type { MetadataRow } from '@/lib/metadata';
 import { validateMetadataRows } from '@/lib/metadata';
 
 export type MetadataEditorProps = {
    idPrefix: string;
-   scope: 'subscriber' | 'campaign';
+   scope: 'subscriber' | 'campaign' | 'automation';
    rows: MetadataRow[];
    onChange: (rows: MetadataRow[]) => void;
    disabled?: boolean;
+   /** Stacks the key and value for narrow sidebars. */
+   compact?: boolean;
 };
 
 export function MetadataEditor({
@@ -18,9 +20,10 @@ export function MetadataEditor({
    rows,
    onChange,
    disabled = false,
+   compact = false,
 }: MetadataEditorProps) {
    const issues = validateMetadataRows(rows);
-   const example = scope === 'subscriber' ? 'plan' : 'edition';
+   const example = scope === 'subscriber' ? 'plan' : scope === 'campaign' ? 'edition' : 'stage';
 
    function updateRow(index: number, patch: Partial<MetadataRow>): void {
       onChange(rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
@@ -35,7 +38,9 @@ export function MetadataEditor({
          <div className="grid gap-3">
             {rows.length === 0 && (
                <p className="text-xs text-muted-foreground">
-                  No custom fields yet. Add one to use it in content and audience filters.
+                  {scope === 'automation'
+                     ? 'No custom fields yet. Add one to use it in send steps.'
+                     : 'No custom fields yet. Add one to use it in content and audience filters.'}
                </p>
             )}
 
@@ -48,8 +53,13 @@ export function MetadataEditor({
                      key={`${idPrefix}-metadata-${index}`}
                      className="grid gap-1"
                   >
-                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                        <div className="grid gap-1 sm:w-56">
+                     <div
+                        className={cn(
+                           'flex flex-col gap-2',
+                           !compact && 'sm:flex-row sm:items-start',
+                        )}
+                     >
+                        <div className={cn('grid gap-1', compact ? 'w-full' : 'sm:w-56')}>
                            <label
                               htmlFor={`${idPrefix}-metadata-key-${index}`}
                               className="sr-only"

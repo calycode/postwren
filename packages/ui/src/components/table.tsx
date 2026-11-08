@@ -65,7 +65,7 @@ export function TableRow({ className, ...props }: RowProps) {
       <tr
          data-slot="table-row"
          className={cn(
-            'border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+            'border-b border-border transition-colors hover:bg-muted/40 data-[state=selected]:bg-muted',
             className,
          )}
          {...withoutRef(props)}
@@ -82,7 +82,7 @@ export function TableHead({ className, ...props }: HeadProps) {
       <th
          data-slot="table-head"
          className={cn(
-            'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0',
+            'h-11 px-3 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap text-muted-foreground uppercase [&:has([role=checkbox])]:pr-0',
             className,
          )}
          {...withoutRef(props)}
@@ -98,7 +98,7 @@ export function TableCell({ className, ...props }: CellProps) {
    return (
       <td
          data-slot="table-cell"
-         className={cn('p-2 align-middle [&:has([role=checkbox])]:pr-0', className)}
+         className={cn('px-3 py-3 align-middle [&:has([role=checkbox])]:pr-0', className)}
          {...withoutRef(props)}
       />
    );

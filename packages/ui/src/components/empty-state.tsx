@@ -23,7 +23,7 @@ export function EmptyState({
       <div
          data-slot="empty-state"
          className={cn(
-            'flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border px-6 py-12 text-center',
+            'flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card/60 px-6 py-16 text-center',
             className,
          )}
          {...withoutRef(props)}
@@ -37,7 +37,7 @@ export function EmptyState({
             </div>
          )}
          <div className="grid gap-1">
-            <h3 className="font-heading text-base font-semibold text-foreground">{title}</h3>
+            <h3 className="font-display text-lg font-medium text-foreground">{title}</h3>
             {description !== undefined && (
                <p className="max-w-md text-sm text-muted-foreground">{description}</p>
             )}

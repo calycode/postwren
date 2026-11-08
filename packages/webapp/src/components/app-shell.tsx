@@ -2,8 +2,11 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'preact-iso';
 import {
+   Check,
    ChevronDown,
+   Compass,
    FileText,
+   House,
    LogOut,
    Menu,
    Monitor,
@@ -12,14 +15,13 @@ import {
    PanelLeftOpen,
    Send,
    Settings,
-   Sparkles,
    Sun,
    Tag,
    Users,
+   Workflow,
    X,
 } from 'lucide-react';
 import {
-   Button,
    DropdownMenu,
    DropdownMenuContent,
    DropdownMenuItem,
@@ -34,56 +36,87 @@ import type { ThemeMode } from '@/lib/theme';
 
 const SIDEBAR_COLLAPSED_KEY = 'postwren-sidebar-collapsed';
 
-const NAV_ITEMS = [
+type NavItem = {
+   href: string;
+   label: string;
+   icon: ComponentChildren;
+};
+
+const NAV_GROUPS: readonly { label: string; items: readonly NavItem[] }[] = [
    {
-      href: '/subscribers',
-      label: 'Subscribers',
-      icon: (
-         <Users
-            className="size-4"
-            aria-hidden="true"
-         />
-      ),
+      label: 'Audience',
+      items: [
+         {
+            href: '/subscribers',
+            label: 'Subscribers',
+            icon: (
+               <Users
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ),
+         },
+         {
+            href: '/tags',
+            label: 'Tags',
+            icon: (
+               <Tag
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ),
+         },
+      ],
    },
    {
-      href: '/tags',
-      label: 'Tags',
-      icon: (
-         <Tag
-            className="size-4"
-            aria-hidden="true"
-         />
-      ),
+      label: 'Email',
+      items: [
+         {
+            href: '/templates',
+            label: 'Templates',
+            icon: (
+               <FileText
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ),
+         },
+         {
+            href: '/campaigns',
+            label: 'Campaigns',
+            icon: (
+               <Send
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ),
+         },
+         {
+            href: '/automations',
+            label: 'Automations',
+            icon: (
+               <Workflow
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ),
+         },
+      ],
    },
    {
-      href: '/templates',
-      label: 'Templates',
-      icon: (
-         <FileText
-            className="size-4"
-            aria-hidden="true"
-         />
-      ),
-   },
-   {
-      href: '/campaigns',
-      label: 'Campaigns',
-      icon: (
-         <Send
-            className="size-4"
-            aria-hidden="true"
-         />
-      ),
-   },
-   {
-      href: '/settings',
-      label: 'Settings',
-      icon: (
-         <Settings
-            className="size-4"
-            aria-hidden="true"
-         />
-      ),
+      label: 'Workspace',
+      items: [
+         {
+            href: '/settings',
+            label: 'Settings',
+            icon: (
+               <Settings
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ),
+         },
+      ],
    },
 ];
 
@@ -135,29 +168,50 @@ function readCollapsed(): boolean {
 export function AppShell({ children }: { children: ComponentChildren }) {
    const { path, route } = useLocation();
    const { user, signOut } = useAuth();
-   const { mode, resolved, setMode } = useTheme();
+   const { mode, setMode } = useTheme();
    const { openGuide } = useGuide();
    const [mobileOpen, setMobileOpen] = useState(false);
    const [collapsed, setCollapsed] = useState(readCollapsed);
 
-   const activeItem = NAV_ITEMS.find((item) => isActive(path, item.href));
+   const activeItem = [
+      { href: '/', label: 'Home' } as NavItem,
+      ...NAV_GROUPS.flatMap((group) => group.items),
+   ].find((item) => (item.href === '/' ? path === '/' : isActive(path, item.href)));
    const pageTitle = activeItem?.label ?? 'Postwren';
    // The mobile drawer always shows labels, even when the desktop rail is compact.
    const compact = collapsed && !mobileOpen;
-   const themeIcon =
-      resolved === 'dark' ? (
-         <Moon
-            className="size-4"
-            aria-hidden="true"
-         />
-      ) : (
-         <Sun
-            className="size-4"
-            aria-hidden="true"
-         />
-      );
-   const themeLabel = THEME_OPTIONS.find((option) => option.value === mode)?.label ?? 'System';
    const initial = user?.email ? user.email.slice(0, 1).toUpperCase() : 'A';
+   const brandContent = (
+      <>
+         <span className="group/logo relative flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            {compact ? (
+               <PanelLeftOpen
+                  className="size-4"
+                  aria-hidden="true"
+               />
+            ) : (
+               <>
+                  <Send
+                     className="size-4 transition-opacity group-hover/logo:opacity-0"
+                     aria-hidden="true"
+                  />
+                  <PanelLeftClose
+                     className="absolute size-4 opacity-0 transition-opacity group-hover/logo:opacity-100"
+                     aria-hidden="true"
+                  />
+               </>
+            )}
+         </span>
+         <span
+            className={cn(
+               'truncate font-display text-[1.35rem] leading-none font-medium tracking-tight',
+               compact && 'md:hidden',
+            )}
+         >
+            postwren
+         </span>
+      </>
+   );
 
    useEffect(() => {
       try {
@@ -193,33 +247,40 @@ export function AppShell({ children }: { children: ComponentChildren }) {
          <aside
             id="app-sidebar"
             className={cn(
-               'fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-[transform,width] md:sticky md:top-0 md:h-dvh md:translate-x-0',
-               collapsed ? 'md:w-16' : 'md:w-64',
+               'app-sidebar fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-border bg-sidebar transition-[transform,width] md:sticky md:top-0 md:h-dvh md:translate-x-0',
+               collapsed ? 'md:w-[4.5rem]' : 'md:w-60',
                mobileOpen && 'translate-x-0',
             )}
          >
-            <div className="flex h-14 items-center gap-2 border-b border-border px-3">
-               <a
-                  href="/subscribers"
-                  className={cn(
-                     'inline-flex min-w-0 items-center gap-2 font-heading text-base font-semibold',
-                     compact && 'md:mx-auto',
-                  )}
-                  title="Postwren"
-               >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                     <Send
-                        className="size-4"
-                        aria-hidden="true"
-                     />
-                  </span>
-                  <span className={cn('truncate', compact && 'md:hidden')}>Postwren</span>
-               </a>
+            <div className="flex h-16 items-center gap-2 px-3">
+               {compact ? (
+                  <button
+                     type="button"
+                     onClick={() => setCollapsed(false)}
+                     className="inline-flex min-w-0 items-center gap-2.5 rounded-lg text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring md:mx-auto md:size-10 md:justify-center"
+                     title="Expand sidebar"
+                     aria-label="Expand sidebar"
+                  >
+                     {brandContent}
+                  </button>
+               ) : (
+                  <div className="inline-flex min-w-0 items-center gap-2.5">
+                     <button
+                        type="button"
+                        onClick={() => setCollapsed(true)}
+                        className="inline-flex min-w-0 items-center gap-2.5 rounded-lg text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        title="Collapse sidebar"
+                        aria-label="Collapse sidebar"
+                        aria-pressed={collapsed}
+                     >
+                        {brandContent}
+                     </button>
+                  </div>
+               )}
+
                <button
                   type="button"
-                  className={cn(
-                     'ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden',
-                  )}
+                  className="ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden"
                   aria-label="Close navigation"
                   onClick={() => setMobileOpen(false)}
                >
@@ -233,53 +294,100 @@ export function AppShell({ children }: { children: ComponentChildren }) {
             <nav
                aria-label="Main"
                data-guide="nav"
-               className="flex-1 overflow-y-auto overflow-x-hidden p-2"
+               className="flex-1 overflow-x-hidden overflow-y-auto px-2 py-2"
             >
-               <ul className="grid gap-1">
-                  {NAV_ITEMS.map((item) => {
-                     const active = isActive(path, item.href);
+               <a
+                  href="/"
+                  aria-current={isActive(path, '/') ? 'page' : undefined}
+                  title={compact ? 'Home' : undefined}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                     'relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+                     isActive(path, '/')
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                     compact && 'md:justify-center md:px-0',
+                  )}
+               >
+                  {isActive(path, '/') && (
+                     <span
+                        aria-hidden="true"
+                        className="absolute inset-y-2 left-0 w-[2px] rounded-full bg-ochre"
+                     />
+                  )}
+                  <House
+                     className="size-4"
+                     aria-hidden="true"
+                  />
+                  <span className={cn('truncate', compact && 'md:hidden')}>Home</span>
+               </a>
 
-                     return (
-                        <li key={item.href}>
-                           <a
-                              href={item.href}
-                              aria-current={active ? 'page' : undefined}
-                              title={compact ? item.label : undefined}
-                              onClick={() => setMobileOpen(false)}
-                              className={cn(
-                                 'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                                 active
-                                    ? 'bg-accent text-accent-foreground'
-                                    : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
-                                 compact && 'md:justify-center md:px-0',
-                              )}
-                           >
-                              {item.icon}
-                              <span className={cn('truncate', compact && 'md:hidden')}>
-                                 {item.label}
-                              </span>
-                           </a>
-                        </li>
-                     );
-                  })}
-               </ul>
+               {NAV_GROUPS.map((group) => (
+                  <div
+                     key={group.label}
+                     className="mt-4 grid gap-0.5"
+                  >
+                     <p
+                        className={cn(
+                           'px-3 pb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground/80 uppercase',
+                           compact && 'md:hidden',
+                        )}
+                     >
+                        {group.label}
+                     </p>
+                     <ul className="grid gap-0.5">
+                        {group.items.map((item) => {
+                           const active = isActive(path, item.href);
+
+                           return (
+                              <li key={item.href}>
+                                 <a
+                                    href={item.href}
+                                    aria-current={active ? 'page' : undefined}
+                                    title={compact ? item.label : undefined}
+                                    onClick={() => setMobileOpen(false)}
+                                    className={cn(
+                                       'relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+                                       active
+                                          ? 'bg-accent text-accent-foreground'
+                                          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+                                       compact && 'md:justify-center md:px-0',
+                                    )}
+                                 >
+                                    {active && (
+                                       <span
+                                          aria-hidden="true"
+                                          className="absolute inset-y-2 left-0 w-[2px] rounded-full bg-ochre"
+                                       />
+                                    )}
+                                    {item.icon}
+                                    <span className={cn('truncate', compact && 'md:hidden')}>
+                                       {item.label}
+                                    </span>
+                                 </a>
+                              </li>
+                           );
+                        })}
+                     </ul>
+                  </div>
+               ))}
             </nav>
 
             <div
                data-guide="sidebar-footer"
-               className="grid gap-1.5 border-t border-border p-2"
+               className={cn('grid gap-1 border-t border-border p-2', compact && 'md:gap-2')}
             >
                <DropdownMenu className="w-full">
                   <DropdownMenuTrigger
                      aria-label="Account menu"
                      title={compact ? (user?.email ?? 'Account') : undefined}
                      className={cn(
-                        'h-auto w-full gap-2 px-2 py-2 text-left',
+                        'h-auto w-full gap-2.5 rounded-lg border border-transparent bg-transparent px-2 py-2 text-left text-foreground hover:border-border hover:bg-accent/60',
                         compact &&
-                           'md:mx-auto md:flex md:size-9 md:justify-center md:gap-0 md:border-transparent md:bg-transparent md:px-0 md:py-0',
+                           'md:mx-auto md:size-10 md:justify-center md:gap-0 md:px-0 md:py-0',
                      )}
                   >
-                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-accent text-xs font-semibold text-foreground">
                         {initial}
                      </span>
                      <span className={cn('min-w-0 flex-1', compact && 'md:hidden')}>
@@ -304,87 +412,42 @@ export function AppShell({ children }: { children: ComponentChildren }) {
                         </p>
                      </div>
                      <DropdownMenuSeparator />
+                     {THEME_OPTIONS.map((option) => (
+                        <DropdownMenuItem
+                           key={option.value}
+                           aria-pressed={mode === option.value}
+                           onSelect={() => setMode(option.value)}
+                        >
+                           {option.icon}
+                           <span className="flex-1">{option.label}</span>
+                           {mode === option.value && (
+                              <Check
+                                 className="size-3.5 text-ochre"
+                                 aria-hidden="true"
+                              />
+                           )}
+                        </DropdownMenuItem>
+                     ))}
+                     <DropdownMenuSeparator />
+                     <DropdownMenuItem onSelect={openGuide}>
+                        <Compass aria-hidden="true" />
+                        Product tour
+                     </DropdownMenuItem>
+                     <DropdownMenuSeparator />
                      <DropdownMenuItem onSelect={() => void handleSignOut()}>
                         <LogOut aria-hidden="true" />
                         Sign out
                      </DropdownMenuItem>
                   </DropdownMenuContent>
                </DropdownMenu>
-
-               <div className={cn('flex items-center gap-1', compact && 'md:flex-col md:gap-1.5')}>
-                  <DropdownMenu className={cn(!compact && 'flex-1')}>
-                     <DropdownMenuTrigger
-                        aria-label={`Theme: ${themeLabel}`}
-                        title="Theme"
-                        className={cn(
-                           'gap-1.5 px-2 text-xs',
-                           compact &&
-                              'md:size-9 md:justify-center md:gap-0 md:border-transparent md:bg-transparent md:px-0 md:py-0',
-                        )}
-                     >
-                        {themeIcon}
-                        <span className={cn('truncate', compact && 'md:hidden')}>{themeLabel}</span>
-                        <ChevronDown
-                           className={cn(
-                              'size-3 shrink-0 text-muted-foreground',
-                              compact && 'md:hidden',
-                           )}
-                           aria-hidden="true"
-                        />
-                     </DropdownMenuTrigger>
-                     <DropdownMenuContent className="bottom-full left-0 right-auto mb-1">
-                        {THEME_OPTIONS.map((option) => (
-                           <DropdownMenuItem
-                              key={option.value}
-                              aria-pressed={mode === option.value}
-                              onSelect={() => setMode(option.value)}
-                           >
-                              {option.icon}
-                              {option.label}
-                           </DropdownMenuItem>
-                        ))}
-                     </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <Button
-                     variant="ghost"
-                     size="sm"
-                     className={cn(
-                        'shrink-0 gap-1.5 px-2',
-                        compact && 'md:size-9 md:justify-center md:gap-0 md:px-0',
-                     )}
-                     aria-label="Open the guided tour"
-                     title="Guide"
-                     onClick={openGuide}
-                  >
-                     <Sparkles aria-hidden="true" />
-                     <span className={cn('text-xs', compact && 'md:hidden')}>Guide</span>
-                  </Button>
-
-                  <Button
-                     variant="ghost"
-                     size="icon"
-                     className="hidden shrink-0 md:inline-flex"
-                     aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                     title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                     aria-pressed={collapsed}
-                     onClick={() => setCollapsed((value) => !value)}
-                  >
-                     {collapsed ? (
-                        <PanelLeftOpen aria-hidden="true" />
-                     ) : (
-                        <PanelLeftClose aria-hidden="true" />
-                     )}
-                  </Button>
-               </div>
             </div>
          </aside>
 
          <div className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+            <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6 md:hidden">
                <button
                   type="button"
-                  className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+                  className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="Open navigation"
                   aria-expanded={mobileOpen}
                   aria-controls="app-sidebar"
@@ -396,13 +459,16 @@ export function AppShell({ children }: { children: ComponentChildren }) {
                   />
                </button>
 
-               <p className="min-w-0 flex-1 truncate text-sm font-medium">{pageTitle}</p>
+               <p className="min-w-0 flex-1 truncate font-display text-lg font-medium">
+                  {pageTitle}
+               </p>
             </header>
 
             <main
                id="main-content"
+               key={path}
                tabIndex={-1}
-               className="w-full max-w-[2000px] flex-1 px-4 py-4 outline-none sm:px-6 sm:py-6 lg:px-8 lg:py-8"
+               className="page-in mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 outline-none sm:px-6 sm:py-6 lg:px-8 lg:py-8"
             >
                {children}
             </main>

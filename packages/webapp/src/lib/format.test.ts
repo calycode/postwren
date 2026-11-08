@@ -3,6 +3,7 @@ import {
    csvFilename,
    formatDate,
    formatDateTime,
+   formatDuration,
    formatNumber,
    pluralise,
    relativeTime,
@@ -25,6 +26,23 @@ describe('formatDateTime', () => {
    it('includes the time in 24-hour form', () => {
       const seconds = new Date(2025, 2, 12, 14, 5).getTime() / 1000;
       expect(formatDateTime(seconds)).toBe('12 Mar 2025, 14:05');
+   });
+});
+
+describe('formatDuration', () => {
+   it('scales from milliseconds to hours', () => {
+      expect(formatDuration(0)).toBe('0ms');
+      expect(formatDuration(850)).toBe('850ms');
+      expect(formatDuration(4200)).toBe('4.2s');
+      expect(formatDuration(42_000)).toBe('42s');
+      expect(formatDuration(130_000)).toBe('2m 10s');
+      expect(formatDuration(11_100_000)).toBe('3h 5m');
+   });
+
+   it('returns a dash for missing values', () => {
+      expect(formatDuration(null)).toBe('—');
+      expect(formatDuration(undefined)).toBe('—');
+      expect(formatDuration(Number.NaN)).toBe('—');
    });
 });
 

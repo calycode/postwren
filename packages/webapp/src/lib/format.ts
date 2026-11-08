@@ -35,6 +35,21 @@ export function formatDateTime(unixSeconds: number | null | undefined): string {
    return dateTimeFormatter.format(new Date(unixSeconds * 1000));
 }
 
+/** Compact duration for run logs: 850ms, 4.2s, 2m 10s, 3h 5m. */
+export function formatDuration(milliseconds: number | null | undefined): string {
+   if (milliseconds === null || milliseconds === undefined || !Number.isFinite(milliseconds)) {
+      return '—';
+   }
+   if (milliseconds < 1000) return `${Math.max(0, Math.round(milliseconds))}ms`;
+   const seconds = milliseconds / 1000;
+   if (seconds < 60) return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)}s`;
+   const minutes = Math.floor(seconds / 60);
+   const restSeconds = Math.round(seconds % 60);
+   if (minutes < 60) return `${minutes}m ${restSeconds}s`;
+   const hours = Math.floor(minutes / 60);
+   return `${hours}h ${minutes % 60}m`;
+}
+
 function relativePhrase(milliseconds: number): string {
    if (milliseconds < 90_000) return '1 minute';
    if (milliseconds < 45 * MINUTE) return `${Math.round(milliseconds / MINUTE)} minutes`;

@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { CSSProperties } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'preact-iso';
-import { ArrowLeft, ArrowRight, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Compass, X } from 'lucide-react';
 import { Button, cn } from '@postwren/ui';
 import { list as listTemplates } from './api/templates';
 import { useAuth } from './auth';
@@ -25,7 +25,7 @@ type GuideStep = {
 const STEPS: readonly GuideStep[] = [
    {
       title: 'Welcome to Postwren',
-      body: 'Postwren builds and sends email from one workspace. This short tour shows where everything lives. You can replay it any time from the Guide button at the bottom of the sidebar.',
+      body: 'Postwren builds and sends email from one workspace. This short tour shows where everything lives. You can replay it any time from the account menu at the bottom of the sidebar.',
    },
    {
       target: '[data-guide="nav"]',
@@ -80,7 +80,7 @@ const STEPS: readonly GuideStep[] = [
    {
       target: '[data-guide="sidebar-footer"]',
       title: 'You are all set',
-      body: 'Theme, account and this guide live at the bottom of the sidebar. Collapse the sidebar with the button above them whenever you want more room.',
+      body: 'Theme, account and this tour live in the account menu at the bottom of the sidebar. Collapse the sidebar with the button in the header whenever you want more room.',
    },
 ];
 
@@ -360,8 +360,8 @@ export function GuideProvider({ children }: { children: ComponentChildren }) {
                >
                   <div className="flex items-start justify-between gap-3">
                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                        <Sparkles
-                           className="size-4 text-primary"
+                        <Compass
+                           className="size-4 text-ochre"
                            aria-hidden="true"
                         />
                         Step {index + 1} of {STEPS.length}
