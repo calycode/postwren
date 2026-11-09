@@ -220,6 +220,7 @@ export async function seedCampaign(
       templateRevision?: number;
       name?: string;
       metadata?: Record<string, string>;
+      data?: Record<string, unknown>;
    },
 ): Promise<string> {
    const id = createId('cmp');
@@ -229,8 +230,8 @@ export async function seedCampaign(
       `INSERT INTO campaigns
        (id, template_id, template_revision, name, subject, from_name, from_email, reply_to,
         audience_query, scheduled_at, status, utm_source, utm_medium, utm_campaign,
-        metadata_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        metadata_json, data_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
    )
       .bind(
          id,
@@ -247,6 +248,7 @@ export async function seedCampaign(
          options.utmMedium ?? '',
          options.utmCampaign ?? '',
          JSON.stringify(options.metadata ?? {}),
+         JSON.stringify(options.data ?? {}),
          createdAt,
          createdAt,
       )

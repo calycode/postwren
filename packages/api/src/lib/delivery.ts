@@ -4,6 +4,7 @@ import { renderEmail } from '@postwren/email/render';
 import { applyMergeTags } from '@postwren/email/template';
 import type { MergeContext } from '@postwren/email/template';
 import type { MetadataRecord } from '@postwren/shared/metadata';
+import type { PayloadData } from '@postwren/shared/payload';
 import type { Env } from '../env';
 import { errorCodeOf } from '../adapters/email';
 import type { EmailSendAdapter, SendFailureClass } from '../adapters/email';
@@ -30,6 +31,7 @@ export type DeliveryRequest = {
       id: string;
       utmCampaign: string;
       metadata: MetadataRecord;
+      data: PayloadData;
    };
    automation?: {
       id: string;
@@ -89,6 +91,8 @@ function mergeContextOf(
          utm_campaign: campaign.utmCampaign,
          meta: campaign.metadata,
       },
+      data: campaign.data,
+      preview: false,
       ...(automation === undefined
          ? {}
          : { automation: { id: automation.id, meta: automation.metadata } }),

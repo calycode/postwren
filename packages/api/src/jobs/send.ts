@@ -1,6 +1,7 @@
 import type { Env, CampaignJob } from '../env';
 import { parseDocument } from '@postwren/email/ir';
 import { parseMetadataJson } from '@postwren/shared/metadata';
+import { parsePayloadJson } from '@postwren/shared/payload';
 import type { CampaignRow, MailSubscriberRow } from '../lib/rows';
 import { createCloudflareAdapter } from '../adapters/email';
 import { configuredAppOrigin } from '../lib/app-url';
@@ -140,6 +141,7 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
                id: campaign.id,
                utmCampaign: campaign.utm_campaign,
                metadata: parseMetadataJson(campaign.metadata_snapshot ?? campaign.metadata_json),
+               data: parsePayloadJson(campaign.data_snapshot ?? campaign.data_json),
             },
          });
 

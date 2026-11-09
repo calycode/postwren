@@ -65,6 +65,7 @@ export function collectLinks(document: Document): LinkTarget[] {
             }
             return;
          case 'section':
+         case 'repeat':
             for (const child of block.children) visit(child);
             return;
          case 'columns':

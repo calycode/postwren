@@ -278,7 +278,7 @@ async function sendStep(env: Env, run: RunWithAutomation, step: AutomationStep):
       from: { name: run.from_name, email: run.from_email },
       replyTo: run.reply_to,
       subject,
-      campaign: { id: run.automation_id, utmCampaign: '', metadata: {} },
+      campaign: { id: run.automation_id, utmCampaign: '', metadata: {}, data: {} },
       automation: { id: run.automation_id, metadata: parseMetadataJson(run.metadata_json) },
       beforeSend: async () => {
          await env.DB.prepare(

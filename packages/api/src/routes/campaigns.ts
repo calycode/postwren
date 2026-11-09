@@ -17,6 +17,8 @@ import {
    serialiseMetadata,
 } from '@postwren/shared/metadata';
 import type { MetadataRecord } from '@postwren/shared/metadata';
+import { parsePayload, parsePayloadJson } from '@postwren/shared/payload';
+import type { PayloadData } from '@postwren/shared/payload';
 import { parseDocument } from '@postwren/email/ir';
 import { renderEmail } from '@postwren/email/render';
 import { applyMergeTags } from '@postwren/email/template';
@@ -77,6 +79,7 @@ const campaignPatch = z
       utmMedium: z.string().trim().min(1).max(100).optional(),
       utmCampaign: z.string().trim().min(1).max(191).optional(),
       metadata: metadataPatch.optional(),
+      data: z.unknown().optional(),
    })
    .strict();
 
@@ -106,11 +109,18 @@ async function requireTemplate(db: D1Database, id: string): Promise<TemplateRow>
    return template;
 }
 
-export type CampaignResource = Omit<CampaignRow, 'metadata_json'> & { metadata: MetadataRecord };
+export type CampaignResource = Omit<CampaignRow, 'metadata_json' | 'data_json'> & {
+   metadata: MetadataRecord;
+   data: PayloadData;
+};
 
 function campaignResource(row: CampaignRow): CampaignResource {
-   const { metadata_json, ...rest } = row;
-   return { ...rest, metadata: parseMetadataJson(metadata_json) };
+   const { metadata_json, data_json, ...rest } = row;
+   return {
+      ...rest,
+      metadata: parseMetadataJson(metadata_json),
+      data: parsePayloadJson(data_json),
+   };
 }
 
 function campaignMergeMetadata(campaign: CampaignResource): MetadataRecord {
@@ -118,6 +128,23 @@ function campaignMergeMetadata(campaign: CampaignResource): MetadataRecord {
       return campaign.metadata;
    }
    return parseMetadataJson(campaign.metadata_snapshot);
+}
+
+function campaignMergeData(campaign: CampaignResource): PayloadData {
+   if (campaign.ir_snapshot === null || campaign.data_snapshot === null) {
+      return campaign.data;
+   }
+   return parsePayloadJson(campaign.data_snapshot);
+}
+
+function requirePayload(value: unknown): PayloadData {
+   const parsed = parsePayload(value);
+   if (!parsed.ok) {
+      throw new AppError(422, 'validation_error', 'Campaign data is invalid', {
+         issues: parsed.errors,
+      });
+   }
+   return parsed.data;
 }
 
 async function findCampaign(db: D1Database, id: string): Promise<CampaignResource> {
@@ -138,7 +165,7 @@ async function pinAudience(
    await env.DB.prepare(
       `UPDATE campaigns
        SET template_revision = ?, ir_snapshot = ?, metadata_snapshot = metadata_json,
-           audience_count = ?, updated_at = ?
+           data_snapshot = data_json, audience_count = ?, updated_at = ?
        WHERE id = ?`,
    )
       .bind(template.revision, template.ir_json, count, nowSeconds(), campaignId)
@@ -158,6 +185,7 @@ campaignRoutes.post('/', async (c) => {
    const body = campaignInput.parse(await readJson(c));
    assertAudienceQuery(body.audienceQuery);
    await assertSenderAllowed(c.env.DB, body.fromEmail, c.env.EMAIL_FROM);
+   const data = body.data === undefined ? {} : requirePayload(body.data);
 
    const template = await requireTemplate(c.env.DB, body.templateId);
    const now = nowSeconds();
@@ -167,8 +195,8 @@ campaignRoutes.post('/', async (c) => {
       `INSERT INTO campaigns
        (id, template_id, template_revision, name, subject, from_name, from_email, reply_to,
         audience_query, scheduled_at, status, utm_source, utm_medium, utm_campaign,
-        metadata_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`,
+        metadata_json, data_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`,
    )
       .bind(
          id,
@@ -185,6 +213,7 @@ campaignRoutes.post('/', async (c) => {
          body.utmMedium ?? '',
          body.utmCampaign ?? '',
          serialiseMetadata(body.metadata ?? {}),
+         JSON.stringify(data),
          now,
          now,
       )
@@ -238,6 +267,11 @@ campaignRoutes.patch('/:id', async (c) => {
       }
       sets.push('metadata_json = ?');
       params.push(serialiseMetadata(merged));
+   }
+
+   if (body.data !== undefined) {
+      sets.push('data_json = ?');
+      params.push(JSON.stringify(requirePayload(body.data)));
    }
 
    if (body.templateId !== undefined) {
@@ -354,6 +388,7 @@ campaignRoutes.post('/:id/test', async (c) => {
          subject: campaign.subject,
          utm_campaign: campaign.utm_campaign,
          meta: campaignMergeMetadata(campaign),
+         data: campaignMergeData(campaign),
       }),
    );
    const rendered = renderEmail(merged, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
@@ -424,6 +459,7 @@ campaignRoutes.get('/:id/preview', async (c) => {
          subject: campaign.subject,
          utm_campaign: campaign.utm_campaign,
          meta: campaignMergeMetadata(campaign),
+         data: campaignMergeData(campaign),
       }),
    );
    const result = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });

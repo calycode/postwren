@@ -137,6 +137,11 @@ const metadataRecord = (description: string): Record<string, unknown> => ({
    description,
    additionalProperties: { type: 'string' },
 });
+const jsonObject = (description: string): Record<string, unknown> => ({
+   type: 'object',
+   description,
+   additionalProperties: true,
+});
 
 const ID = str('Resource id');
 
@@ -152,7 +157,20 @@ const campaignFields = {
    utmMedium: str('UTM medium'),
    utmCampaign: str('UTM campaign'),
    metadata: metadataRecord('Campaign variables rendered as {{ campaign.meta.key }}'),
+   data: jsonObject('Structured lists for repeat blocks, for example { "posts": [...] }'),
 };
+
+function optionalObject(
+   args: Record<string, unknown>,
+   key: string,
+): Record<string, unknown> | undefined {
+   const value = args[key];
+   if (value === undefined) return undefined;
+   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      throw new ToolInputError(`"${key}" must be an object`);
+   }
+   return value as Record<string, unknown>;
+}
 
 function optionalMetadata(
    args: Record<string, unknown>,
@@ -413,6 +431,7 @@ export const TOOLS: ToolDescriptor[] = [
             utmMedium: optionalString(args, 'utmMedium'),
             utmCampaign: optionalString(args, 'utmCampaign'),
             metadata: optionalMetadata(args, 'metadata'),
+            data: optionalObject(args, 'data'),
          });
          return envelope(context, 'POST', '/api/v1/campaigns', body);
       },
@@ -442,6 +461,7 @@ export const TOOLS: ToolDescriptor[] = [
                utmMedium: optionalString(args, 'utmMedium'),
                utmCampaign: optionalString(args, 'utmCampaign'),
                metadata: optionalMetadata(args, 'metadata'),
+               data: optionalObject(args, 'data'),
             }),
          ),
    },

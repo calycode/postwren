@@ -69,10 +69,19 @@ function revisionFromParam(value: string): number | null {
    return Number.isSafeInteger(revision) && revision > 0 ? revision : null;
 }
 
+function previewHtmlForDocument(document: Document): string {
+   try {
+      const expanded = applyMergeTags(document, sampleMergeContext());
+      return renderEmail(expanded, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL }).html;
+   } catch {
+      return renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL }).html;
+   }
+}
+
 function previewHtmlFor(row: TemplateRow): string {
    if (row.preview_html !== null) return row.preview_html;
    try {
-      return renderEmail(documentFrom(row), { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL }).html;
+      return previewHtmlForDocument(documentFrom(row));
    } catch {
       return '';
    }
@@ -159,7 +168,7 @@ templateRoutes.get('/', async (c) => {
 templateRoutes.post('/', async (c) => {
    const body = templateInput.parse(await readJson(c));
    const document = parseDocument(body.irJson);
-   const html = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL }).html;
+   const html = previewHtmlForDocument(document);
    const now = nowSeconds();
    const id = createId('tpl');
 
@@ -294,7 +303,7 @@ templateRoutes.patch('/:id', async (c) => {
    const name = body.name ?? existing.name;
    const subject = body.subject ?? existing.subject;
    const document = body.irJson === undefined ? documentFrom(existing) : parseDocument(body.irJson);
-   const html = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL }).html;
+   const html = previewHtmlForDocument(document);
    const revisionBump = body.bumpRevision === false ? 0 : 1;
    const statements: D1PreparedStatement[] = [];
 
@@ -414,6 +423,7 @@ templateRoutes.post('/:id/render-warnings', async (c) => {
       throw new NotFoundError('Template not found');
    }
 
-   const result = renderEmail(documentFrom(row), { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
+   const document = applyMergeTags(documentFrom(row), sampleMergeContext());
+   const result = renderEmail(document, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
    return ok(result.warnings);
 });

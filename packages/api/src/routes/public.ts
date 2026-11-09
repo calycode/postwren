@@ -28,6 +28,7 @@ import { createCloudflareAdapter } from '../adapters/email';
 import { checkEmailHygiene, domainAcceptsMail, domainOfEmail } from '../lib/email-hygiene';
 import { verifyTurnstile } from '../lib/turnstile';
 import { parseMetadataJson } from '@postwren/shared/metadata';
+import { parsePayloadJson } from '@postwren/shared/payload';
 import { emitWebhookEventSafe } from '../lib/webhooks';
 
 type SubscribeKeyRow = {
@@ -553,6 +554,7 @@ publicRoutes.get('/p/:id', async (c) => {
          utm_campaign: campaign.utm_campaign,
          meta: parseMetadataJson(campaign.metadata_snapshot ?? campaign.metadata_json),
       },
+      data: parsePayloadJson(campaign.data_snapshot ?? campaign.data_json),
       links: {
          unsubscribe: unsubscribeUrl,
          web:

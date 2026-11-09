@@ -79,11 +79,12 @@ describe('delivery', () => {
             id: 'cmp_parity',
             utmCampaign: 'launch',
             metadata: { edition: 'october' },
+            data: {},
          },
       });
       const automationOutcome = await deliverEmail({
          ...shared,
-         campaign: { id: 'aut_parity', utmCampaign: '', metadata: {} },
+         campaign: { id: 'aut_parity', utmCampaign: '', metadata: {}, data: {} },
          automation: { id: 'aut_parity', metadata: {} },
       });
 
@@ -126,7 +127,7 @@ describe('delivery', () => {
          from: { name: 'Sender', email: 'sender@example.com' },
          replyTo: null,
          subject: 'Hello',
-         campaign: { id: 'cmp_failure', utmCampaign: '', metadata: {} },
+         campaign: { id: 'cmp_failure', utmCampaign: '', metadata: {}, data: {} },
       });
 
       expect(outcome).toMatchObject({

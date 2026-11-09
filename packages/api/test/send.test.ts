@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDocument } from '@postwren/email/ir';
+import { createDocument, createRepeatBlock, createTextBlock } from '@postwren/email/ir';
 import workerHandler from '../src/index';
 import {
    FakeEmail,
@@ -123,6 +123,45 @@ describe('queue consumer', () => {
 
       expect(email.sent).toHaveLength(1);
       expect(email.sent[0]?.text).toContain('pro / october');
+   });
+
+   it('renders one repeat block per item in the campaign data', async () => {
+      const target = baseEnv();
+      const document = createDocument();
+      const repeat = createRepeatBlock();
+      repeat.data = 'posts';
+      repeat.itemKey = 'slug';
+      repeat.children = [createTextBlock('{{ item.title }} ({{ itemIndex1 }})')];
+      document.children = [repeat];
+
+      const template = await seedTemplate(target, { document });
+      const [subscriberId] = await seedSubscribers(target, [
+         { email: 'digest@example.com', tags: ['news'] },
+      ]);
+      const campaignId = await seedCampaign(target, {
+         templateId: template.id,
+         audienceQuery: 'tag:news',
+         status: 'sending',
+         data: {
+            posts: [
+               { slug: 'one', title: 'First post', url: 'https://example.com/one' },
+               { slug: 'two', title: 'Second post', url: 'https://example.com/two' },
+            ],
+         },
+      });
+      await seedRecipient(target, { campaignId, subscriberId: subscriberId! });
+
+      const email = new FakeEmail();
+      const env = withQueue(withEmail(target, email), new FakeQueue());
+      const { batch } = makeBatch([{ campaignId, recipientIds: [subscriberId!] }]);
+
+      await workerHandler.queue(batch, env);
+
+      expect(email.sent).toHaveLength(1);
+      expect(email.sent[0]?.text).toContain('First post (1)');
+      expect(email.sent[0]?.text).toContain('Second post (2)');
+      expect(email.sent[0]?.html).toContain('First post (1)');
+      expect(email.sent[0]?.html).toContain('Second post (2)');
    });
 
    it('marks a suppressed subscriber without sending', async () => {

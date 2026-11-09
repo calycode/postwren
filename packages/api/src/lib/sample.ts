@@ -4,12 +4,15 @@ export const SAMPLE_UNSUBSCRIBE_URL = 'https://example.com/unsubscribe';
 
 type SampleOverrides = Partial<Omit<MergeContext['campaign'], 'meta'>> & {
    meta?: Record<string, string>;
+   data?: Record<string, unknown>;
 };
 
 export function sampleMergeContext(overrides: SampleOverrides = {}): MergeContext {
-   const { meta, ...campaign } = overrides;
+   const { meta, data, ...campaign } = overrides;
 
    return {
+      preview: true,
+      data: data ?? {},
       subscriber: {
          id: 'sub_sample',
          email: 'sample@example.com',

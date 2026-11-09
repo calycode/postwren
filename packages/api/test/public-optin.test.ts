@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDocument, createTextBlock } from '@postwren/email/ir';
+import { createDocument, createRepeatBlock, createTextBlock } from '@postwren/email/ir';
 import {
    FakeEmail,
    authHeaders,
@@ -283,6 +283,29 @@ describe('public web version', () => {
       const response = await app.request(`/p/${campaignId}?t=${token}`);
       expect(await response.text()).not.toContain('Hi Ada');
       expect(response.headers.get('cache-control')).toContain('no-store');
+   });
+
+   it('uses the campaign data snapshot for repeats', async () => {
+      const app = createAppForTest();
+      const target = baseEnv();
+      const document = createDocument();
+      const repeat = createRepeatBlock();
+      repeat.data = 'posts';
+      repeat.children = [createTextBlock('{{ item.title }}')];
+      document.children = [repeat];
+      const template = await seedTemplate(target, { document });
+      const campaignId = await seedCampaign(target, {
+         templateId: template.id,
+         status: 'sent',
+         data: {
+            posts: [{ title: 'First post' }, { title: 'Second post' }],
+         },
+      });
+
+      const response = await app.request(`/p/${campaignId}`);
+      const html = await response.text();
+      expect(html).toContain('First post');
+      expect(html).toContain('Second post');
    });
 
    it('does not expose a draft', async () => {
