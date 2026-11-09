@@ -12,6 +12,7 @@ import type { MailSubscriberRow } from './rows';
 
 const OPEN_TTL_SECONDS = 60 * 60 * 24;
 const UNSUBSCRIBE_TTL_SECONDS = 60 * 60 * 24 * 30;
+const WEB_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 export type DeliveryRequest = {
    env: Env;
@@ -66,7 +67,11 @@ function messageOf(error: unknown, fallback: string): string {
    return error instanceof Error ? error.message : fallback;
 }
 
-function mergeContextOf(request: DeliveryRequest, unsubscribeUrl: string): MergeContext {
+function mergeContextOf(
+   request: DeliveryRequest,
+   unsubscribeUrl: string,
+   webUrl: string,
+): MergeContext {
    const { subscriber, subject, campaign, automation } = request;
 
    return {
@@ -87,7 +92,10 @@ function mergeContextOf(request: DeliveryRequest, unsubscribeUrl: string): Merge
       ...(automation === undefined
          ? {}
          : { automation: { id: automation.id, meta: automation.metadata } }),
-      links: { unsubscribe: unsubscribeUrl },
+      links: {
+         unsubscribe: unsubscribeUrl,
+         web: webUrl,
+      },
    };
 }
 
@@ -104,15 +112,32 @@ export async function deliverEmail(request: DeliveryRequest): Promise<DeliveryOu
    );
    const unsubscribeUrl = `${origin}/u/${unsubscribeToken}`;
 
+   // A web view opened from the email should show that reader's own merge tags.
+   // The token is bound to the message, subscriber and campaign; `/p/:id` still
+   // works without it as the anonymous, shareable version.
+   const webToken = await signToken(
+      { m: messageId, s: subscriber.id, c: campaign.id },
+      { secret: env.TOKEN_SECRET, purpose: 'web', ttlSeconds: WEB_TTL_SECONDS },
+   );
+   const webUrl = `${origin}/p/${campaign.id}?t=${webToken}`;
+
    let html: string;
    let text: string;
 
    try {
-      const merged = applyMergeTags(request.document, mergeContextOf(request, unsubscribeUrl));
+      const merged = applyMergeTags(
+         request.document,
+         mergeContextOf(request, unsubscribeUrl, webUrl),
+      );
       const links = await signClickLinks(env, origin, merged, messageId);
       const rendered = renderEmail(merged, {
          unsubscribeUrl,
-         resolveLink: (href, linkId) => links.get(linkKey(linkId, href)) ?? href,
+         resolveLink: (href, linkId) => {
+            // Neither the web view nor unsubscribe should depend on a 24-hour
+            // click-tracking token. Their own tokens live much longer.
+            if (href === unsubscribeUrl || href === webUrl) return href;
+            return links.get(linkKey(linkId, href)) ?? href;
+         },
       });
 
       const openToken = await signToken(

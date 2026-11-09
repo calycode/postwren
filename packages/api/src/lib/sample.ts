@@ -27,6 +27,7 @@ export function sampleMergeContext(overrides: SampleOverrides = {}): MergeContex
       },
       links: {
          unsubscribe: SAMPLE_UNSUBSCRIBE_URL,
+         web: 'https://example.com/p/cmp_sample',
       },
    };
 }

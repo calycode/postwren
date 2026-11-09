@@ -14,6 +14,7 @@ type SubscribeKeyRow = {
    key_hash: string;
    allowed_origins: string;
    default_tags: string;
+   require_confirmation: number;
    created_at: number;
    revoked_at: number | null;
 };
@@ -24,6 +25,7 @@ export type SubscribeKeyResource = {
    prefix: string;
    allowed_origins: string[];
    default_tags: string[];
+   require_confirmation: boolean;
    created_at: number;
    revoked_at: number | null;
 };
@@ -48,6 +50,7 @@ function toResource(row: SubscribeKeyRow): SubscribeKeyResource {
       prefix: row.prefix,
       allowed_origins: stringArray(row.allowed_origins),
       default_tags: stringArray(row.default_tags),
+      require_confirmation: row.require_confirmation === 1,
       created_at: row.created_at,
       revoked_at: row.revoked_at,
    };
@@ -59,7 +62,8 @@ function normaliseTags(tags: string[]): string[] {
 
 subscribeKeyRoutes.get('/', async (c) => {
    const rows = await c.env.DB.prepare(
-      `SELECT id, name, prefix, allowed_origins, default_tags, created_at, revoked_at
+      `SELECT id, name, prefix, allowed_origins, default_tags, require_confirmation,
+              created_at, revoked_at
        FROM subscribe_keys
        ORDER BY created_at DESC, id DESC`,
    ).all<SubscribeKeyRow>();
@@ -76,8 +80,9 @@ subscribeKeyRoutes.post('/', async (c) => {
 
    await c.env.DB.prepare(
       `INSERT INTO subscribe_keys
-       (id, name, prefix, key_hash, allowed_origins, default_tags, created_at, revoked_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+       (id, name, prefix, key_hash, allowed_origins, default_tags, require_confirmation,
+        created_at, revoked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
    )
       .bind(
          id,
@@ -86,6 +91,7 @@ subscribeKeyRoutes.post('/', async (c) => {
          keyHash,
          JSON.stringify(body.allowedOrigins ?? []),
          JSON.stringify(normaliseTags(body.defaultTags ?? [])),
+         body.requireConfirmation === true ? 1 : 0,
          now,
       )
       .run();
@@ -98,6 +104,7 @@ subscribeKeyRoutes.post('/', async (c) => {
          key: secret,
          allowed_origins: body.allowedOrigins ?? [],
          default_tags: normaliseTags(body.defaultTags ?? []),
+         require_confirmation: body.requireConfirmation === true,
          created_at: now,
          revoked_at: null,
       },

@@ -52,6 +52,8 @@ export function now(): number {
 
 export async function resetDb(db: D1Database = env.DB): Promise<void> {
    await db.batch([
+      db.prepare('DELETE FROM webhook_deliveries'),
+      db.prepare('DELETE FROM webhook_endpoints'),
       db.prepare('DELETE FROM link_clicks'),
       db.prepare('DELETE FROM email_events'),
       db.prepare('DELETE FROM automation_link_clicks'),
@@ -373,7 +375,7 @@ export async function runScheduledWith(target: Env): Promise<void> {
 
 export async function signTokenForTest(
    secret: string,
-   purpose: 'click' | 'open' | 'unsubscribe',
+   purpose: 'click' | 'open' | 'unsubscribe' | 'confirm' | 'web',
    payload: Record<string, unknown>,
    ttlSeconds = 3600,
 ): Promise<string> {
