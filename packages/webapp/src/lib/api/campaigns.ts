@@ -20,6 +20,7 @@ export type CampaignInput = {
    utmMedium?: string;
    utmCampaign?: string;
    metadata?: Record<string, string>;
+   data?: Record<string, unknown>;
 };
 
 export type CampaignPatch = Partial<Omit<CampaignInput, 'metadata'>> & {

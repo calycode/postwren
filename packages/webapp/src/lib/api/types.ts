@@ -82,6 +82,7 @@ export type Campaign = {
    status: CampaignStatus;
    scheduledAt: number | null;
    metadata: Record<string, string>;
+   data: Record<string, unknown>;
    created_at: number;
    updated_at: number;
 };

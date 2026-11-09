@@ -8,6 +8,7 @@ import {
    SelectItem,
    SelectTrigger,
    SelectValue,
+   Textarea,
 } from '@postwren/ui';
 import type { SenderAddress, Template } from '@/lib/api/types';
 import type { FieldErrors } from '@/lib/form-errors';
@@ -275,6 +276,40 @@ export function CampaignFields({
                   className="text-xs font-medium text-destructive"
                >
                   {errors.metadata}
+               </p>
+            )}
+         </div>
+
+         <div className="grid gap-2">
+            <h3 className="text-sm font-medium">Data</h3>
+            <p className="text-xs text-muted-foreground">
+               Structured lists for repeat blocks, for example{' '}
+               <code className="rounded bg-muted px-1 py-0.5">
+                  {'{ "posts": [{ "title": "…", "url": "https://…" }] }'}
+               </code>
+               . A template repeat reads them with{' '}
+               <code className="rounded bg-muted px-1 py-0.5">{'{{ item.title }}'}</code>. Leave
+               empty when the template has no repeat block.
+            </p>
+            <Textarea
+               id={`${idPrefix}-data`}
+               value={form.data}
+               disabled={disabled}
+               rows={8}
+               spellcheck={false}
+               className="font-mono text-xs"
+               placeholder={'{\n  "posts": []\n}'}
+               aria-invalid={errors.data ? 'true' : undefined}
+               aria-describedby={errors.data ? `${idPrefix}-data-error` : undefined}
+               onInput={(event) => onChange({ data: event.currentTarget.value })}
+            />
+            {errors.data !== undefined && (
+               <p
+                  id={`${idPrefix}-data-error`}
+                  role="alert"
+                  className="text-xs font-medium text-destructive"
+               >
+                  {errors.data}
                </p>
             )}
          </div>

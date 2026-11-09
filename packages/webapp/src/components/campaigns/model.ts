@@ -82,6 +82,22 @@ function nestedNumber(
    return nested === null ? null : numberOf(nested, ...keys);
 }
 
+function dataOf(source: Record<string, unknown>): Record<string, unknown> {
+   const direct = recordOf(source.data);
+   if (direct !== null) return direct;
+
+   const json = stringOf(source, 'data_json', 'dataJson');
+   if (json !== null) {
+      try {
+         const parsed: unknown = JSON.parse(json);
+         return recordOf(parsed) ?? {};
+      } catch {
+         return {};
+      }
+   }
+   return {};
+}
+
 function metadataOf(source: Record<string, unknown>): Record<string, string> {
    const direct = recordOf(source.metadata);
    if (direct !== null) {
@@ -125,6 +141,7 @@ export function toCampaignView(value: unknown): CampaignView {
       status,
       scheduledAt,
       metadata: metadataOf(source),
+      data: dataOf(source),
       created_at: numberOf(source, 'created_at', 'createdAt') ?? 0,
       updated_at: numberOf(source, 'updated_at', 'updatedAt') ?? 0,
       audienceCount,
