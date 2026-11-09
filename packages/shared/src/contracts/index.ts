@@ -87,6 +87,7 @@ export const publicSubscribeInput = z
       source: z.string().trim().min(1).max(100).optional(),
       sourceUrl: z.string().trim().max(2048).url().optional(),
       website: z.string().max(500).optional(),
+      turnstileToken: z.string().trim().max(4096).optional(),
    })
    .strict();
 
@@ -96,6 +97,7 @@ export const subscribeKeyInput = z
       allowedOrigins: z.array(originField).max(20).optional(),
       defaultTags: z.array(tagNameField).max(20).optional(),
       requireConfirmation: z.boolean().optional(),
+      turnstileSiteKey: z.string().trim().max(100).optional(),
    })
    .strict();
 

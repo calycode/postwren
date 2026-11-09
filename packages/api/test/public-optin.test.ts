@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDocument, createTextBlock } from '@postwren/email/ir';
 import {
    FakeEmail,
@@ -19,6 +19,17 @@ import type { Auth } from './helpers';
 beforeEach(async () => {
    await resetDb();
 });
+
+afterEach(() => {
+   vi.unstubAllGlobals();
+});
+
+function turnstileResponse(success: boolean): Response {
+   return new Response(JSON.stringify({ success }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+   });
+}
 
 async function createKey(
    app: ReturnType<typeof createAppForTest>,
@@ -115,6 +126,59 @@ describe('double opt-in', () => {
          .bind('grace@example.com')
          .first<{ status: string }>();
       expect(row?.status).toBe('subscribed');
+   });
+});
+
+describe('Turnstile at the public endpoint', () => {
+   it('requires a token when the key has a site key', async () => {
+      const app = createAppForTest({ TURNSTILE_SECRET: 'turnstile-secret' });
+      const owner = await seedOwner(baseEnv());
+      const key = await createKey(app, owner, { turnstileSiteKey: '0x4AAAA_test' });
+
+      const missing = await subscribe(app, key.key, { email: 'ada@example.com' });
+      expect(missing.status).toBe(422);
+      expect((await json(missing)).error.code).toBe('turnstile_required');
+
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () => turnstileResponse(true)),
+      );
+      const accepted = await subscribe(app, key.key, {
+         email: 'ada@example.com',
+         turnstileToken: 'token-from-widget',
+      });
+      expect(accepted.status).toBe(202);
+   });
+
+   it('rejects a token Cloudflare does not accept', async () => {
+      const app = createAppForTest({ TURNSTILE_SECRET: 'turnstile-secret' });
+      const owner = await seedOwner(baseEnv());
+      const key = await createKey(app, owner, { turnstileSiteKey: '0x4AAAA_test' });
+
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () => turnstileResponse(false)),
+      );
+
+      const response = await subscribe(app, key.key, {
+         email: 'ada@example.com',
+         turnstileToken: 'bad-token',
+      });
+      expect(response.status).toBe(422);
+      expect((await json(response)).error.code).toBe('turnstile_failed');
+   });
+
+   it('fails closed when the secret is missing', async () => {
+      const app = createAppForTest();
+      const owner = await seedOwner(baseEnv());
+      const key = await createKey(app, owner, { turnstileSiteKey: '0x4AAAA_test' });
+
+      const response = await subscribe(app, key.key, {
+         email: 'ada@example.com',
+         turnstileToken: 'token-from-widget',
+      });
+      expect(response.status).toBe(503);
+      expect((await json(response)).error.code).toBe('turnstile_not_configured');
    });
 });
 

@@ -15,6 +15,7 @@ type SubscribeKeyRow = {
    allowed_origins: string;
    default_tags: string;
    require_confirmation: number;
+   turnstile_site_key: string | null;
    created_at: number;
    revoked_at: number | null;
 };
@@ -26,6 +27,7 @@ export type SubscribeKeyResource = {
    allowed_origins: string[];
    default_tags: string[];
    require_confirmation: boolean;
+   turnstile_site_key: string | null;
    created_at: number;
    revoked_at: number | null;
 };
@@ -51,6 +53,7 @@ function toResource(row: SubscribeKeyRow): SubscribeKeyResource {
       allowed_origins: stringArray(row.allowed_origins),
       default_tags: stringArray(row.default_tags),
       require_confirmation: row.require_confirmation === 1,
+      turnstile_site_key: row.turnstile_site_key,
       created_at: row.created_at,
       revoked_at: row.revoked_at,
    };
@@ -63,7 +66,7 @@ function normaliseTags(tags: string[]): string[] {
 subscribeKeyRoutes.get('/', async (c) => {
    const rows = await c.env.DB.prepare(
       `SELECT id, name, prefix, allowed_origins, default_tags, require_confirmation,
-              created_at, revoked_at
+              turnstile_site_key, created_at, revoked_at
        FROM subscribe_keys
        ORDER BY created_at DESC, id DESC`,
    ).all<SubscribeKeyRow>();
@@ -81,8 +84,8 @@ subscribeKeyRoutes.post('/', async (c) => {
    await c.env.DB.prepare(
       `INSERT INTO subscribe_keys
        (id, name, prefix, key_hash, allowed_origins, default_tags, require_confirmation,
-        created_at, revoked_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        turnstile_site_key, created_at, revoked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
    )
       .bind(
          id,
@@ -92,6 +95,9 @@ subscribeKeyRoutes.post('/', async (c) => {
          JSON.stringify(body.allowedOrigins ?? []),
          JSON.stringify(normaliseTags(body.defaultTags ?? [])),
          body.requireConfirmation === true ? 1 : 0,
+         body.turnstileSiteKey === undefined || body.turnstileSiteKey.length === 0
+            ? null
+            : body.turnstileSiteKey,
          now,
       )
       .run();
@@ -105,6 +111,10 @@ subscribeKeyRoutes.post('/', async (c) => {
          allowed_origins: body.allowedOrigins ?? [],
          default_tags: normaliseTags(body.defaultTags ?? []),
          require_confirmation: body.requireConfirmation === true,
+         turnstile_site_key:
+            body.turnstileSiteKey === undefined || body.turnstileSiteKey.length === 0
+               ? null
+               : body.turnstileSiteKey,
          created_at: now,
          revoked_at: null,
       },

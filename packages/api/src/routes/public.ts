@@ -26,6 +26,7 @@ import { loadSubscriberMetadata, loadSubscriberTags, upsertSubscriber } from '..
 import { requestClientIp } from '../middleware/context';
 import { createCloudflareAdapter } from '../adapters/email';
 import { checkEmailHygiene, domainAcceptsMail, domainOfEmail } from '../lib/email-hygiene';
+import { verifyTurnstile } from '../lib/turnstile';
 import { parseMetadataJson } from '@postwren/shared/metadata';
 import { emitWebhookEventSafe } from '../lib/webhooks';
 
@@ -35,6 +36,7 @@ type SubscribeKeyRow = {
    allowed_origins: string;
    default_tags: string;
    require_confirmation: number;
+   turnstile_site_key: string | null;
    revoked_at: number | null;
 };
 
@@ -67,7 +69,8 @@ async function findKey(db: D1Database, secret: string): Promise<SubscribeKeyRow 
 
    return db
       .prepare(
-         `SELECT id, name, allowed_origins, default_tags, require_confirmation, revoked_at
+         `SELECT id, name, allowed_origins, default_tags, require_confirmation,
+                 turnstile_site_key, revoked_at
           FROM subscribe_keys WHERE key_hash = ? AND revoked_at IS NULL`,
       )
       .bind(await sha256Hex(secret))
@@ -203,6 +206,10 @@ publicRoutes.post('/api/public/subscribe', async (c) => {
       }
 
       const body = publicSubscribeInput.parse(raw);
+
+      if (key.turnstile_site_key !== null && key.turnstile_site_key.length > 0) {
+         await verifyTurnstile(c.env, body.turnstileToken, requestClientIp(c));
+      }
 
       const hygiene = checkEmailHygiene(body.email);
       if (!hygiene.ok) {
