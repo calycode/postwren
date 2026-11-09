@@ -1,5 +1,9 @@
 # beehiiv's backlog vs Postwren
 
+> The canonical product-facing versions of this material are
+> [COMPARISON.md](../COMPARISON.md) and [POSITIONING.md](../POSITIONING.md). This
+> file remains the decision log from the first pass.
+
 > **Status (2026-11-09):** the four "worth taking" items are implemented: the public
 > and per-recipient web version (`GET /p/:id`), optional double opt-in per subscribe
 > key, disposable domain and MX hygiene, and signed outbound webhooks with a delivery

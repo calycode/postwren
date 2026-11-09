@@ -138,6 +138,8 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 
 ## Project
 
+- [Positioning](docs/POSITIONING.md)
+- [Comparison with beehiiv's backlog](docs/COMPARISON.md)
 - [UI and UX review](docs/UI-REVIEW.md)
 - [Automation module proposal](docs/AUTOMATIONS.md)
 - [Brand and naming](docs/BRANDING.md)
