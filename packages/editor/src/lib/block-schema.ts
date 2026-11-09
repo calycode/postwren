@@ -340,4 +340,5 @@ export const MERGE_TAGS: readonly { path: string; label: string }[] = [
    { path: 'campaign.utm_campaign', label: 'UTM campaign' },
    { path: 'automation.id', label: 'Automation ID' },
    { path: 'links.unsubscribe', label: 'Unsubscribe URL' },
+   { path: 'links.web', label: 'Web version URL' },
 ];

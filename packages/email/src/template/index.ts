@@ -21,6 +21,7 @@ export type MergeContext = {
    };
    links: {
       unsubscribe: string;
+      web?: string;
    };
 };
 
@@ -40,6 +41,7 @@ const PATHS = new Set([
    'campaign.utm_campaign',
    'automation.id',
    'links.unsubscribe',
+   'links.web',
 ]);
 
 const FILTERS = new Set(['default', 'upper', 'lower', 'trim', 'date']);
@@ -142,6 +144,8 @@ function readPath(ctx: MergeContext, path: string): string {
          return ctx.automation?.id ?? '';
       case 'links.unsubscribe':
          return ctx.links.unsubscribe;
+      case 'links.web':
+         return ctx.links.web ?? '';
       default:
          return '';
    }

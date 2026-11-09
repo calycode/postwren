@@ -26,6 +26,7 @@ const context: MergeContext = {
    },
    links: {
       unsubscribe: 'https://example.com/u?token=abc&x=1',
+      web: 'https://example.com/p/camp-1',
    },
 };
 
@@ -138,6 +139,13 @@ describe('applyMergeTags', () => {
       expect(button.href).toBe('https://example.com/click?u=ada@example.com&c=spring');
       expect(image.alt).toBe('Spring news');
       expect(image.href).toBe('https://example.com/u?token=abc&x=1');
+   });
+
+   it('substitutes the web version link', () => {
+      const document = documentWith({ buttonHref: '{{ links.web }}' });
+      const result = applyMergeTags(document, context);
+      const button = result.children[2] as ButtonBlock;
+      expect(button.href).toBe('https://example.com/p/camp-1');
    });
 
    it('does not html escape links.unsubscribe inside an href', () => {
