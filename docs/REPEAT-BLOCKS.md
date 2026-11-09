@@ -1,6 +1,28 @@
 # Repeating collections in templates
 
-Status: scoping. Nothing in this document is implemented yet.
+Status: implemented (v1) on 2026-11-09. This document began as the scoping
+note and is kept as the design reference. Deviations from the original plan are
+listed at the end of this section.
+
+What shipped:
+
+- a root-level `repeat` block with a fixed `item` alias, optional `itemKey`, up
+  to 20 children, and a preview-only `sample` array;
+- `item.<key>`, `{{ itemIndex }}` and `{{ itemIndex1 }}` merge paths, including
+  the `date` filter for Unix seconds and ISO strings;
+- campaign `data` storage, `data_snapshot` freezing at schedule/send, preview,
+  test send, public web version and MCP/API fields;
+- payload validation (10 collections, 50 items, flat scalar values, 128 KB) and
+  a 10-repeat document limit;
+- editor Repeat block, data/item key/sample fields, outline badge, and sample
+  preview in the canvas;
+- unique clone ids (`<blockId>:<itemKey>` or `:<index>`) for real sends, and
+  template ids during editor preview so canvas selection still maps to the
+  source block.
+
+Deviation: a missing array renders zero children in a real send and does not add
+a render warning. The preview falls back to `sample`. Invalid merged URLs keep
+the existing render-error behaviour; they are not silently dropped.
 
 ## 1. The question that started this
 
@@ -205,8 +227,8 @@ Existing filters apply: `default`, `upper`, `lower`, `trim`, `date`.
 `applyMergeTags` becomes the single expansion point:
 
 1. Walk the document.
-2. On a `repeat`, read `data[data]`. If it is not an array, render zero children
-   and add a render warning (or fail validation at send if the data is required).
+2. On a `repeat`, read `data[data]`. If it is not an array, render zero children.
+   Preview falls back to the block's `sample` array.
 3. For each item, clone the children, give every cloned block a new id
    (`blockId:itemKey` or `blockId:index`), and apply tags with `item` and
    `itemIndex` in scope.
@@ -280,8 +302,10 @@ Validation messages:
 - "Data key is required."
 - "Item key must match every item."
 - "Add at least one block inside the repeat."
-- "`{{ item.title }}` is not available outside a repeat." (A scope-aware
-  validation pass; see open questions.)
+
+The shipped v1 validates the block shape and campaign payload, but does not yet
+run a scope-aware check for `{{ item.* }}` outside a repeat. Those tags render
+empty there. That check is the next editor validation pass.
 
 ## 9. Rendering and test seams
 
@@ -302,7 +326,9 @@ Tests belong at the existing seams:
 ## 10. Compatibility and migration
 
 Adding a block type is additive to the IR, but a renderer published before the
-change will reject it. Since `@postwren/email` is versioned separately:
+change will reject it. This repository is still pre-release, so v1 kept
+`IR_VERSION = 1` rather than forcing a migration. Before publishing
+`@postwren/email`, decide whether the new block needs an IR version bump:
 
 - Ship the block in a minor release with a documented new IR version if the
   schema version is bumped.

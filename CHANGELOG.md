@@ -13,6 +13,11 @@
   `message.bounced` and `message.delivered`, deduplicated by `eventId`.
 - Per-block template notes with open/done state, counts in the block outline and
   management in the property panel.
+- Repeat blocks: a root-level container bound to a campaign data list, with
+  `{{ item.key }}`, `{{ itemIndex }}`, `{{ itemIndex1 }}`, a preview sample,
+  snapshotted `data_snapshot`, and per-item clone ids for click analytics.
+- Campaign `data` JSON with a 128 KB limit, 10 collections and 50 flat items per
+  collection, exposed through the REST API and MCP campaign tools.
 - `subscriber.bounced` and `subscriber.complained` webhook events.
 
 ### Changed

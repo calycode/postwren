@@ -8,7 +8,8 @@
 > and per-recipient web version (`GET /p/:id`), optional double opt-in per subscribe
 > key, disposable domain and MX hygiene, and signed outbound webhooks with a delivery
 > log. Inbound bounces and complaints are consumed from Cloudflare Email Sending
-> events, and Turnstile is optional per subscribe key.
+> events, Turnstile is optional per subscribe key, and repeat blocks render a
+> snapshotted campaign data list.
 
 > Beehiiv published a list of what a "weekend vibe-coded alternative" would have to
 > match. Read as a compatibility checklist it is unwinnable. Read as a map of what

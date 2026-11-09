@@ -79,7 +79,10 @@ Applied on 7–8 Nov 2026:
   image/avatar/gallery fields.
 - Block notes: a TODO/comment per block, open notes counted in the outline and
   managed in the property panel. Autosave and the Gmail clip byte badge remain in
-  the editor toolbar. Metadata is stored in `media_assets`; files stay
+  the editor toolbar.
+- Repeat blocks: bind a root-level block to a campaign data list, edit its
+  children once, preview up to three sample items, and see an item count in the
+  outline. Metadata is stored in `media_assets`; files stay
   in R2.
 - The template editor header uses breadcrumbs, matching the other detail pages.
 - Template version history with a revision list, side-by-side preview and restore.

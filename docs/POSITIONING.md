@@ -213,7 +213,7 @@ podcast host, a roles matrix.
 
 - One Worker, one D1 database, one R2 bucket, two primary queues (campaigns and
   Email Sending events), one cron.
-- 17 block types, table-only renderer, preview/send parity.
+- 18 block types, including repeat blocks over snapshotted campaign data, table-only renderer, preview/send parity.
 - Immutable template revisions, restore, autosave, block notes.
 - Tag and metadata audience queries compiled to parameterised SQL.
 - Idempotent per-recipient sends, resumable dispatch, queue retries.

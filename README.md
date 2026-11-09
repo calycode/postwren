@@ -6,7 +6,7 @@
 
 Appflare builds this repository in your own Cloudflare account, provisions D1, KV, R2 and the queues, and keeps the app updatable and removable. The install is not catalog-checked, and it needs Workers Paid and **Build in your account** turned on; see [docs/APPFLARE.md](docs/APPFLARE.md).
 
-Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, linear automations, per-recipient rendering, open/click tracking, one-click unsubscribe, a public web version of every sent campaign, optional double opt-in, and signed outbound webhooks.
+Self-hosted email marketing on a single Cloudflare Worker: visual block editor with repeating collections, tag-based audiences, scheduled campaigns, linear automations, per-recipient rendering, open/click tracking, one-click unsubscribe, a public web version of every sent campaign, optional double opt-in, and signed outbound webhooks.
 
 Deliberately narrow: no workflow canvas, no A/B testing, no multi-tenant billing.
 
@@ -128,6 +128,7 @@ pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN
 - **Every sent campaign has a web version** at `/p/<campaign id>`, rendered from the frozen snapshot. `{{ links.web }}` in a template becomes a signed, per-recipient URL at send time, so the reader sees their own merge tags and a working unsubscribe link. Without a token the same page is the anonymous, shareable version. Drafts are not exposed.
 - **Editor drafting is safe.** Template edits autosave after two seconds and flush on page hide; an explicit save advances the revision. The toolbar reports the live byte size and warns above the 102,400-byte Gmail clip.
 - **Block notes are per template.** Add a TODO to any block from its property panel; open notes show a count on the block outline. Notes are independent of revisions and survive saves.
+- **Repeat blocks render a campaign data list.** A `repeat` block reads a named array from `campaigns.data`, renders its children once per item with `{{ item.key }}` and `{{ itemIndex }}`, and freezes the payload in `data_snapshot`. Missing lists render zero children; the editor previews the block's sample items.
 - **Pending is not subscribed.** A double opt-in signup stays out of every audience query and automation until the confirmation POST.
 - **Complaints and hard bounces suppress globally.** Cloudflare's event queue sets the subscriber to `complained`/`bounced`, exits active automations and fires the matching webhook. Soft bounces are logged but do not suppress.
 - **Turnstile is optional per subscribe key.** A non-empty site key requires `turnstileToken` in the signup body and `TURNSTILE_SECRET` on the Worker. The honeypot stays as the cheap first line.
@@ -140,7 +141,7 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 
 - [Positioning](docs/POSITIONING.md)
 - [Comparison with beehiiv's backlog](docs/COMPARISON.md)
-- [Repeating collections in templates](docs/REPEAT-BLOCKS.md) (scoping)
+- [Repeating collections in templates](docs/REPEAT-BLOCKS.md)
 - [UI and UX review](docs/UI-REVIEW.md)
 - [Automation module proposal](docs/AUTOMATIONS.md)
 - [Brand and naming](docs/BRANDING.md)

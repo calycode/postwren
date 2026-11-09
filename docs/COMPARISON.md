@@ -15,7 +15,8 @@ Legend:
 | **Skip** | Not this product. A separate company or a different roadmap.                  |
 
 The canonical positioning narrative is [POSITIONING.md](POSITIONING.md). The raw
-decision log is [research/beehiiv-backlog.md](research/beehiiv-backlog.md).
+decision log is [research/beehiiv-backlog.md](research/beehiiv-backlog.md), and
+the repeat design is [REPEAT-BLOCKS.md](REPEAT-BLOCKS.md).
 
 ## 1. Deliverability and sending
 
@@ -45,6 +46,7 @@ decision log is [research/beehiiv-backlog.md](research/beehiiv-backlog.md).
 | Real-time collaborative editing                                                 | **Skip.** Single-owner product.                                                                                                                                                                                            |
 | Comment threads in the draft                                                    | **Thin.** Per-block notes with open/done state and outline counts. Not multi-user threads.                                                                                                                                 |
 | Dynamic content, different sections per reader                                  | **Skip.** One frozen document per send.                                                                                                                                                                                    |
+| Repeating collections from a data payload                                       | **Ship.** A root-level `repeat` block renders its children once per object in a snapshotted campaign `data` list, with `{{ item.key }}`, `{{ itemIndex }}` and per-item analytics ids.                                     |
 | Separate email and web versions from one draft                                  | **Ship.** Every sent campaign has `/p/<id>`; `{{ links.web }}` produces a signed per-recipient URL with that reader's merge tags and unsubscribe link. Without the token the same page is the anonymous shareable version. |
 | Free and premium versions split by a paywall                                    | **Skip.** No billing or paywall.                                                                                                                                                                                           |
 | Merge tags and a simulated subscriber preview                                   | **Ship.** Merge tags, filters, sample context, campaign preview, per-recipient delivery context.                                                                                                                           |
@@ -190,21 +192,18 @@ the thing it is trying to avoid.
 
 ## 11. Gaps worth closing, in order
 
-1. **Repeating collections.** A repeat block plus a snapshotted campaign data
-   payload is the missing primitive behind a blog digest, product roundup or
-   "latest posts" section. Scoped in [REPEAT-BLOCKS.md](REPEAT-BLOCKS.md).
-2. **Subject-line A/B testing.** Small and confined to the send path; it does not
+1. **Subject-line A/B testing.** Small and confined to the send path; it does not
    change the model.
-3. **Saved segments as first-class resources.** The query compiler already exists;
+2. **Saved segments as first-class resources.** The query compiler already exists;
    this is persistence and reuse, not new semantics.
-4. **Per-mailbox-provider deliverability stats.** Cloudflare events can be
+3. **Per-mailbox-provider deliverability stats.** Cloudflare events can be
    aggregated by recipient domain; the data is already arriving.
-5. **Automation MCP tools.** The REST routes exist; the MCP surface stops short.
-6. **Attachments and audio.** Only if the audience actually needs them.
-7. **Conditional/dynamic blocks.** A large editor change; do it only when a real
+4. **Automation MCP tools.** The REST routes exist; the MCP surface stops short.
+5. **Attachments and audio.** Only if the audience actually needs them.
+6. **Conditional/dynamic blocks.** A large editor change; do it only when a real
    user has a repeated use case.
-8. **Multi-publication and roles.** A hosting feature. Not a self-hosted feature.
-9. **Native embeds.** Nice, but every embed is a client-compatibility liability.
+7. **Multi-publication and roles.** A hosting feature. Not a self-hosted feature.
+8. **Native embeds.** Nice, but every embed is a client-compatibility liability.
 
 ## 12. When to choose beehiiv instead
 
