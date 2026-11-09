@@ -7,7 +7,8 @@ import {
 import { createApp } from './app';
 import { authenticateApiKey } from './auth/bearer';
 import { SCOPES } from './auth/scopes';
-import type { CampaignJob, Env } from './env';
+import type { CampaignJob, EmailSendingEvent, Env } from './env';
+import { handleEmailEventQueue } from './jobs/email-events';
 import { handleQueue } from './jobs/send';
 import { handleScheduled } from './jobs/dispatch';
 import { configuredAppOrigin, resolveAppOrigin } from './lib/app-url';
@@ -104,8 +105,12 @@ export default {
    fetch(request: Request, env: Env, ctx: ExecutionContext) {
       return providerFor(env, resolveAppOrigin(request.url, env)).fetch(request, env, ctx);
    },
-   async queue(batch: MessageBatch<CampaignJob>, env: Env): Promise<void> {
-      await handleQueue(batch, env);
+   async queue(batch: MessageBatch<CampaignJob | EmailSendingEvent>, env: Env): Promise<void> {
+      if (batch.queue.includes('email-events')) {
+         await handleEmailEventQueue(batch as MessageBatch<EmailSendingEvent>, env);
+         return;
+      }
+      await handleQueue(batch as MessageBatch<CampaignJob>, env);
    },
    async scheduled(
       controller: ScheduledController,
@@ -116,4 +121,4 @@ export default {
       const purgeOrigin = configuredAppOrigin(env) ?? PURGE_ORIGIN;
       ctx.waitUntil(providerFor(env, purgeOrigin).purgeExpiredData(env));
    },
-} satisfies ExportedHandler<Env, CampaignJob>;
+} satisfies ExportedHandler<Env, CampaignJob | EmailSendingEvent>;

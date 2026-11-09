@@ -60,6 +60,7 @@ export async function resetDb(db: D1Database = env.DB): Promise<void> {
       db.prepare('DELETE FROM automation_deliveries'),
       db.prepare('DELETE FROM automation_runs'),
       db.prepare('DELETE FROM automations'),
+      db.prepare('DELETE FROM template_comments'),
       db.prepare('DELETE FROM campaign_recipients'),
       db.prepare('DELETE FROM campaigns'),
       db.prepare('DELETE FROM templates'),
@@ -262,14 +263,15 @@ export async function seedRecipient(
       messageId?: string;
       status?: string;
       attempts?: number;
+      providerMessageId?: string;
    },
 ): Promise<string> {
    const messageId = input.messageId ?? createId('msg');
 
    await target.DB.prepare(
       `INSERT INTO campaign_recipients
-       (campaign_id, subscriber_id, message_id, status, attempts)
-       VALUES (?, ?, ?, ?, ?)`,
+       (campaign_id, subscriber_id, message_id, status, attempts, provider_message_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
    )
       .bind(
          input.campaignId,
@@ -277,6 +279,7 @@ export async function seedRecipient(
          messageId,
          input.status ?? 'queued',
          input.attempts ?? 0,
+         input.providerMessageId ?? null,
       )
       .run();
 

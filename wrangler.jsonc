@@ -50,6 +50,15 @@
             "max_retries": 5,
             "dead_letter_queue": "postwren-campaigns-dlq",
          },
+         {
+            // Subscribe this queue to Email Sending events in the Cloudflare
+            // dashboard (Queues -> Subscriptions -> Email Sending).
+            "queue": "postwren-email-events",
+            "max_batch_size": 10,
+            "max_batch_timeout": 10,
+            "max_retries": 5,
+            "dead_letter_queue": "postwren-email-events-dlq",
+         },
       ],
    },
    "send_email": [{ "name": "EMAIL" }],

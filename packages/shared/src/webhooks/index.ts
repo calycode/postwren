@@ -3,6 +3,8 @@ export const WEBHOOK_EVENTS = [
    'subscriber.confirmed',
    'subscriber.updated',
    'subscriber.unsubscribed',
+   'subscriber.bounced',
+   'subscriber.complained',
    'subscriber.deleted',
    'campaign.scheduled',
    'campaign.sent',

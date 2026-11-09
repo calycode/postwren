@@ -6,6 +6,31 @@ export type CampaignJob = {
    recipientIds: string[];
 };
 
+/**
+ * One event from a Cloudflare Email Sending event subscription. The queue also
+ * carries `delivered`, `deferred`, `failed` and `rejected`; only bounced and
+ * complained change a subscriber's suppression state.
+ */
+export type EmailSendingEvent = {
+   type: string;
+   source?: { type?: string; zoneId?: string; domain?: string };
+   payload: {
+      eventId?: string;
+      messageId: string;
+      recipient: string;
+      subject?: string;
+      terminal?: boolean;
+      delivery?: {
+         status?: string;
+         smtpStatusCode?: string;
+         smtpEnhancedStatusCode?: string;
+         smtpResponse?: string;
+      };
+      bounce?: { type?: string; classification?: string; reason?: string };
+      complaint?: { type?: string };
+   };
+};
+
 export interface EmailBinding {
    send(message: {
       to: string | { email: string; name?: string };
@@ -34,6 +59,7 @@ export interface Env {
    OWNER_EMAIL?: string;
    CLOUDFLARE_API_TOKEN?: string;
    CLOUDFLARE_ACCOUNT_ID?: string;
+   TURNSTILE_SECRET?: string;
 }
 
 export type AuthKind = 'session' | 'api_key' | 'service';
