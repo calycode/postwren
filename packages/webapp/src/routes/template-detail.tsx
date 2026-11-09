@@ -5,6 +5,7 @@ import { documentIssues, parseDocument } from '@postwren/email/ir';
 import type { Document } from '@postwren/email/ir';
 import { renderEmail } from '@postwren/email/render';
 import { EmailEditor } from '@postwren/editor';
+import type { BlockComment } from '@postwren/editor';
 import {
    Alert,
    AlertDescription,
@@ -37,6 +38,12 @@ import {
    remove as removeSavedBlock,
 } from '@/lib/api/saved-blocks';
 import {
+   create as createComment,
+   list as listComments,
+   remove as removeComment,
+   update as updateComment,
+} from '@/lib/api/template-comments';
+import {
    create as createTemplate,
    duplicate as duplicateTemplate,
    get as getTemplate,
@@ -47,7 +54,12 @@ import {
    update as updateTemplate,
 } from '@/lib/api/templates';
 import { ApiError } from '@/lib/api/client';
-import type { Template, TemplateVersion, TemplateVersionSummary } from '@/lib/api/types';
+import type {
+   Template,
+   TemplateComment,
+   TemplateVersion,
+   TemplateVersionSummary,
+} from '@/lib/api/types';
 import type { SavedBlock } from '@/lib/api/types';
 import { errorMessage } from '@/lib/form-errors';
 import { formatDateTime, relativeTime } from '@/lib/format';
@@ -206,6 +218,13 @@ type PersistOptions = {
    keepalive?: boolean;
 };
 
+function sortComments(items: TemplateComment[]): TemplateComment[] {
+   return [...items].sort((a, b) => {
+      if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
+      return a.created_at - b.created_at;
+   });
+}
+
 const AUTOSAVE_DELAY_MS = 2000;
 const WORKBENCH_HEIGHT =
    'h-[calc(100dvh_-_5.5rem)] sm:h-[calc(100dvh_-_6.5rem)] lg:h-[calc(100dvh_-_7.5rem)]';
@@ -237,6 +256,8 @@ export function TemplateDetail() {
    const [deleteBusy, setDeleteBusy] = useState(false);
    const [deleteError, setDeleteError] = useState<string | null>(null);
    const [savedBlocks, setSavedBlocks] = useState<SavedBlock[]>([]);
+   const [comments, setComments] = useState<TemplateComment[]>([]);
+   const [commentsError, setCommentsError] = useState<string | null>(null);
    const [saveAsOpen, setSaveAsOpen] = useState(false);
    const [saveAsName, setSaveAsName] = useState('');
    const [saveAsSubject, setSaveAsSubject] = useState('');
@@ -533,6 +554,28 @@ export function TemplateDetail() {
    }, [id, reloadKey]);
 
    useEffect(() => {
+      if (id.length === 0) return;
+
+      let cancelled = false;
+      setComments([]);
+      setCommentsError(null);
+
+      listComments(id)
+         .then((result) => {
+            if (!cancelled) setComments(result);
+         })
+         .catch((cause: unknown) => {
+            if (!cancelled) {
+               setCommentsError(errorMessage(cause, 'Could not load notes for this template'));
+            }
+         });
+
+      return () => {
+         cancelled = true;
+      };
+   }, [id, reloadKey]);
+
+   useEffect(() => {
       if (!historyOpen) return;
 
       let cancelled = false;
@@ -701,6 +744,45 @@ export function TemplateDetail() {
       clearAutosave();
       void persist({ bumpRevision: true, surfaceIssues: true });
    }
+
+   async function handleAddComment(blockId: string, body: string) {
+      const target = idRef.current;
+      const created = await createComment(target, { blockId, body });
+      if (mountedRef.current && idRef.current === target) {
+         setComments((current) => sortComments([...current, created]));
+      }
+   }
+
+   async function handleToggleComment(commentId: string, status: 'open' | 'done') {
+      const target = idRef.current;
+      const updated = await updateComment(target, commentId, { status });
+      if (mountedRef.current && idRef.current === target) {
+         setComments((current) =>
+            sortComments(current.map((comment) => (comment.id === commentId ? updated : comment))),
+         );
+      }
+   }
+
+   async function handleDeleteComment(commentId: string) {
+      const target = idRef.current;
+      await removeComment(target, commentId);
+      if (mountedRef.current && idRef.current === target) {
+         setComments((current) => current.filter((comment) => comment.id !== commentId));
+      }
+   }
+
+   const editorComments = useMemo<BlockComment[]>(
+      () =>
+         comments.map((comment) => ({
+            id: comment.id,
+            blockId: comment.block_id,
+            body: comment.body,
+            status: comment.status,
+            createdAt: comment.created_at,
+            updatedAt: comment.updated_at,
+         })),
+      [comments],
+   );
 
    async function handleDuplicate() {
       setActionError(null);
@@ -899,6 +981,16 @@ export function TemplateDetail() {
             </Alert>
          )}
 
+         {commentsError !== null && (
+            <Alert
+               variant="destructive"
+               className="shrink-0"
+            >
+               <AlertTitle>Could not load notes</AlertTitle>
+               <AlertDescription>{commentsError}</AlertDescription>
+            </Alert>
+         )}
+
          {saveError !== null && (
             <Alert
                variant="destructive"
@@ -954,6 +1046,10 @@ export function TemplateDetail() {
                   savedBlocks={savedBlocks}
                   onSaveBlock={handleSaveBlock}
                   onDeleteSavedBlock={handleDeleteSavedBlock}
+                  comments={editorComments}
+                  onAddComment={handleAddComment}
+                  onToggleComment={handleToggleComment}
+                  onDeleteComment={handleDeleteComment}
                   className="h-full min-h-0"
                />
             </div>

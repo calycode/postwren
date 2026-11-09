@@ -6,6 +6,7 @@ export type SubscribeKeyInput = {
    allowedOrigins?: string[];
    defaultTags?: string[];
    requireConfirmation?: boolean;
+   turnstileSiteKey?: string;
 };
 
 export function list(): Promise<SubscribeKey[]> {

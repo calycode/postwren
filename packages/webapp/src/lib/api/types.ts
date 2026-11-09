@@ -43,6 +43,17 @@ export type Template = {
    updated_at: number;
 };
 
+export type TemplateComment = {
+   id: string;
+   template_id: string;
+   block_id: string;
+   body: string;
+   status: 'open' | 'done';
+   created_at: number;
+   updated_at: number;
+   resolved_at: number | null;
+};
+
 export type TemplateVersionSummary = {
    revision: number;
    name: string;
@@ -102,7 +113,7 @@ export type CampaignRecipient = {
    subscriberId: string;
    email: string;
    messageId: string | null;
-   status: 'queued' | 'sent' | 'delivered' | 'bounced' | 'failed' | 'skipped';
+   status: 'queued' | 'sent' | 'delivered' | 'bounced' | 'complained' | 'failed' | 'skipped';
    sentAt: number | null;
    opened_at?: number | null;
    clicked_at?: number | null;
@@ -216,6 +227,7 @@ export type SubscribeKey = {
    allowed_origins: string[];
    default_tags: string[];
    require_confirmation: boolean;
+   turnstile_site_key: string | null;
    created_at: number;
    revoked_at: number | null;
    key?: string;
@@ -226,6 +238,8 @@ export type WebhookEvent =
    | 'subscriber.confirmed'
    | 'subscriber.updated'
    | 'subscriber.unsubscribed'
+   | 'subscriber.bounced'
+   | 'subscriber.complained'
    | 'subscriber.deleted'
    | 'campaign.scheduled'
    | 'campaign.sent'

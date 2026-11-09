@@ -92,6 +92,7 @@ export function Settings() {
    const [keyOrigins, setKeyOrigins] = useState('');
    const [keyTags, setKeyTags] = useState('');
    const [keyConfirm, setKeyConfirm] = useState(false);
+   const [keyTurnstile, setKeyTurnstile] = useState('');
    const [keyBusy, setKeyBusy] = useState(false);
    const [keyFormError, setKeyFormError] = useState<string | null>(null);
    const [newSecret, setNewSecret] = useState<string | null>(null);
@@ -191,12 +192,14 @@ export function Settings() {
             allowedOrigins: parseList(keyOrigins),
             defaultTags: parseList(keyTags).map((tag) => tag.toLowerCase()),
             requireConfirmation: keyConfirm,
+            turnstileSiteKey: keyTurnstile.trim().length > 0 ? keyTurnstile.trim() : undefined,
          });
          setNewSecret(created.key ?? null);
          setKeyName('');
          setKeyOrigins('');
          setKeyTags('');
          setKeyConfirm(false);
+         setKeyTurnstile('');
          setKeysReloadKey((key) => key + 1);
       } catch (cause) {
          setKeyFormError(errorMessage(cause, 'Could not create the subscribe key'));
@@ -372,6 +375,14 @@ export function Settings() {
                   <span className="truncate font-medium">{key.name}</span>
                   <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{key.prefix}…</code>
                   {key.require_confirmation && <Badge variant="outline">Double opt-in</Badge>}
+                  {key.turnstile_site_key !== null && (
+                     <Badge
+                        variant="outline"
+                        title={`Turnstile site key: ${key.turnstile_site_key}`}
+                     >
+                        Turnstile
+                     </Badge>
+                  )}
                   {revoked && <Badge variant="outline">Revoked</Badge>}
                </div>
                <span className="text-xs text-muted-foreground">
@@ -968,6 +979,18 @@ export function Settings() {
                               value={keyTags}
                               placeholder="newsletter"
                               onInput={(event) => setKeyTags(event.currentTarget.value)}
+                           />
+                        </Field>
+                        <Field
+                           label="Turnstile site key"
+                           htmlFor="subscribe-key-turnstile"
+                           hint="Optional. Set TURNSTILE_SECRET on the Worker and paste the widget's site key to require a challenge."
+                        >
+                           <Input
+                              id="subscribe-key-turnstile"
+                              value={keyTurnstile}
+                              placeholder="0x4AAAAAAA..."
+                              onInput={(event) => setKeyTurnstile(event.currentTarget.value)}
                            />
                         </Field>
                         <Checkbox
