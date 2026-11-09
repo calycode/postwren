@@ -91,6 +91,8 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 const PREVIEW_MERGE_CONTEXT: MergeContext = {
+   preview: true,
+   data: {},
    subscriber: {
       id: 'preview-subscriber',
       email: 'max@example.com',

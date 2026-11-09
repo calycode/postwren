@@ -10,6 +10,7 @@ import type {
 export type BlockPatch = Partial<Block>;
 
 export const SECTION_CHILD_LIMIT = 20;
+export const REPEAT_CHILD_LIMIT = 20;
 
 type ListResult = {
    blocks: Block[];
@@ -23,13 +24,13 @@ function unchanged(blocks: Block[]): ListResult {
 }
 
 function isContainerType(type: Block['type']): boolean {
-   return type === 'columns' || type === 'section';
+   return type === 'columns' || type === 'section' || type === 'repeat';
 }
 
 /** The child lists a container owns, in visual order. Leaves return null. */
 function childBlocks(block: Block): Block[] | null {
    if (block.type === 'columns') return block.columns.flatMap((column) => column.blocks);
-   if (block.type === 'section') return block.children;
+   if (block.type === 'section' || block.type === 'repeat') return block.children;
    return null;
 }
 
@@ -52,6 +53,11 @@ function mapContainerChildren(block: Block, transform: ListTransform): Block | n
    if (block.type === 'section') {
       const result = mapBlockLists(block.children, transform);
       return result.changed ? { ...block, children: result.blocks as SectionChild[] } : null;
+   }
+
+   if (block.type === 'repeat') {
+      const result = mapBlockLists(block.children, transform);
+      return result.changed ? { ...block, children: result.blocks } : null;
    }
 
    return null;
@@ -199,11 +205,19 @@ export function insertAtTarget(
       return insertIntoColumn(doc, target.id, 0, block as LeafBlock);
    }
 
+   if (target.type === 'repeat') {
+      if (block.type === 'repeat') return appendAfterTopLevel(doc, target.id, block);
+      return insertIntoRepeat(doc, target.id, block);
+   }
+
    if (!isLeaf) return appendAfterTopLevel(doc, target.id, block);
 
    const ancestor = doc.children.find((child) => containsId(child, target.id));
    if (ancestor?.type === 'section' && ancestor.children.length >= SECTION_CHILD_LIMIT) {
       // A full section cannot hold another child, so the block lands after it.
+      return appendAfterTopLevel(doc, target.id, block);
+   }
+   if (ancestor?.type === 'repeat' && ancestor.children.length >= REPEAT_CHILD_LIMIT) {
       return appendAfterTopLevel(doc, target.id, block);
    }
 
@@ -233,6 +247,14 @@ function cloneWithNewIds(block: Block): Block {
          ...block,
          id: `${block.type}-${crypto.randomUUID()}`,
          children: block.children.map(cloneWithNewIds) as SectionChild[],
+      };
+   }
+
+   if (block.type === 'repeat') {
+      return {
+         ...block,
+         id: `${block.type}-${crypto.randomUUID()}`,
+         children: block.children.map(cloneWithNewIds),
       };
    }
 
@@ -270,6 +292,14 @@ export function insertIntoSection(doc: Document, sectionId: string, block: LeafB
    if (section?.type !== 'section') return doc;
    if (section.children.length >= SECTION_CHILD_LIMIT) return doc;
    return updateBlock(doc, sectionId, { children: [...section.children, block] });
+}
+
+export function insertIntoRepeat(doc: Document, repeatId: string, block: Block): Document {
+   const repeat = findBlock(doc, repeatId);
+   if (repeat?.type !== 'repeat') return doc;
+   if (block.type === 'repeat') return doc;
+   if (repeat.children.length >= REPEAT_CHILD_LIMIT) return doc;
+   return updateBlock(doc, repeatId, { children: [...repeat.children, block] });
 }
 
 export function insertIntoColumn(
@@ -448,5 +478,7 @@ export function blockLabel(block: Block): string {
          return 'Table';
       case 'section':
          return `Section (${block.children.length})`;
+      case 'repeat':
+         return `Repeat (${block.children.length})`;
    }
 }

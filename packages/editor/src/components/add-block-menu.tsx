@@ -47,6 +47,7 @@ export const BLOCK_GROUPS: readonly {
       types: [
          { type: 'section', label: 'Section' },
          { type: 'columns', label: 'Columns' },
+         { type: 'repeat', label: 'Repeat' },
          { type: 'table', label: 'Table' },
       ],
    },

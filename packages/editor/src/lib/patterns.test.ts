@@ -17,6 +17,7 @@ describe('BLOCK_PATTERNS', () => {
       expect(BLOCK_PATTERNS.map((pattern) => pattern.id)).toEqual([
          'feature',
          'stats',
+         'blog-digest',
          'testimonial',
          'article',
          'header',

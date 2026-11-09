@@ -9,6 +9,7 @@ import {
    createLinkBlock,
    createListBlock,
    createQuoteBlock,
+   createRepeatBlock,
    createSocialBlock,
    createTextBlock,
 } from '@postwren/email/ir';
@@ -81,6 +82,38 @@ export const BLOCK_PATTERNS: readonly BlockPattern[] = [
       label: 'Stats',
       description: 'Three columns of numbers with captions.',
       build: () => [statsBlock()],
+   },
+   {
+      id: 'blog-digest',
+      label: 'Blog digest',
+      description: 'A repeat block for the latest posts from campaign data.',
+      build: () => {
+         const heading = createHeadingBlock();
+         heading.text = 'Latest from the blog';
+         heading.level = 2;
+         heading.fontSize = 26;
+         heading.lineHeight = 34;
+
+         const repeat = createRepeatBlock();
+         repeat.data = 'posts';
+         repeat.itemKey = 'slug';
+         repeat.sample = [
+            {
+               slug: 'first-post',
+               title: 'The first post',
+               excerpt: 'A short summary of the first post.',
+               url: 'https://example.com/blog/first-post',
+            },
+            {
+               slug: 'second-post',
+               title: 'The second post',
+               excerpt: 'A short summary of the second post.',
+               url: 'https://example.com/blog/second-post',
+            },
+         ];
+
+         return [heading, repeat];
+      },
    },
    {
       id: 'testimonial',

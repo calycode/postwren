@@ -42,6 +42,7 @@ export const BLOCK_TYPE_OPTIONS: readonly { type: BlockType; label: string }[] =
    { type: 'gallery', label: 'Gallery' },
    { type: 'table', label: 'Table' },
    { type: 'section', label: 'Section' },
+   { type: 'repeat', label: 'Repeat' },
 ];
 
 export const ALIGN_OPTIONS: readonly FieldOption[] = [
@@ -327,6 +328,7 @@ export const BLOCK_FIELDS: Record<BlockType, readonly FieldSpec[]> = {
       paddingField,
       { key: 'innerPadding', label: 'Inner padding', kind: 'spacing' },
    ],
+   repeat: [paddingField],
 };
 
 export const MERGE_TAGS: readonly { path: string; label: string }[] = [
@@ -341,4 +343,6 @@ export const MERGE_TAGS: readonly { path: string; label: string }[] = [
    { path: 'automation.id', label: 'Automation ID' },
    { path: 'links.unsubscribe', label: 'Unsubscribe URL' },
    { path: 'links.web', label: 'Web version URL' },
+   { path: 'itemIndex', label: 'Item index (0-based)' },
+   { path: 'itemIndex1', label: 'Item number (1-based)' },
 ];

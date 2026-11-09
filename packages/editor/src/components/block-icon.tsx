@@ -11,6 +11,7 @@ import {
    MousePointerClick,
    Quote,
    RectangleHorizontal,
+   Repeat,
    SeparatorHorizontal,
    Share2,
    Square,
@@ -136,6 +137,13 @@ export function BlockIcon({ type, className }: { type: BlockType; className?: st
       case 'section':
          return (
             <Square
+               className={className}
+               aria-hidden="true"
+            />
+         );
+      case 'repeat':
+         return (
+            <Repeat
                className={className}
                aria-hidden="true"
             />

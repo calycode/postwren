@@ -13,6 +13,8 @@ export type OutlineEntry = {
    depth: number;
    /** Identifies the sibling list. Only entries with the same key can be reordered. */
    groupKey: string;
+   /** Optional small count, used by repeat previews. */
+   badge?: string;
 };
 
 function entriesFor(block: Block, depth: number, prefix: string, groupKey: string): OutlineEntry[] {
@@ -22,6 +24,11 @@ function entriesFor(block: Block, depth: number, prefix: string, groupKey: strin
       label: `${prefix}${blockLabel(block)}`,
       depth,
       groupKey,
+      ...(block.type === 'repeat' && (block.sample?.length ?? 0) > 0
+         ? {
+              badge: `${block.sample?.length} sample${block.sample?.length === 1 ? '' : 's'}`,
+           }
+         : {}),
    };
 
    if (block.type === 'columns') {
@@ -40,11 +47,11 @@ function entriesFor(block: Block, depth: number, prefix: string, groupKey: strin
       ];
    }
 
-   if (block.type === 'section') {
+   if (block.type === 'section' || block.type === 'repeat') {
       return [
          entry,
          ...block.children.flatMap((child) =>
-            entriesFor(child, depth + 1, '', `section:${block.id}`),
+            entriesFor(child, depth + 1, '', `${block.type}:${block.id}`),
          ),
       ];
    }
@@ -174,6 +181,11 @@ export function BlockTree({
                         className="size-3.5 shrink-0"
                      />
                      <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                     {entry.badge !== undefined && (
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                           {entry.badge}
+                        </span>
+                     )}
                      {(commentCounts[entry.id] ?? 0) > 0 && (
                         <span
                            className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-warning"

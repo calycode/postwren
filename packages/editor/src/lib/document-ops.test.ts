@@ -5,6 +5,7 @@ import type {
    ColumnsBlock,
    Document,
    HeadingBlock,
+   RepeatBlock,
    SectionBlock,
    TextBlock,
 } from '@postwren/email/ir';
@@ -17,6 +18,7 @@ import {
    insertAtTarget,
    insertBlock,
    insertIntoColumn,
+   insertIntoRepeat,
    insertIntoSection,
    moveBlock,
    moveBlockTo,
@@ -73,6 +75,17 @@ function sectionBlock(id: string, children: SectionBlock['children']): SectionBl
       borderRadius: 8,
       padding,
       innerPadding: padding,
+      children,
+   };
+}
+
+function repeatBlock(id: string, children: Block[]): RepeatBlock {
+   return {
+      id,
+      type: 'repeat',
+      data: 'posts',
+      alias: 'item',
+      padding,
       children,
    };
 }
@@ -674,5 +687,64 @@ describe('structural integrity', () => {
 
       expect(result.children.map((block) => block.id)).toEqual(['section', 'overflow']);
       expect(documentIssues(result)).toEqual([]);
+   });
+
+   it('adds a block inside a repeat and keeps it out of nested repeats', () => {
+      const doc = documentOf([repeatBlock('repeat', [textBlock('existing')])]);
+
+      const inside = insertAtTarget(doc, textBlock('inside'), 'repeat', 'inside');
+      const repeat = inside.children[0];
+      expect(repeat?.type).toBe('repeat');
+      if (repeat?.type === 'repeat') {
+         expect(repeat.children.map((block) => block.id)).toEqual(['existing', 'inside']);
+      }
+
+      const nested = insertAtTarget(
+         doc,
+         repeatBlock('nested', [textBlock('nested-child')]),
+         'repeat',
+         'inside',
+      );
+      expect(nested.children.map((block) => block.id)).toEqual(['repeat', 'nested']);
+      expect(documentIssues(inside)).toEqual([]);
+      expect(documentIssues(nested)).toEqual([]);
+   });
+
+   it('inserts directly into a repeat and labels it', () => {
+      const doc = documentOf([repeatBlock('repeat', [])]);
+      const result = insertIntoRepeat(doc, 'repeat', textBlock('child'));
+      const repeat = result.children[0];
+
+      expect(repeat?.type).toBe('repeat');
+      if (repeat?.type === 'repeat') {
+         expect(repeat.children.map((block) => block.id)).toEqual(['child']);
+         expect(blockLabel(repeat)).toBe('Repeat (1)');
+      }
+   });
+
+   it('duplicates a repeat with unique child ids', () => {
+      const doc = documentOf([repeatBlock('repeat', [textBlock('child')])]);
+      const result = duplicateBlock(doc, 'repeat');
+      const copy = result.children[1];
+
+      expect(copy?.type).toBe('repeat');
+      if (copy?.type === 'repeat') {
+         expect(copy.id).not.toBe('repeat');
+         expect(copy.children[0]?.id).not.toBe('child');
+         expect(copy.children[0]?.id).toMatch(/^text-/);
+      }
+
+      const ids = flattenBlocks(result).map((block) => block.id);
+      expect(new Set(ids).size).toBe(ids.length);
+   });
+
+   it('refuses a twenty-first child in a repeat', () => {
+      const children = Array.from({ length: 20 }, (_, index) => textBlock(`child-${index}`));
+      const doc = documentOf([repeatBlock('repeat', children)]);
+
+      const result = insertIntoRepeat(doc, 'repeat', textBlock('overflow'));
+
+      expect(result).toBe(doc);
+      expect(documentIssues(doc)).toEqual([]);
    });
 });

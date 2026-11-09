@@ -298,6 +298,13 @@ function BlockProperties({
             />
          )}
 
+         {block.type === 'repeat' && (
+            <RepeatEditor
+               block={block}
+               patch={patch}
+            />
+         )}
+
          {styleFields.length > 0 && (
             <div className="grid gap-4">{styleFields.map(renderField)}</div>
          )}
@@ -499,6 +506,124 @@ function BlockNotes({
             </p>
          )}
       </section>
+   );
+}
+
+function RepeatEditor({
+   block,
+   patch,
+}: {
+   block: Extract<Block, { type: 'repeat' }>;
+   patch: Patch;
+}) {
+   const [sampleText, setSampleText] = useState(() => JSON.stringify(block.sample ?? [], null, 2));
+   const [sampleError, setSampleError] = useState<string | null>(null);
+
+   useEffect(() => {
+      setSampleText(JSON.stringify(block.sample ?? [], null, 2));
+      setSampleError(null);
+   }, [block.id]);
+
+   function updateSample(text: string) {
+      setSampleText(text);
+      if (text.trim().length === 0) {
+         setSampleError(null);
+         patch({ sample: undefined });
+         return;
+      }
+
+      try {
+         const parsed: unknown = JSON.parse(text);
+         if (!Array.isArray(parsed)) throw new Error('Sample must be a JSON array of objects');
+         if (parsed.length > 3) throw new Error('Use at most three sample items');
+         const items: Record<string, string | number | boolean>[] = [];
+         for (const item of parsed) {
+            if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+               throw new Error('Each sample item must be an object');
+            }
+            const output: Record<string, string | number | boolean> = {};
+            for (const [key, value] of Object.entries(item)) {
+               if (!/^[a-z][a-z0-9_]{0,63}$/.test(key)) {
+                  throw new Error(`Invalid sample field "${key}"`);
+               }
+               if (
+                  typeof value !== 'string' &&
+                  typeof value !== 'number' &&
+                  typeof value !== 'boolean'
+               ) {
+                  throw new Error(`Sample field "${key}" must be a string, number or boolean`);
+               }
+               output[key] = value;
+            }
+            items.push(output);
+         }
+         setSampleError(null);
+         patch({ sample: items.length > 0 ? items : undefined });
+      } catch (cause) {
+         setSampleError(cause instanceof Error ? cause.message : 'Invalid sample JSON');
+      }
+   }
+
+   return (
+      <div className="grid gap-3 rounded-md border border-border p-3">
+         <div className="grid gap-1">
+            <h3 className="text-sm font-medium">Repeat</h3>
+            <p className="text-xs text-muted-foreground">
+               The children render once per item in a campaign data list.
+            </p>
+         </div>
+
+         <Field
+            label="Data key"
+            htmlFor={`repeat-data-${block.id}`}
+            hint="For example: posts. The campaign supplies { posts: [{ title, url, … }] }."
+         >
+            <Input
+               id={`repeat-data-${block.id}`}
+               value={block.data}
+               className="font-mono text-xs"
+               onInput={(event) => patch({ data: event.currentTarget.value })}
+            />
+         </Field>
+
+         <Field
+            label="Item key"
+            htmlFor={`repeat-key-${block.id}`}
+            hint="Optional unique field such as slug. It keeps per-item click analytics stable."
+         >
+            <Input
+               id={`repeat-key-${block.id}`}
+               value={block.itemKey ?? ''}
+               className="font-mono text-xs"
+               placeholder="slug"
+               onInput={(event) =>
+                  patch({ itemKey: event.currentTarget.value.trim() || undefined })
+               }
+            />
+         </Field>
+
+         <Field
+            label="Sample items"
+            htmlFor={`repeat-sample-${block.id}`}
+            error={sampleError ?? undefined}
+            hint="Preview only. A JSON array of up to three flat objects."
+         >
+            <Textarea
+               id={`repeat-sample-${block.id}`}
+               value={sampleText}
+               rows={6}
+               spellcheck={false}
+               className={TEXTAREA_CLASS}
+               onInput={(event) => updateSample(event.currentTarget.value)}
+            />
+         </Field>
+
+         <p className="rounded-md bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
+            Inside this repeat use <code>{'{{ item.title }}'}</code>,{' '}
+            <code>{'{{ item.url }}'}</code>, <code>{'{{ itemIndex }}'}</code>. Child blocks are
+            edited once; drag blocks into the repeat from the canvas or outline.
+         </p>
+      </div>
    );
 }
 
@@ -1031,7 +1156,7 @@ function ColumnsEditor({
 
    const addBlock = (columnIndex: number, type: LeafBlockType) => {
       const child = createBlock(type);
-      if (child.type === 'section' || child.type === 'columns') return;
+      if (child.type === 'section' || child.type === 'columns' || child.type === 'repeat') return;
 
       updateColumns(
          block.columns.map((column, index) =>
@@ -1413,7 +1538,7 @@ function SectionEditor({
    const addChild = (type: LeafBlockType) => {
       if (atLimit) return;
       const child = createBlock(type);
-      if (child.type === 'section' || child.type === 'columns') return;
+      if (child.type === 'section' || child.type === 'columns' || child.type === 'repeat') return;
       onChange(insertIntoSection(doc, block.id, child));
       onSelect(child.id);
    };
