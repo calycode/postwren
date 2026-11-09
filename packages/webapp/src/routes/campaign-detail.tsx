@@ -621,6 +621,16 @@ export function CampaignDetail() {
                            Send test
                         </Button>
                      )}
+                     {campaign.status === 'sent' && (
+                        <a
+                           href={`/p/${encodeURIComponent(campaign.id)}`}
+                           target="_blank"
+                           rel="noreferrer"
+                           className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                           Web version
+                        </a>
+                     )}
                   </>
                )
             }

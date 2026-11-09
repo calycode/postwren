@@ -30,6 +30,8 @@ function statusVariant(
          return 'outline';
       case 'unsubscribed':
          return 'secondary';
+      case 'pending':
+         return 'outline';
    }
 }
 

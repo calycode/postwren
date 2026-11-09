@@ -11,6 +11,7 @@ import {
    CardDescription,
    CardHeader,
    CardTitle,
+   Checkbox,
    Field,
    Input,
    Separator,
@@ -22,6 +23,7 @@ import {
 } from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmbedSettingsCard } from '@/components/embed-settings-card';
+import { WebhooksCard } from '@/components/webhooks-card';
 import { ApiKeysCard } from '@/components/api-keys-card';
 import { ApiQuickstartCard } from '@/components/api-quickstart-card';
 import { PageHeader } from '@/components/page-header';
@@ -89,6 +91,7 @@ export function Settings() {
    const [keyName, setKeyName] = useState('');
    const [keyOrigins, setKeyOrigins] = useState('');
    const [keyTags, setKeyTags] = useState('');
+   const [keyConfirm, setKeyConfirm] = useState(false);
    const [keyBusy, setKeyBusy] = useState(false);
    const [keyFormError, setKeyFormError] = useState<string | null>(null);
    const [newSecret, setNewSecret] = useState<string | null>(null);
@@ -187,11 +190,13 @@ export function Settings() {
             name,
             allowedOrigins: parseList(keyOrigins),
             defaultTags: parseList(keyTags).map((tag) => tag.toLowerCase()),
+            requireConfirmation: keyConfirm,
          });
          setNewSecret(created.key ?? null);
          setKeyName('');
          setKeyOrigins('');
          setKeyTags('');
+         setKeyConfirm(false);
          setKeysReloadKey((key) => key + 1);
       } catch (cause) {
          setKeyFormError(errorMessage(cause, 'Could not create the subscribe key'));
@@ -366,6 +371,7 @@ export function Settings() {
                <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate font-medium">{key.name}</span>
                   <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{key.prefix}…</code>
+                  {key.require_confirmation && <Badge variant="outline">Double opt-in</Badge>}
                   {revoked && <Badge variant="outline">Revoked</Badge>}
                </div>
                <span className="text-xs text-muted-foreground">
@@ -421,6 +427,7 @@ export function Settings() {
             <TabsList className="h-auto w-full flex-wrap justify-start gap-1 p-1 sm:w-fit">
                <TabsTrigger value="sending">Sending</TabsTrigger>
                <TabsTrigger value="audience">Audience</TabsTrigger>
+               <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
                <TabsTrigger value="api">API</TabsTrigger>
                <TabsTrigger value="embedding">Embedding</TabsTrigger>
                <TabsTrigger value="workspace">Workspace</TabsTrigger>
@@ -963,6 +970,11 @@ export function Settings() {
                               onInput={(event) => setKeyTags(event.currentTarget.value)}
                            />
                         </Field>
+                        <Checkbox
+                           checked={keyConfirm}
+                           label="Require email confirmation (double opt-in)"
+                           onChange={(event) => setKeyConfirm(event.currentTarget.checked)}
+                        />
                         <div>
                            <Button
                               type="submit"
@@ -975,6 +987,13 @@ export function Settings() {
                      </form>
                   </CardContent>
                </Card>
+            </TabsContent>
+
+            <TabsContent
+               value="webhooks"
+               className="grid gap-6"
+            >
+               <WebhooksCard />
             </TabsContent>
 
             <TabsContent

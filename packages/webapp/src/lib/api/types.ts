@@ -8,7 +8,8 @@ import type {
 
 export type { AutomationStatus, AutomationStep, AutomationTrigger, AutomationTriggerConfig };
 
-export type SubscriberStatus = 'subscribed' | 'unsubscribed' | 'bounced' | 'complained' | 'deleted';
+export type SubscriberStatus =
+   'pending' | 'subscribed' | 'unsubscribed' | 'bounced' | 'complained' | 'deleted';
 
 export type Tag = {
    id: string;
@@ -214,9 +215,47 @@ export type SubscribeKey = {
    prefix: string;
    allowed_origins: string[];
    default_tags: string[];
+   require_confirmation: boolean;
    created_at: number;
    revoked_at: number | null;
    key?: string;
+};
+
+export type WebhookEvent =
+   | 'subscriber.created'
+   | 'subscriber.confirmed'
+   | 'subscriber.updated'
+   | 'subscriber.unsubscribed'
+   | 'subscriber.deleted'
+   | 'campaign.scheduled'
+   | 'campaign.sent'
+   | 'webhook.test';
+
+export type WebhookEndpoint = {
+   id: string;
+   url: string;
+   description: string | null;
+   events: WebhookEvent[];
+   enabled: boolean;
+   created_at: number;
+   updated_at: number;
+   last_success_at: number | null;
+   last_failure_at: number | null;
+   failure_count: number;
+   secret?: string;
+};
+
+export type WebhookDelivery = {
+   id: string;
+   endpoint_id: string;
+   event: WebhookEvent;
+   status: 'pending' | 'succeeded' | 'failed';
+   attempts: number;
+   response_status: number | null;
+   error: string | null;
+   next_attempt_at: number | null;
+   created_at: number;
+   delivered_at: number | null;
 };
 
 export type DashboardCampaign = {

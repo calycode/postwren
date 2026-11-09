@@ -77,6 +77,7 @@ import type { TagFailure } from '@/lib/tag-diff';
 type StatusFilter = 'all' | SubscriberStatus;
 
 const STATUS_OPTIONS: SubscriberStatus[] = [
+   'pending',
    'subscribed',
    'unsubscribed',
    'bounced',
@@ -107,6 +108,8 @@ function statusVariant(
          return 'outline';
       case 'unsubscribed':
          return 'secondary';
+      case 'pending':
+         return 'outline';
    }
 }
 

@@ -5,6 +5,7 @@ export type SubscribeKeyInput = {
    name: string;
    allowedOrigins?: string[];
    defaultTags?: string[];
+   requireConfirmation?: boolean;
 };
 
 export function list(): Promise<SubscribeKey[]> {
