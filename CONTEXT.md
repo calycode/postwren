@@ -31,6 +31,11 @@ Vocabulary and seams for this repo. Read before changing code.
 | **OAuth provider**      | `@cloudflare/workers-oauth-provider` owns MCP authorization: discovery, DCR/CIMD, PKCE, codes and token rotation. Grants and hashed tokens live in the `OAUTH_KV` namespace; `pwr_` API keys stay in D1.                                                                                                                                         |
 | **link_id**             | A block `id`, used as the click-analytics key.                                                                                                                                                                                                                                                                                                   |
 | **Suppression**         | A subscriber who must not be enqueued: unsubscribed, bounced, complained, deleted.                                                                                                                                                                                                                                                               |
+| **Public web version**  | `GET /p/:id` renders a `sent` campaign's frozen IR. A signed `?t=` token from `{{ links.web }}` binds it to one recipient's merge tags and unsubscribe link; without it the page is the anonymous, shareable version. No tracking pixel. Drafts and in-flight campaigns return 404.                                                              |
+| **Double opt-in**       | A subscribe key option (`require_confirmation`). New rows are `pending`, receive a signed `confirm` token, and become `subscribed` only on `POST /confirm/:token`; GET shows the button so mail scanners cannot confirm.                                                                                                                         |
+| **Email hygiene**       | A static disposable-domain and typo list, plus a production-only DoH MX/A check that fails open. Runs before the public subscribe write.                                                                                                                                                                                                         |
+| **Webhook endpoint**    | An HTTPS receiver with a signing secret and a set of event names, stored in `webhook_endpoints`. The secret is readable because it signs deliveries.                                                                                                                                                                                             |
+| **Webhook delivery**    | One signed POST attempt for an event, stored in `webhook_deliveries` before the call. The cron sweep retries with backoff and keeps the response status and error.                                                                                                                                                                               |
 
 ## Modules and their seams
 
@@ -45,6 +50,7 @@ Deep modules: small interface, large implementation. Tests cross these seams onl
 | `@postwren/shared/metadata`   | `metadataKeyError()`, `metadataRecord`, `mergeMetadata()`                      | Key grammar, reserved keys, JSON map helpers           |
 | `@postwren/shared/automation` | `parseAutomationSteps(value)`, step types, limits                              | Step grammar, issue codes, validation rules            |
 | `@postwren/shared/tokens`     | `signToken()`, `verifyToken()`                                                 | HMAC, TTL, purpose separation                          |
+| `@postwren/shared/webhooks`   | `webhookSignature()`, `WEBHOOK_EVENTS`                                         | Signed body format, event vocabulary, hex HMAC         |
 | `@postwren/shared/csv`        | `parseSubscriberCsv(text)`                                                     | Delimiter/quote handling, per-row errors               |
 | `@postwren/api`               | `createApp(env)`, queue handler, scheduled handler                             | Routing, auth, campaigns, adapters                     |
 | `@postwren/editor`            | `<EmailEditor value onChange />`                                               | Block list, property panel, preview, keyboard reorder  |
@@ -69,6 +75,8 @@ Test at these, not at internals:
 6. Campaign lifecycle through the queue handler: replay a batch, assert one send.
 7. Editor: document in -> callbacks out. No DOM assertions on internals.
 8. Automation sweep: replay a due run, assert one step and one delivery per tick.
+9. Double opt-in: subscribe through a confirming key, assert `pending`, post the token, assert `subscribed` and one enrolment.
+10.   Webhook delivery: emit an event, run the sweep with a stub fetch, assert the signature and the retry schedule.
 
 ## Conventions
 
@@ -106,7 +114,7 @@ Content uses `{{ subscriber.meta.<key> }}` and `{{ campaign.meta.<key> }}`. All 
 
 ## Public subscription
 
-`POST /api/public/subscribe` is the only unauthenticated write path. It accepts a publishable subscribe key as `Authorization: Bearer pk_live_…` or `X-Subscribe-Key: pk_live_…`. The key's `allowed_origins` list controls browser CORS and is enforced on the request, not just advertised in the preflight. A non-empty `website` field is a honeypot and returns a successful no-op.
+`POST /api/public/subscribe` is the only unauthenticated write path. It accepts a publishable subscribe key as `Authorization: Bearer pk_live_…` or `X-Subscribe-Key: pk_live_…`. The key's `allowed_origins` list controls browser CORS and is enforced on the request, not just advertised in the preflight. A non-empty `website` field is a honeypot and returns a successful no-op. The static hygiene check runs on every key; the DoH MX/A lookup runs only when `ENVIRONMENT=production` and fails open. `require_confirmation` is per key: `pending` rows never enter an audience query and are enrolled in automations only after `POST /confirm/:token`.
 
 The body is camelCase:
 

@@ -14,7 +14,8 @@ curl -X POST https://postwren.example.com/api/v1/subscribe-keys \
   -d '{
     "name": "Marketing site",
     "allowedOrigins": ["https://example.com"],
-    "defaultTags": ["newsletter"]
+    "defaultTags": ["newsletter"],
+    "requireConfirmation": true
   }'
 ```
 
@@ -29,6 +30,7 @@ The response contains the publishable secret **once**:
       "key": "pk_live_ab12cd34...",
       "allowed_origins": ["https://example.com"],
       "default_tags": ["newsletter"],
+      "require_confirmation": true,
       "created_at": 1767225600,
       "revoked_at": null
    },
@@ -64,6 +66,22 @@ Successful response:
 ```
 
 The response is identical for a new and an existing address (`202 Accepted`). That is deliberate: the endpoint is public and must not reveal list membership. Repeating the call is safe: tags and metadata are merged, the subscriber is not duplicated, and an unsubscribed or bounced subscriber is never moved back to `subscribed`.
+
+### Double opt-in
+
+When the key has `requireConfirmation: true`, a new address is stored with status `pending` and receives a confirmation email. Campaign audiences only select `subscribed` rows, so a pending address is never mailed. The response adds `pending`:
+
+```json
+{ "data": { "subscribed": true, "pending": true }, "error": null }
+```
+
+The confirmation link is `GET /confirm/<token>` and `POST /confirm/<token>`. GET itself never writes, so a mailbox scanner that only fetches links cannot opt someone in. The page then auto-submits the POST, so a reader still confirms with one click rather than two. Confirming moves the row to `subscribed`, sets `confirmed_at`, and only then enrols `subscriber.created` and `tag.added` automations. Outside production the response also includes `devConfirmUrl`, because there is no real mailbox to open.
+
+Double opt-in is per key and off by default. It is not required for every deployment; turn it on where you need explicit consent evidence (Germany, for example) or want the list hygiene.
+
+### Address hygiene
+
+Before writing, the endpoint rejects obvious disposable domains and known provider typos (`gmial.com` returns `details.suggestion`). In production it also asks Cloudflare DNS for an MX or A record; a null MX (`0 .`) is refused. If DNS cannot be reached the check fails open, so an outage never blocks a real signup. This is deliberately smaller than a paid validation service.
 
 ### Browser code
 
@@ -154,12 +172,12 @@ Reserved metadata keys (`id`, `email`, `first_name`, `last_name`, `status`, `tag
 
 ## Errors
 
-| Status | Meaning                                                        |
-| ------ | -------------------------------------------------------------- |
-| 401    | Missing, malformed, or revoked subscribe key.                  |
-| 403    | The request `Origin` is not in the key's allowed origins.      |
-| 422    | Body validation failed, including metadata key or value rules. |
-| 429    | More than `RATE_LIMITS.publicSubscribe` requests per window.   |
+| Status | Meaning                                                             |
+| ------ | ------------------------------------------------------------------- |
+| 401    | Missing, malformed, or revoked subscribe key.                       |
+| 403    | The request `Origin` is not in the key's allowed origins.           |
+| 422    | Body validation failed, or the address is disposable/undeliverable. |
+| 429    | More than `RATE_LIMITS.publicSubscribe` requests per window.        |
 
 Failures use the same envelope as the rest of the API:
 

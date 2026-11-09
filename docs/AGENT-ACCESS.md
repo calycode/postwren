@@ -28,6 +28,8 @@ Read scopes never imply write scopes. A credential only gets exactly what was gr
 | `send:write`        | Schedule, send now, pause, resume and cancel campaigns; send a test email  |
 | `emails:write`      | Send transactional email through `POST /api/v1/emails`                     |
 | `events:write`      | Post named subscriber events through `POST /api/v1/events`                 |
+| `webhooks:read`     | List webhook endpoints and read their delivery log                         |
+| `webhooks:write`    | Create, edit, enable, disable and delete webhook endpoints                 |
 
 `send:write` is deliberately separate from `campaigns:write`. An agent that drafts campaigns cannot send mail until it is also granted `send:write`.
 

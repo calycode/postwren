@@ -6,11 +6,11 @@
 
 Appflare builds this repository in your own Cloudflare account, provisions D1, KV, R2 and the queues, and keeps the app updatable and removable. The install is not catalog-checked, and it needs Workers Paid and **Build in your account** turned on; see [docs/APPFLARE.md](docs/APPFLARE.md).
 
-Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, linear automations, per-recipient rendering, open/click tracking, and one-click unsubscribe.
+Self-hosted email marketing on a single Cloudflare Worker: visual block editor, tag-based audiences, scheduled campaigns, linear automations, per-recipient rendering, open/click tracking, one-click unsubscribe, a public web version of every sent campaign, optional double opt-in, and signed outbound webhooks.
 
 Deliberately narrow: no workflow canvas, no A/B testing, no multi-tenant billing.
 
-Beyond the admin UI, the Worker exposes four integration surfaces: a public subscribe endpoint for marketing sites, scoped API keys for scripts (including transactional email), an OAuth-protected MCP server for agent clients such as ChatGPT or Claude, and media uploads for the editor.
+Beyond the admin UI, the Worker exposes five integration surfaces: a public subscribe endpoint for marketing sites, signed outbound webhooks, scoped API keys for scripts (including transactional email), an OAuth-protected MCP server for agent clients such as ChatGPT or Claude, and media uploads for the editor.
 
 ## Why the email layer is its own package
 
@@ -39,7 +39,8 @@ migrations/    numbered SQL
 
 ## Integrations
 
-- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
+- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert, optional double opt-in and address hygiene. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
+- **Webhooks** — signed, retried POSTs for subscriber and campaign events, with a delivery log. See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
 - **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
 - **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/IFRAME-EMBEDDING.md](docs/IFRAME-EMBEDDING.md).
 - **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
@@ -117,6 +118,8 @@ pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN
 - **Daily quota is a wall, not a failure.** `E_DAILY_LIMIT_EXCEEDED` pauses the campaign rather than failing recipients.
 - **Opens are approximate.** Apple Mail Privacy Protection and corporate proxies pre-fetch pixels. Clicks are the real metric.
 - **Unsubscribe is RFC 8058.** Both `List-Unsubscribe` headers are set; the link is a signed, single-purpose token.
+- **Every sent campaign has a web version** at `/p/<campaign id>`, rendered from the frozen snapshot. `{{ links.web }}` in a template becomes a signed, per-recipient URL at send time, so the reader sees their own merge tags and a working unsubscribe link. Without a token the same page is the anonymous, shareable version. Drafts are not exposed.
+- **Pending is not subscribed.** A double opt-in signup stays out of every audience query and automation until the confirmation POST.
 
 ## Testing strategy
 
@@ -131,6 +134,7 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 - [Turborepo remote cache](docs/REMOTE-CACHE.md)
 - [Release and remote checklist](docs/RELEASING.md)
 - [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
+- [Webhooks](docs/WEBHOOKS.md)
 - [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
 - [EmDash plugin packaging](docs/EMDASH-PLUGIN.md)
 - [Iframe embedding](docs/IFRAME-EMBEDDING.md)
