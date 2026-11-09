@@ -18,6 +18,7 @@ import type {
    ListBlock,
    MarkdownBlock,
    QuoteBlock,
+   RepeatBlock,
    SectionBlock,
    SocialBlock,
    SpacerBlock,
@@ -421,7 +422,52 @@ export const sectionBlockSchema = z
    })
    .strict();
 
-export const blockSchema = z.union([columnsBlockSchema, sectionBlockSchema, leafBlockSchema]);
+export const repeatSampleItemSchema = z.record(
+   z.union([z.string().max(4000), z.number(), z.boolean()]),
+);
+
+export const repeatBlockSchema = z
+   .object({
+      id: idSchema,
+      type: z.literal('repeat'),
+      data: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/, 'Expected a data key'),
+      alias: z.literal('item'),
+      itemKey: z
+         .string()
+         .regex(/^[a-z][a-z0-9_]{0,63}$/, 'Expected an item key')
+         .optional(),
+      sample: z.array(repeatSampleItemSchema).max(3).optional(),
+      padding: spacingSchema,
+      children: z
+         .array(z.union([columnsBlockSchema, sectionBlockSchema, leafBlockSchema]))
+         .min(1)
+         .max(20),
+   })
+   .strict();
+
+export const blockSchema = z.union([
+   columnsBlockSchema,
+   sectionBlockSchema,
+   repeatBlockSchema,
+   leafBlockSchema,
+]);
+
+function repeatCount(block: z.infer<typeof blockSchema>): number {
+   if (block.type === 'repeat') {
+      return 1 + block.children.reduce((sum, child) => sum + repeatCount(child), 0);
+   }
+   if (block.type === 'columns') {
+      return block.columns.reduce(
+         (sum, column) =>
+            sum + column.blocks.reduce((childSum, child) => childSum + repeatCount(child), 0),
+         0,
+      );
+   }
+   if (block.type === 'section') {
+      return block.children.reduce((sum, child) => sum + repeatCount(child), 0);
+   }
+   return 0;
+}
 
 function blockIds(block: z.infer<typeof blockSchema>): string[] {
    const ids = [block.id];
@@ -431,7 +477,7 @@ function blockIds(block: z.infer<typeof blockSchema>): string[] {
             ids.push(...blockIds(child));
          }
       }
-   } else if (block.type === 'section') {
+   } else if (block.type === 'section' || block.type === 'repeat') {
       for (const child of block.children) {
          ids.push(...blockIds(child));
       }
@@ -449,7 +495,9 @@ export const documentSchema = z
    .strict()
    .superRefine((document, ctx) => {
       const seen = new Set<string>();
+      let repeats = 0;
       for (const block of document.children) {
+         repeats += repeatCount(block);
          for (const id of blockIds(block)) {
             if (seen.has(id)) {
                ctx.addIssue({
@@ -460,6 +508,13 @@ export const documentSchema = z
             }
             seen.add(id);
          }
+      }
+      if (repeats > 10) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'A document may contain at most 10 repeat blocks',
+            path: ['children'],
+         });
       }
    });
 
@@ -690,6 +745,35 @@ export function createSectionBlock(): SectionBlock {
    };
 }
 
+export function createRepeatBlock(): RepeatBlock {
+   const heading = createHeadingBlock();
+   heading.level = 2;
+   heading.text = '{{ item.title }}';
+   heading.fontSize = 22;
+   heading.lineHeight = 30;
+
+   const summary = createTextBlock('{{ item.excerpt | default("A short summary.") }}');
+   const button = createButtonBlock();
+   button.text = 'Read more';
+   button.href = '{{ item.url }}';
+
+   return {
+      id: randomId('repeat'),
+      type: 'repeat',
+      data: 'items',
+      alias: 'item',
+      sample: [
+         {
+            title: 'A post title',
+            excerpt: 'A short summary of the post.',
+            url: 'https://example.com/post',
+         },
+      ],
+      padding: defaultPadding(),
+      children: [heading, summary, button],
+   };
+}
+
 export function createBlock(type: BlockType): Block {
    switch (type) {
       case 'heading':
@@ -726,6 +810,8 @@ export function createBlock(type: BlockType): Block {
          return createTableBlock();
       case 'section':
          return createSectionBlock();
+      case 'repeat':
+         return createRepeatBlock();
    }
 }
 

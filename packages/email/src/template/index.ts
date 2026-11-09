@@ -23,6 +23,13 @@ export type MergeContext = {
       unsubscribe: string;
       web?: string;
    };
+   /** Structured campaign data, keyed by repeat block `data`. */
+   data?: Record<string, unknown>;
+   /** Preview uses repeat samples when real data is absent; a send never does. */
+   preview?: boolean;
+   /** Scope for one repeated item. Set during expansion. */
+   item?: Record<string, unknown>;
+   itemIndex?: number;
 };
 
 export type TemplateValidation = {
@@ -42,6 +49,8 @@ const PATHS = new Set([
    'automation.id',
    'links.unsubscribe',
    'links.web',
+   'itemIndex',
+   'itemIndex1',
 ]);
 
 const FILTERS = new Set(['default', 'upper', 'lower', 'trim', 'date']);
@@ -52,9 +61,16 @@ const META_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 const SUBSCRIBER_META_PREFIX = 'subscriber.meta.';
 const CAMPAIGN_META_PREFIX = 'campaign.meta.';
 const AUTOMATION_META_PREFIX = 'automation.meta.';
+const ITEM_PREFIX = 'item.';
 
 type Filter = { name: string; arg?: string };
 type Parsed = { path: string; filters: Filter[] } | { error: string };
+
+function itemKeyOf(path: string): string | null {
+   if (!path.startsWith(ITEM_PREFIX)) return null;
+   const key = path.slice(ITEM_PREFIX.length);
+   return META_KEY.test(key) ? key : null;
+}
 
 function metaKeyOf(path: string): string | null {
    if (path.startsWith(SUBSCRIBER_META_PREFIX)) {
@@ -81,7 +97,7 @@ function parseExpression(expression: string): Parsed {
    const path = segments[0] ?? '';
 
    if (path.length === 0) return { error: 'Missing merge path' };
-   if (!PATHS.has(path) && metaKeyOf(path) === null) {
+   if (!PATHS.has(path) && metaKeyOf(path) === null && itemKeyOf(path) === null) {
       return { error: `Unknown merge path "${path}"` };
    }
 
@@ -111,7 +127,17 @@ function parseExpression(expression: string): Parsed {
    return { path, filters };
 }
 
+function scalarString(value: unknown): string {
+   if (typeof value === 'string') return value;
+   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+   if (typeof value === 'boolean') return value ? 'true' : 'false';
+   return '';
+}
+
 function readPath(ctx: MergeContext, path: string): string {
+   if (path.startsWith(ITEM_PREFIX)) {
+      return scalarString(ctx.item?.[path.slice(ITEM_PREFIX.length)]);
+   }
    if (path.startsWith(SUBSCRIBER_META_PREFIX)) {
       return ctx.subscriber.meta[path.slice(SUBSCRIBER_META_PREFIX.length)] ?? '';
    }
@@ -146,6 +172,10 @@ function readPath(ctx: MergeContext, path: string): string {
          return ctx.links.unsubscribe;
       case 'links.web':
          return ctx.links.web ?? '';
+      case 'itemIndex':
+         return ctx.itemIndex === undefined ? '' : String(ctx.itemIndex);
+      case 'itemIndex1':
+         return ctx.itemIndex === undefined ? '' : String(ctx.itemIndex + 1);
       default:
          return '';
    }
@@ -178,8 +208,11 @@ function applyFilter(value: string, filter: Filter): string {
          return value.trim();
       case 'date': {
          const trimmed = value.trim();
-         if (!/^-?\d+(?:\.\d+)?$/.test(trimmed)) return value;
-         return formatDate(Number(trimmed), filter.arg ?? '');
+         if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+            return formatDate(Number(trimmed), filter.arg ?? '');
+         }
+         const parsed = Date.parse(trimmed);
+         return Number.isNaN(parsed) ? value : formatDate(parsed / 1000, filter.arg ?? '');
       }
       default:
          return value;
@@ -292,17 +325,89 @@ function applyToBlock(block: Block, ctx: MergeContext): void {
       case 'section':
          for (const child of block.children) applyToBlock(child, ctx);
          return;
+      case 'repeat':
+         // A repeat should have been expanded before this point. Rendering its
+         // children once is the safe fallback for a hand-written document.
+         for (const child of block.children) applyToBlock(child, ctx);
+         return;
       default:
          return;
    }
 }
 
+function recordOf(value: unknown): Record<string, unknown> | null {
+   return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+}
+
+function reidBlock(block: Block, suffix: string): Block {
+   const copy = JSON.parse(JSON.stringify(block)) as Block;
+   const rename = (candidate: Block): Block => {
+      const next = { ...candidate, id: `${candidate.id}:${suffix}` } as Block;
+      if (next.type === 'columns') {
+         next.columns = next.columns.map((column) => ({
+            ...column,
+            blocks: column.blocks.map((child) => rename(child) as typeof child),
+         }));
+      } else if (next.type === 'section' || next.type === 'repeat') {
+         next.children = next.children.map(rename);
+      }
+      return next;
+   };
+   return rename(copy);
+}
+
+function expandRepeat(block: Extract<Block, { type: 'repeat' }>, ctx: MergeContext): Block[] {
+   const configured = ctx.data?.[block.data];
+   const source = Array.isArray(configured)
+      ? configured
+      : ctx.preview === true
+        ? (block.sample ?? [])
+        : [];
+
+   const seen = new Set<string>();
+   const expanded: Block[] = [];
+
+   for (let index = 0; index < source.length && index < 50; index += 1) {
+      const item = recordOf(source[index]);
+      if (item === null) continue;
+
+      let suffix = block.itemKey === undefined ? '' : scalarString(item[block.itemKey]);
+      if (suffix.length === 0 || seen.has(suffix)) suffix = `#${index}`;
+      while (seen.has(suffix)) suffix = `${suffix}_`;
+      seen.add(suffix);
+
+      const itemCtx: MergeContext = { ...ctx, item, itemIndex: index };
+      for (const child of block.children) {
+         // The editor keeps the template ids so a canvas click selects the
+         // source block. Real sends use unique ids per item for analytics.
+         const rewritten =
+            ctx.preview === true
+               ? (JSON.parse(JSON.stringify(child)) as Block)
+               : reidBlock(child, suffix);
+         applyToBlock(rewritten, itemCtx);
+         expanded.push(rewritten);
+      }
+   }
+
+   return expanded;
+}
+
 export function applyMergeTags(doc: Document, ctx: MergeContext): Document {
    const clone = JSON.parse(JSON.stringify(doc)) as Document;
+   const children: Block[] = [];
+
    for (const block of clone.children) {
+      if (block.type === 'repeat') {
+         children.push(...expandRepeat(block, ctx));
+         continue;
+      }
       applyToBlock(block, ctx);
+      children.push(block);
    }
-   return clone;
+
+   return { ...clone, children };
 }
 
 export function validateTemplate(text: string): TemplateValidation {

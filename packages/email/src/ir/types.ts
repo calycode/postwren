@@ -234,7 +234,23 @@ export type SectionBlock = BlockBase & {
    children: SectionChild[];
 };
 
-export type Block = LeafBlock | ColumnsBlock | SectionBlock;
+export type RepeatSampleItem = Record<string, string | number | boolean>;
+
+export type RepeatBlock = BlockBase & {
+   type: 'repeat';
+   /** Named array in the campaign data, for example "posts". */
+   data: string;
+   /** Merge-tag scope for one item. Fixed to "item" in v1. */
+   alias: 'item';
+   /** Optional unique scalar field used for stable clone ids and analytics. */
+   itemKey?: string;
+   /** Preview-only examples; stripped from the real send path. */
+   sample?: RepeatSampleItem[];
+   padding: Spacing;
+   children: Block[];
+};
+
+export type Block = LeafBlock | ColumnsBlock | SectionBlock | RepeatBlock;
 
 export type BlockType = Block['type'];
 

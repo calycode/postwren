@@ -14,6 +14,9 @@ import { applyMergeTags } from '@postwren/email/template';
 
 const document = createDocument();
 const merged = applyMergeTags(document, {
+   data: {
+      posts: [{ title: 'First post', url: 'https://example.com/first' }],
+   },
    subscriber: {
       id: 'sub_1',
       email: 'ada@example.com',
@@ -42,6 +45,16 @@ const { html, text, bytes, warnings } = renderEmail(merged, {
 The renderer emits only `table`/`tr`/`td` layout with inline styles and MSO conditional comments,
 because Outlook on Windows renders with Microsoft Word's engine. There is no `div`, no flex, and no
 `max-width` outside the root table.
+
+## Repeating collections
+
+A `repeat` block clones its children once per object in a named `data` list. Inside the block, use
+`{{ item.title }}`, `{{ item.url }}`, `{{ itemIndex }}` and `{{ itemIndex1 }}`. `applyMergeTags` does
+the expansion before `renderEmail`, so the renderer still sees a flat document.
+
+Real sends get unique clone ids (`<blockId>:<itemKey>` or `:<index>`) for per-item click analytics.
+Set `preview: true` on the merge context to use the block's `sample` array and keep template ids for
+editor selection.
 
 ## License
 

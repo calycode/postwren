@@ -545,6 +545,15 @@ function renderTable(context: Context, block: TableBlock): string {
 </td></tr>`;
 }
 
+function renderRepeat(context: Context, block: Extract<Block, { type: 'repeat' }>): string {
+   const children = block.children.map((child) => renderBlock(context, child)).join('');
+   if (children.length === 0) return '';
+
+   return `<tr><td class="px" style="${fontStyle(context)}${paddingStyle(block.padding)}">
+<table ${TABLE_ATTRS} width="100%" style="width:100%;"><tbody>${children}</tbody></table>
+</td></tr>`;
+}
+
 function renderSection(context: Context, block: SectionBlock): string {
    const border =
       block.borderWidth > 0 ? `border:${block.borderWidth}px solid ${block.borderColor};` : '';
@@ -729,6 +738,8 @@ function renderBlockMarkup(context: Context, block: Block): string {
          return renderTable(context, block);
       case 'section':
          return renderSection(context, block);
+      case 'repeat':
+         return renderRepeat(context, block);
    }
 }
 
@@ -825,6 +836,7 @@ function plainTextBlock(block: Block): string[] {
          );
       }
       case 'section':
+      case 'repeat':
          return block.children.flatMap(plainTextBlock);
    }
 }
