@@ -190,18 +190,21 @@ the thing it is trying to avoid.
 
 ## 11. Gaps worth closing, in order
 
-1. **Subject-line A/B testing.** Small and confined to the send path; it does not
+1. **Repeating collections.** A repeat block plus a snapshotted campaign data
+   payload is the missing primitive behind a blog digest, product roundup or
+   "latest posts" section. Scoped in [REPEAT-BLOCKS.md](REPEAT-BLOCKS.md).
+2. **Subject-line A/B testing.** Small and confined to the send path; it does not
    change the model.
-2. **Saved segments as first-class resources.** The query compiler already exists;
+3. **Saved segments as first-class resources.** The query compiler already exists;
    this is persistence and reuse, not new semantics.
-3. **Per-mailbox-provider deliverability stats.** Cloudflare events can be
+4. **Per-mailbox-provider deliverability stats.** Cloudflare events can be
    aggregated by recipient domain; the data is already arriving.
-4. **Automation MCP tools.** The REST routes exist; the MCP surface stops short.
-5. **Attachments and audio.** Only if the audience actually needs them.
-6. **Conditional/dynamic blocks.** A large editor change; do it only when a real
+5. **Automation MCP tools.** The REST routes exist; the MCP surface stops short.
+6. **Attachments and audio.** Only if the audience actually needs them.
+7. **Conditional/dynamic blocks.** A large editor change; do it only when a real
    user has a repeated use case.
-7. **Multi-publication and roles.** A hosting feature. Not a self-hosted feature.
-8. **Native embeds.** Nice, but every embed is a client-compatibility liability.
+8. **Multi-publication and roles.** A hosting feature. Not a self-hosted feature.
+9. **Native embeds.** Nice, but every embed is a client-compatibility liability.
 
 ## 12. When to choose beehiiv instead
 
