@@ -13,6 +13,7 @@ import { automationRoutes } from './routes/automations';
 import { subscriberRoutes } from './routes/subscribers';
 import { tagRoutes } from './routes/tags';
 import { templateRoutes } from './routes/templates';
+import { templateCommentRoutes } from './routes/template-comments';
 import { campaignRoutes } from './routes/campaigns';
 import { dashboardRoutes } from './routes/dashboard';
 import { agentCampaignRoutes } from './routes/agent-campaigns';
@@ -74,6 +75,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    app.route('/api/v1/subscribers', subscriberRoutes);
    app.route('/api/v1/tags', tagRoutes);
    app.route('/api/v1/templates', templateRoutes);
+   app.route('/api/v1/templates', templateCommentRoutes);
    app.route('/api/v1/saved-blocks', savedBlockRoutes);
    app.route('/api/v1/campaigns', agentCampaignRoutes);
    app.route('/api/v1/campaigns', campaignRoutes);
