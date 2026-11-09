@@ -28,8 +28,9 @@ import {
    Input,
    Label,
    Textarea,
+   cn,
 } from '@postwren/ui';
-import { Check, Copy, Plus, Trash, X } from 'lucide-react';
+import { Check, Copy, MessageSquare, Plus, RotateCcw, Trash, X } from 'lucide-react';
 import {
    ALIGN_OPTIONS,
    BLOCK_FIELDS,
@@ -57,6 +58,7 @@ import {
    updateBlock,
 } from '../lib/document-ops';
 import type { ImagePicker, ImageUploader } from '../lib/media';
+import type { BlockComment } from '../lib/comments';
 import { HexInput, NumberInput, OptionSelect, SpacingEditor } from './field-controls';
 import { MediaField } from './media-field';
 import { MergeTagMenu } from './merge-tag-menu';
@@ -101,6 +103,10 @@ type PropertyPanelProps = {
    onChange: (next: Document, coalesceKey?: string) => void;
    onUploadImage?: ImageUploader;
    onPickImage?: ImagePicker;
+   comments?: readonly BlockComment[];
+   onAddComment?: (blockId: string, body: string) => Promise<void> | void;
+   onToggleComment?: (commentId: string, status: 'open' | 'done') => Promise<void> | void;
+   onDeleteComment?: (commentId: string) => Promise<void> | void;
 };
 
 export function PropertyPanel({
@@ -110,6 +116,10 @@ export function PropertyPanel({
    onChange,
    onUploadImage,
    onPickImage,
+   comments = [],
+   onAddComment,
+   onToggleComment,
+   onDeleteComment,
 }: PropertyPanelProps) {
    const block = selectedId ? findBlock(doc, selectedId) : null;
 
@@ -130,6 +140,10 @@ export function PropertyPanel({
                onSelect={onSelect}
                onUploadImage={onUploadImage}
                onPickImage={onPickImage}
+               comments={comments}
+               onAddComment={onAddComment}
+               onToggleComment={onToggleComment}
+               onDeleteComment={onDeleteComment}
             />
          ) : (
             <div className="grid gap-3">
@@ -184,6 +198,10 @@ function BlockProperties({
    onSelect,
    onUploadImage,
    onPickImage,
+   comments,
+   onAddComment,
+   onToggleComment,
+   onDeleteComment,
 }: {
    doc: Document;
    block: Block;
@@ -191,6 +209,10 @@ function BlockProperties({
    onSelect: (id: string) => void;
    onUploadImage?: ImageUploader;
    onPickImage?: ImagePicker;
+   comments: readonly BlockComment[];
+   onAddComment?: (blockId: string, body: string) => Promise<void> | void;
+   onToggleComment?: (commentId: string, status: 'open' | 'done') => Promise<void> | void;
+   onDeleteComment?: (commentId: string) => Promise<void> | void;
 }) {
    const patch: Patch = (next, coalesceKey) =>
       onChange(updateBlock(doc, block.id, next), coalesceKey);
@@ -288,8 +310,195 @@ function BlockProperties({
             />
          )}
 
+         <BlockNotes
+            blockId={block.id}
+            comments={comments.filter((comment) => comment.blockId === block.id)}
+            onAdd={onAddComment}
+            onToggle={onToggleComment}
+            onDelete={onDeleteComment}
+         />
+
          <AdvancedDetails block={block} />
       </div>
+   );
+}
+
+function BlockNotes({
+   blockId,
+   comments,
+   onAdd,
+   onToggle,
+   onDelete,
+}: {
+   blockId: string;
+   comments: readonly BlockComment[];
+   onAdd?: (blockId: string, body: string) => Promise<void> | void;
+   onToggle?: (commentId: string, status: 'open' | 'done') => Promise<void> | void;
+   onDelete?: (commentId: string) => Promise<void> | void;
+}) {
+   const [body, setBody] = useState('');
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const openCount = comments.filter((comment) => comment.status === 'open').length;
+
+   if (onAdd === undefined && comments.length === 0) return null;
+
+   async function submit(event: Event) {
+      event.preventDefault();
+      if (onAdd === undefined) return;
+      const trimmed = body.trim();
+      if (trimmed.length === 0) return;
+
+      setBusy(true);
+      setError(null);
+      try {
+         await onAdd(blockId, trimmed);
+         setBody('');
+      } catch (cause) {
+         setError(cause instanceof Error ? cause.message : 'Could not add the note');
+      } finally {
+         setBusy(false);
+      }
+   }
+
+   function run(action: () => Promise<void> | void) {
+      setError(null);
+      Promise.resolve(action()).catch((cause: unknown) => {
+         setError(cause instanceof Error ? cause.message : 'Could not update the note');
+      });
+   }
+
+   return (
+      <section
+         aria-label="Block notes"
+         className="grid gap-2 rounded-md border border-border p-3"
+      >
+         <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+               <MessageSquare
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+               />
+               Notes
+            </span>
+            <Badge variant={openCount > 0 ? 'warning' : 'secondary'}>{openCount} open</Badge>
+         </div>
+
+         {comments.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+               No notes on this block. Add a TODO for later.
+            </p>
+         ) : (
+            <ul className="grid gap-1.5">
+               {comments.map((comment) => {
+                  const done = comment.status === 'done';
+                  return (
+                     <li
+                        key={comment.id}
+                        className="grid gap-1 rounded-md bg-muted/40 px-2 py-1.5"
+                     >
+                        <div className="flex items-start gap-1.5">
+                           {onToggle !== undefined && (
+                              <Button
+                                 size="icon"
+                                 variant="ghost"
+                                 className="size-5 shrink-0"
+                                 aria-label={done ? 'Reopen note' : 'Mark note done'}
+                                 title={done ? 'Reopen note' : 'Mark note done'}
+                                 onClick={() =>
+                                    run(() => onToggle(comment.id, done ? 'open' : 'done'))
+                                 }
+                              >
+                                 {done ? (
+                                    <RotateCcw
+                                       className="size-3.5"
+                                       aria-hidden="true"
+                                    />
+                                 ) : (
+                                    <Check
+                                       className="size-3.5"
+                                       aria-hidden="true"
+                                    />
+                                 )}
+                              </Button>
+                           )}
+                           <p
+                              className={cn(
+                                 'min-w-0 flex-1 text-xs whitespace-pre-wrap',
+                                 done && 'text-muted-foreground line-through',
+                              )}
+                           >
+                              {comment.body}
+                           </p>
+                           {onDelete !== undefined && (
+                              <Button
+                                 size="icon"
+                                 variant="ghost"
+                                 className="size-5 shrink-0 text-muted-foreground hover:text-destructive"
+                                 aria-label="Delete note"
+                                 title="Delete note"
+                                 onClick={() => run(() => onDelete(comment.id))}
+                              >
+                                 <Trash
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                 />
+                              </Button>
+                           )}
+                        </div>
+                        <span className="pl-7 text-[10px] text-muted-foreground">
+                           {new Date(comment.createdAt * 1000).toLocaleString()}
+                        </span>
+                     </li>
+                  );
+               })}
+            </ul>
+         )}
+
+         {onAdd !== undefined && (
+            <form
+               className="grid gap-1.5"
+               onSubmit={(event) => void submit(event)}
+            >
+               <Textarea
+                  value={body}
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Add a note or TODO…"
+                  aria-label="New block note"
+                  onInput={(event) => setBody(event.currentTarget.value)}
+               />
+               {error !== null && (
+                  <p
+                     role="alert"
+                     className="text-xs text-destructive"
+                  >
+                     {error}
+                  </p>
+               )}
+               <div className="flex justify-end">
+                  <Button
+                     type="submit"
+                     size="sm"
+                     variant="outline"
+                     disabled={busy || body.trim().length === 0}
+                  >
+                     <Plus aria-hidden="true" />
+                     {busy ? 'Adding…' : 'Add note'}
+                  </Button>
+               </div>
+            </form>
+         )}
+
+         {error !== null && onAdd === undefined && (
+            <p
+               role="alert"
+               className="text-xs text-destructive"
+            >
+               {error}
+            </p>
+         )}
+      </section>
    );
 }
 

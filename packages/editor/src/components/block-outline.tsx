@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Block, Document } from '@postwren/email/ir';
 import { cn } from '@postwren/ui';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, MessageSquare } from 'lucide-react';
 import { blockLabel } from '../lib/document-ops';
 import type { DropPosition } from '../lib/document-ops';
 import { BlockIcon } from './block-icon';
@@ -61,11 +61,13 @@ export function BlockTree({
    selectedId,
    onSelect,
    onMove,
+   commentCounts = {},
 }: {
    doc: Document;
    selectedId: string | null;
    onSelect: (id: string) => void;
    onMove: (sourceId: string, targetId: string, position: DropPosition) => void;
+   commentCounts?: Readonly<Record<string, number>>;
 }) {
    const entries = outlineEntries(doc);
    const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -172,6 +174,18 @@ export function BlockTree({
                         className="size-3.5 shrink-0"
                      />
                      <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                     {(commentCounts[entry.id] ?? 0) > 0 && (
+                        <span
+                           className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-warning"
+                           title={`${commentCounts[entry.id]} open note${commentCounts[entry.id] === 1 ? '' : 's'}`}
+                        >
+                           <MessageSquare
+                              className="size-3"
+                              aria-hidden="true"
+                           />
+                           {commentCounts[entry.id]}
+                        </span>
+                     )}
                   </div>
                </li>
             );

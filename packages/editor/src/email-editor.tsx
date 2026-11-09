@@ -27,6 +27,7 @@ import { DocumentDialog } from './components/document-dialog';
 import { EditorToolbar } from './components/editor-toolbar';
 import { EmailCanvas } from './components/email-canvas';
 import { PropertyPanel } from './components/property-panel';
+import type { BlockComment } from './lib/comments';
 import {
    blockLabel,
    cloneBlockWithNewIds,
@@ -66,6 +67,11 @@ export type EmailEditorProps = {
    /** Persists one block as a reusable block. */
    onSaveBlock?: (block: Block, name: string) => Promise<void>;
    onDeleteSavedBlock?: (id: string) => void;
+   /** Block notes, normally loaded by the host from the template. */
+   comments?: readonly BlockComment[];
+   onAddComment?: (blockId: string, body: string) => Promise<void> | void;
+   onToggleComment?: (commentId: string, status: 'open' | 'done') => Promise<void> | void;
+   onDeleteComment?: (commentId: string) => Promise<void> | void;
    className?: string;
 };
 
@@ -118,6 +124,10 @@ export function EmailEditor({
    savedBlocks = [],
    onSaveBlock,
    onDeleteSavedBlock,
+   comments = [],
+   onAddComment,
+   onToggleComment,
+   onDeleteComment,
    className,
 }: EmailEditorProps) {
    const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -445,6 +455,15 @@ export function EmailEditor({
    };
 
    const selectedBlock = selectedId !== null ? findBlock(doc, selectedId) : null;
+   const commentCounts = useMemo(() => {
+      const counts: Record<string, number> = {};
+      for (const comment of comments) {
+         if (comment.status === 'open') {
+            counts[comment.blockId] = (counts[comment.blockId] ?? 0) + 1;
+         }
+      }
+      return counts;
+   }, [comments]);
    const selectedLabel = selectedBlock !== null ? blockLabel(selectedBlock) : null;
    const libraryHint =
       selectedBlock?.type === 'section'
@@ -565,6 +584,7 @@ export function EmailEditor({
                               selectedId={selectedId}
                               onSelect={select}
                               onMove={moveTo}
+                              commentCounts={commentCounts}
                            />
                         </div>
                      </div>
@@ -645,6 +665,10 @@ export function EmailEditor({
                      onChange={applyChange}
                      onUploadImage={onUploadImage}
                      onPickImage={onPickImage}
+                     comments={comments}
+                     onAddComment={onAddComment}
+                     onToggleComment={onToggleComment}
+                     onDeleteComment={onDeleteComment}
                   />
                </aside>
             </div>
