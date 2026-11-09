@@ -7,6 +7,7 @@ import { configuredAppOrigin } from '../lib/app-url';
 import { nowSeconds } from '../lib/time';
 import { loadSubscriberMetadata, loadSubscriberTags } from '../lib/subscribers';
 import { deliverEmail } from '../lib/delivery';
+import { emitWebhookEventSafe } from '../lib/webhooks';
 
 const MAX_ATTEMPTS = 3;
 
@@ -225,12 +226,22 @@ export async function handleQueue(batch: MessageBatch<CampaignJob>, env: Env): P
 
       if ((remaining?.count ?? 0) === 0) {
          const now = nowSeconds();
-         await env.DB.prepare(
+         const completed = await env.DB.prepare(
             `UPDATE campaigns SET status = 'sent', completed_at = ?, updated_at = ?
              WHERE id = ? AND status = 'sending'`,
          )
             .bind(now, now, campaignId)
             .run();
+
+         if ((completed.meta.changes ?? 0) > 0) {
+            await emitWebhookEventSafe(env, 'campaign.sent', {
+               id: campaign.id,
+               name: campaign.name,
+               subject: campaign.subject,
+               completed_at: now,
+               audience_count: campaign.audience_count,
+            });
+         }
       }
 
       for (const message of group.messages) message.ack();

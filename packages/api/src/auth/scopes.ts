@@ -88,6 +88,8 @@ export function requiredScope(method: string, path: string): Scope | null {
          return method === 'POST' ? 'emails:write' : null;
       case 'events':
          return method === 'POST' ? 'events:write' : null;
+      case 'webhooks':
+         return method === 'GET' ? 'webhooks:read' : 'webhooks:write';
       default:
          return null;
    }

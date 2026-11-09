@@ -25,6 +25,7 @@ import { emailRoutes } from './routes/emails';
 import { eventRoutes } from './routes/events';
 import { publicRoutes } from './routes/public';
 import { subscribeKeyRoutes } from './routes/subscribe-keys';
+import { webhookRoutes } from './routes/webhooks';
 import { oauthRoutes } from './oauth/routes';
 
 const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
@@ -80,6 +81,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    app.route('/api/v1/audience', audienceRoutes);
    app.route('/api/v1/settings', settingsRoutes);
    app.route('/api/v1/subscribe-keys', subscribeKeyRoutes);
+   app.route('/api/v1/webhooks', webhookRoutes);
    app.route('/api/v1/media', mediaUploadRoutes);
    app.route('/api/v1/emails', emailRoutes);
    app.route('/api/v1/events', eventRoutes);

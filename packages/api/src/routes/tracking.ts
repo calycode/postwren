@@ -8,6 +8,7 @@ import { consumeRateLimit } from '../lib/rate-limit';
 import { nowSeconds } from '../lib/time';
 import { requestClientIp } from '../middleware/context';
 import { enrollAutomations } from '../jobs/automation';
+import { emitWebhookEventSafe } from '../lib/webhooks';
 
 const TRANSPARENT_PNG_BASE64 =
    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -273,6 +274,15 @@ trackingRoutes.post('/u/:token', async (c) => {
    )
       .bind(now, payload.s)
       .run();
+
+   const subscriber = await c.env.DB.prepare('SELECT email FROM subscribers WHERE id = ?')
+      .bind(payload.s)
+      .first<{ email: string }>();
+   await emitWebhookEventSafe(c.env, 'subscriber.unsubscribed', {
+      id: payload.s,
+      email: subscriber?.email ?? null,
+      campaign_id: payload.c,
+   });
 
    return ok({ unsubscribed: true, subscriberId: payload.s });
 });

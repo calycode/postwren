@@ -11,6 +11,7 @@ import { decodeKeysetCursor, encodeKeysetCursor } from '../lib/cursor';
 import { isUniqueViolation, likePattern, readJson } from '../lib/validation';
 import { nowSeconds } from '../lib/time';
 import { enrollAddedTags, enrollSubscriberCreated } from '../jobs/automation';
+import { emitWebhookEventSafe } from '../lib/webhooks';
 import {
    attachTag,
    ensureTag,
@@ -235,6 +236,13 @@ subscriberRoutes.post('/', async (c) => {
       } catch {
          // The subscriber exists; enrollment can be retried from the automation later.
       }
+      await emitWebhookEventSafe(c.env, 'subscriber.created', {
+         id: row.id,
+         email: row.email,
+         first_name: row.first_name,
+         last_name: row.last_name,
+         source: 'manual',
+      });
    }
    await enrollAddedTags(c.env, row.id, result.addedTags, now);
 
@@ -287,6 +295,13 @@ subscriberRoutes.post('/import', async (c) => {
          } catch {
             // Import must not fail because one automation enrollment did.
          }
+         await emitWebhookEventSafe(c.env, 'subscriber.created', {
+            id: result.id,
+            email: row.email,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            source: 'import',
+         });
       }
       await enrollAddedTags(c.env, result.id, result.addedTags, now);
    }
@@ -516,6 +531,13 @@ subscriberRoutes.post('/bulk-delete', async (c) => {
    const now = nowSeconds();
    const placeholders = body.subscriberIds.map(() => '?').join(', ');
 
+   const doomed = await c.env.DB.prepare(
+      `SELECT id, email FROM subscribers
+       WHERE deleted_at IS NULL AND id IN (${placeholders})`,
+   )
+      .bind(...body.subscriberIds)
+      .all<{ id: string; email: string }>();
+
    const result = await c.env.DB.prepare(
       `UPDATE subscribers
        SET deleted_at = ?, unsubscribed_at = COALESCE(unsubscribed_at, ?)
@@ -523,6 +545,13 @@ subscriberRoutes.post('/bulk-delete', async (c) => {
    )
       .bind(now, now, ...body.subscriberIds)
       .run();
+
+   for (const row of doomed.results) {
+      await emitWebhookEventSafe(c.env, 'subscriber.deleted', {
+         id: row.id,
+         email: row.email,
+      });
+   }
 
    return ok({ deleted: result.meta.changes ?? 0 });
 });
@@ -589,12 +618,20 @@ subscriberRoutes.patch('/:id', async (c) => {
       throw new NotFoundError('Subscriber not found');
    }
 
+   await emitWebhookEventSafe(c.env, 'subscriber.updated', {
+      id: row.id,
+      email: row.email,
+      first_name: row.first_name,
+      last_name: row.last_name,
+   });
+
    return ok(await subscriberResource(c.env.DB, row));
 });
 
 subscriberRoutes.delete('/:id', async (c) => {
    const id = c.req.param('id');
    const now = nowSeconds();
+   const existing = await findSubscriber(c.env.DB, id);
 
    const result = await c.env.DB.prepare(
       `UPDATE subscribers
@@ -607,6 +644,11 @@ subscriberRoutes.delete('/:id', async (c) => {
    if ((result.meta.changes ?? 0) === 0) {
       throw new NotFoundError('Subscriber not found');
    }
+
+   await emitWebhookEventSafe(c.env, 'subscriber.deleted', {
+      id,
+      email: existing?.email ?? null,
+   });
 
    return ok({ id, deleted: true });
 });

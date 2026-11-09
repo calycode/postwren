@@ -14,6 +14,8 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
    'send:write': 'Schedule, send, pause and resume campaigns',
    'emails:write': 'Send transactional email',
    'events:write': 'Send subscriber events that can start automations',
+   'webhooks:read': 'Read webhook endpoints and their delivery log',
+   'webhooks:write': 'Create, edit, disable and delete webhook endpoints',
 };
 
 export type ConsentInput = {

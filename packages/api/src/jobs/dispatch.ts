@@ -5,6 +5,7 @@ import { compileAudience } from '@postwren/shared/audience';
 import { countAudience } from '../lib/audience';
 import { nowSeconds } from '../lib/time';
 import { runAutomationSweep } from './automation';
+import { emitWebhookEventSafe, pruneWebhookDeliveries, runWebhookSweep } from '../lib/webhooks';
 
 const PAGE_SIZE = 500;
 const INSERT_ROWS_PER_STATEMENT = 20;
@@ -151,12 +152,22 @@ export async function dispatchCampaign(
       .first<{ count: number }>();
 
    if ((total?.count ?? 0) === 0) {
-      await env.DB.prepare(
+      const completed = await env.DB.prepare(
          `UPDATE campaigns SET status = 'sent', completed_at = ?, updated_at = ?
           WHERE id = ? AND status = 'sending'`,
       )
          .bind(now, now, campaignId)
          .run();
+
+      if ((completed.meta.changes ?? 0) > 0) {
+         await emitWebhookEventSafe(env, 'campaign.sent', {
+            id: campaignId,
+            name: campaign.name,
+            subject: campaign.subject,
+            completed_at: now,
+            audience_count: 0,
+         });
+      }
    }
 }
 
@@ -180,6 +191,7 @@ export async function pruneExpired(env: Env, now = nowSeconds()): Promise<void> 
       env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(now - 3600),
       env.DB.prepare('DELETE FROM sessions WHERE expires_at <= ?').bind(now),
       env.DB.prepare('DELETE FROM magic_links WHERE expires_at <= ?').bind(now),
+      pruneWebhookDeliveries(env, now),
    ]);
 }
 
@@ -193,6 +205,7 @@ export async function handleScheduled(
       (async () => {
          await runDispatch(env, now);
          await runAutomationSweep(env, now);
+         await runWebhookSweep(env, now);
          await pruneExpired(env, now);
       })(),
    );

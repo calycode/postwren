@@ -32,6 +32,7 @@ import { assertSenderAllowed } from '../lib/senders';
 import { createCloudflareAdapter } from '../adapters/email';
 import { dispatchCampaign, loadCampaign } from '../jobs/dispatch';
 import { SAMPLE_UNSUBSCRIBE_URL, sampleMergeContext } from '../lib/sample';
+import { emitWebhookEventSafe } from '../lib/webhooks';
 
 const TRANSITIONS: Record<string, string[]> = {
    draft: ['scheduled', 'sending'],
@@ -269,7 +270,7 @@ campaignRoutes.post('/:id/schedule', async (c) => {
    assertTransition(campaign.status, 'scheduled');
    requireConfiguredAppOrigin(c.env);
    const template = await requireTemplate(c.env.DB, campaign.template_id);
-   await pinAudience(c.env, id, campaign.audience_query, template);
+   const audienceCount = await pinAudience(c.env, id, campaign.audience_query, template);
 
    await c.env.DB.prepare(
       `UPDATE campaigns SET status = 'scheduled', scheduled_at = ?, updated_at = ?
@@ -277,6 +278,14 @@ campaignRoutes.post('/:id/schedule', async (c) => {
    )
       .bind(body.scheduledAt, now, id)
       .run();
+
+   await emitWebhookEventSafe(c.env, 'campaign.scheduled', {
+      id,
+      name: campaign.name,
+      subject: campaign.subject,
+      scheduled_at: body.scheduledAt,
+      audience_count: audienceCount,
+   });
 
    return ok(await findCampaign(c.env.DB, id));
 });
