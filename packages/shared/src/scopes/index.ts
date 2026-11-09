@@ -11,6 +11,8 @@ export const SCOPES = [
    'send:write',
    'emails:write',
    'events:write',
+   'webhooks:read',
+   'webhooks:write',
 ] as const;
 
 export type Scope = (typeof SCOPES)[number];

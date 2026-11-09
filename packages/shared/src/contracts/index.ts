@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { metadataPatch, metadataRecord } from '../metadata/index';
+import { WEBHOOK_EVENTS } from '../webhooks/index';
 
 const emailField = z
    .string()
@@ -94,6 +95,36 @@ export const subscribeKeyInput = z
       name: z.string().trim().min(1).max(100),
       allowedOrigins: z.array(originField).max(20).optional(),
       defaultTags: z.array(tagNameField).max(20).optional(),
+      requireConfirmation: z.boolean().optional(),
+   })
+   .strict();
+
+const webhookUrlField = z
+   .string()
+   .trim()
+   .max(2000)
+   .url()
+   .refine((value) => {
+      const url = new URL(value);
+      return url.protocol === 'https:';
+   }, 'Webhook URLs must use https');
+
+const webhookEventField = z.enum(WEBHOOK_EVENTS);
+
+export const webhookEndpointInput = z
+   .object({
+      url: webhookUrlField,
+      description: z.string().trim().max(200).optional(),
+      events: z.array(webhookEventField).min(1).max(WEBHOOK_EVENTS.length),
+   })
+   .strict();
+
+export const webhookEndpointPatch = z
+   .object({
+      url: webhookUrlField.optional(),
+      description: z.string().trim().max(200).optional(),
+      events: z.array(webhookEventField).min(1).max(WEBHOOK_EVENTS.length).optional(),
+      enabled: z.boolean().optional(),
    })
    .strict();
 

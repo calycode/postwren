@@ -10,7 +10,8 @@
       "./csv": "./src/csv/index.ts",
       "./contracts": "./src/contracts/index.ts",
       "./metadata": "./src/metadata/index.ts",
-      "./scopes": "./src/scopes/index.ts"
+      "./scopes": "./src/scopes/index.ts",
+      "./webhooks": "./src/webhooks/index.ts"
    },
    "scripts": {
       "test": "vitest run",

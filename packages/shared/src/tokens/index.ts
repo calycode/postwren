@@ -1,4 +1,4 @@
-export type TokenPurpose = 'click' | 'open' | 'unsubscribe';
+export type TokenPurpose = 'click' | 'open' | 'unsubscribe' | 'confirm' | 'web';
 
 export type SignOptions = {
    secret: string;
