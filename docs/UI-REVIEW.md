@@ -76,7 +76,10 @@ Applied on 7–8 Nov 2026:
   nesting — onto a section or a column means inside it, and blocks reorder among
   their own siblings. The library and the layout tree are separately resizable.
 - Media library: upload images once, search them, and pick from a grid in the
-  image/avatar/gallery fields. Metadata is stored in `media_assets`; files stay
+  image/avatar/gallery fields.
+- Block notes: a TODO/comment per block, open notes counted in the outline and
+  managed in the property panel. Autosave and the Gmail clip byte badge remain in
+  the editor toolbar. Metadata is stored in `media_assets`; files stay
   in R2.
 - The template editor header uses breadcrumbs, matching the other detail pages.
 - Template version history with a revision list, side-by-side preview and restore.

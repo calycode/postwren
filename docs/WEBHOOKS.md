@@ -41,6 +41,8 @@ Only HTTPS URLs are accepted.
 | `subscriber.confirmed`    | A double opt-in link is posted and the row becomes active. |
 | `subscriber.updated`      | Name, email or metadata changes from the dashboard.        |
 | `subscriber.unsubscribed` | A one-click unsubscribe is posted.                         |
+| `subscriber.bounced`      | Cloudflare reports a hard bounce or exhausted soft bounce. |
+| `subscriber.complained`   | Cloudflare reports a validated spam complaint.             |
 | `subscriber.deleted`      | One or more rows are soft-deleted.                         |
 | `campaign.scheduled`      | A campaign is pinned to an audience and scheduled.         |
 | `campaign.sent`           | The last recipient finishes and the campaign completes.    |

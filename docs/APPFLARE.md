@@ -36,19 +36,24 @@ the catalog, not checked_ and Appflare never updates it on its own.
 
 The review list should show:
 
-| Resource                                              | What it is                                                                    |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------- |
-| D1 `DB`                                               | Campaigns, subscribers, templates, API keys; `migrations/` applied at install |
-| KV `OAUTH_KV`                                         | OAuth state for the MCP server                                                |
-| R2 `MEDIA`                                            | Images and attachments used by the block editor                               |
-| Queues `postwren-campaigns`, `postwren-campaigns-dlq` | Campaign dispatch and its dead-letter queue                                   |
-| Cron `* * * * *`                                      | Scheduled campaign ticks                                                      |
-| `send_email` as `EMAIL`                               | Outbound mail through Cloudflare Email Service                                |
-| Static assets `ASSETS`                                | The built admin SPA                                                           |
+| Resource                                                    | What it is                                                                    |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| D1 `DB`                                                     | Campaigns, subscribers, templates, API keys; `migrations/` applied at install |
+| KV `OAUTH_KV`                                               | OAuth state for the MCP server                                                |
+| R2 `MEDIA`                                                  | Images and attachments used by the block editor                               |
+| Queues `postwren-campaigns`, `postwren-campaigns-dlq`       | Campaign dispatch and its dead-letter queue                                   |
+| Queues `postwren-email-events`, `postwren-email-events-dlq` | Cloudflare Email Sending bounce and complaint events                          |
+| Cron `* * * * *`                                            | Scheduled campaign ticks                                                      |
+| `send_email` as `EMAIL`                                     | Outbound mail through Cloudflare Email Service                                |
+| Static assets `ASSETS`                                      | The built admin SPA                                                           |
 
-Secrets come from `.dev.vars.example`: `SESSION_SECRET` and `TOKEN_SECRET`. The four
-vars from `wrangler.jsonc` become settings you can change: `APP_URL`, `ENVIRONMENT`,
-`EMAIL_FROM`, `OWNER_EMAIL`.
+Secrets come from `.dev.vars.example`: `SESSION_SECRET` and `TOKEN_SECRET` are required;
+`TURNSTILE_SECRET` is optional and only needed when a subscribe key enables Turnstile.
+The four vars from `wrangler.jsonc` become settings you can change: `APP_URL`,
+`ENVIRONMENT`, `EMAIL_FROM`, `OWNER_EMAIL`.
+
+After install, subscribe `postwren-email-events` to Email Sending in the Cloudflare
+dashboard. That step is account-level and is not part of the app install.
 
 ## Fill in the install form
 

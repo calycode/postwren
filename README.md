@@ -41,6 +41,7 @@ migrations/    numbered SQL
 
 - **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert, optional double opt-in and address hygiene. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
 - **Webhooks** — signed, retried POSTs for subscriber and campaign events, with a delivery log. See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
+- **Bounces and complaints** — Cloudflare Email Sending events are consumed from a queue, so hard bounces and spam complaints suppress the subscriber everywhere. See [docs/EMAIL-EVENTS.md](docs/EMAIL-EVENTS.md).
 - **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
 - **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/IFRAME-EMBEDDING.md](docs/IFRAME-EMBEDDING.md).
 - **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
@@ -86,6 +87,8 @@ pnpm exec wrangler d1 create postwren
 pnpm exec wrangler r2 bucket create postwren-media
 pnpm exec wrangler queues create postwren-campaigns
 pnpm exec wrangler queues create postwren-campaigns-dlq
+pnpm exec wrangler queues create postwren-email-events
+pnpm exec wrangler queues create postwren-email-events-dlq
 pnpm exec wrangler kv namespace create OAUTH_KV
 ```
 
@@ -94,14 +97,18 @@ pnpm exec wrangler kv namespace create OAUTH_KV
 ```sh
 pnpm exec wrangler secret put SESSION_SECRET
 pnpm exec wrangler secret put TOKEN_SECRET
+# Optional: only needed when a subscribe key requires Turnstile.
+pnpm exec wrangler secret put TURNSTILE_SECRET
 pnpm db:migrate:remote
 pnpm deploy
 ```
 
 `APP_URL` ships empty on purpose: magic links, media URLs and OAuth metadata then follow the origin the request arrived on, so `workers.dev` and a custom domain both work before anything is configured. Campaign mail is rendered in the queue consumer, which has no request, so set `APP_URL` to the public origin before scheduling or sending one; the API answers `app_url_missing` until you do. A bare host such as `mail.example.com` is accepted and assumed to be https.
 
-4. **Onboard the sending domain** in the Cloudflare dashboard under Email Service, and set `EMAIL_FROM` to an address on it. Use a dedicated subdomain (`marketing.example.com`) so marketing complaints cannot damage transactional reputation. New domains start with conservative daily quotas that scale with reputation — do not open with a large blast.
-5. Add the same address in **Settings → Sending domains**. Campaigns can only send from a verified address in that list, which is what stops a typo from burning the domain.
+4. **Subscribe the event queue.** In the Cloudflare dashboard, open Queues → `postwren-email-events` → Subscriptions and subscribe it to Email Sending for the sending domain, selecting `message.bounced`, `message.complained` and `message.delivered`. Repeat per sending domain. Without this the app still sends, but bounces and complaints are only visible in Cloudflare, not in Postwren.
+
+5. **Onboard the sending domain** in the Cloudflare dashboard under Email Service, and set `EMAIL_FROM` to an address on it. Use a dedicated subdomain (`marketing.example.com`) so marketing complaints cannot damage transactional reputation. New domains start with conservative daily quotas that scale with reputation — do not open with a large blast.
+6. Add the same address in **Settings → Sending domains**. Campaigns can only send from a verified address in that list, which is what stops a typo from burning the domain.
 
 Optional: set a scoped `CLOUDFLARE_API_TOKEN` (Zone Read, DNS Read and Email Sending Read, plus `CLOUDFLARE_ACCOUNT_ID` if the token can see more than one account) to let **Settings → Sending domains** list your zones, flag missing MX, SPF, DKIM and DMARC records, and check whether a domain is onboarded for Email Sending. Postwren only reads Cloudflare; it never edits DNS. Cloudflare verifies sending **domains**, not individual addresses — once a domain is onboarded under Email Service → Email Sending, every address on it may send.
 
@@ -119,7 +126,11 @@ pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN
 - **Opens are approximate.** Apple Mail Privacy Protection and corporate proxies pre-fetch pixels. Clicks are the real metric.
 - **Unsubscribe is RFC 8058.** Both `List-Unsubscribe` headers are set; the link is a signed, single-purpose token.
 - **Every sent campaign has a web version** at `/p/<campaign id>`, rendered from the frozen snapshot. `{{ links.web }}` in a template becomes a signed, per-recipient URL at send time, so the reader sees their own merge tags and a working unsubscribe link. Without a token the same page is the anonymous, shareable version. Drafts are not exposed.
+- **Editor drafting is safe.** Template edits autosave after two seconds and flush on page hide; an explicit save advances the revision. The toolbar reports the live byte size and warns above the 102,400-byte Gmail clip.
+- **Block notes are per template.** Add a TODO to any block from its property panel; open notes show a count on the block outline. Notes are independent of revisions and survive saves.
 - **Pending is not subscribed.** A double opt-in signup stays out of every audience query and automation until the confirmation POST.
+- **Complaints and hard bounces suppress globally.** Cloudflare's event queue sets the subscriber to `complained`/`bounced`, exits active automations and fires the matching webhook. Soft bounces are logged but do not suppress.
+- **Turnstile is optional per subscribe key.** A non-empty site key requires `turnstileToken` in the signup body and `TURNSTILE_SECRET` on the Worker. The honeypot stays as the cheap first line.
 
 ## Testing strategy
 
@@ -135,6 +146,7 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 - [Release and remote checklist](docs/RELEASING.md)
 - [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
 - [Webhooks](docs/WEBHOOKS.md)
+- [Bounces and complaints](docs/EMAIL-EVENTS.md)
 - [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
 - [EmDash plugin packaging](docs/EMDASH-PLUGIN.md)
 - [Iframe embedding](docs/IFRAME-EMBEDDING.md)

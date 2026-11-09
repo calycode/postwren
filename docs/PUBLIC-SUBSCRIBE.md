@@ -15,7 +15,8 @@ curl -X POST https://postwren.example.com/api/v1/subscribe-keys \
     "name": "Marketing site",
     "allowedOrigins": ["https://example.com"],
     "defaultTags": ["newsletter"],
-    "requireConfirmation": true
+    "requireConfirmation": true,
+    "turnstileSiteKey": "0x4AAAAAAA..."
   }'
 ```
 
@@ -31,6 +32,7 @@ The response contains the publishable secret **once**:
       "allowed_origins": ["https://example.com"],
       "default_tags": ["newsletter"],
       "require_confirmation": true,
+      "turnstile_site_key": "0x4AAAAAAA...",
       "created_at": 1767225600,
       "revoked_at": null
    },
@@ -78,6 +80,16 @@ When the key has `requireConfirmation: true`, a new address is stored with statu
 The confirmation link is `GET /confirm/<token>` and `POST /confirm/<token>`. GET itself never writes, so a mailbox scanner that only fetches links cannot opt someone in. The page then auto-submits the POST, so a reader still confirms with one click rather than two. Confirming moves the row to `subscribed`, sets `confirmed_at`, and only then enrols `subscriber.created` and `tag.added` automations. Outside production the response also includes `devConfirmUrl`, because there is no real mailbox to open.
 
 Double opt-in is per key and off by default. It is not required for every deployment; turn it on where you need explicit consent evidence (Germany, for example) or want the list hygiene.
+
+### Turnstile
+
+Set a `turnstileSiteKey` on the subscribe key and a `TURNSTILE_SECRET` Worker secret to require a challenge. The form renders the widget and submits its token as `turnstileToken`:
+
+```json
+{ "email": "ada@example.com", "turnstileToken": "0.abc..." }
+```
+
+The server verifies the token with Cloudflare's siteverify endpoint. A missing token is `422 turnstile_required`; a rejected token is `422 turnstile_failed`; a missing secret is `503 turnstile_not_configured` rather than silently skipping the check. The honeypot remains as the cheap first line. With a server-to-server key, leave `turnstileSiteKey` unset.
 
 ### Address hygiene
 
@@ -157,27 +169,29 @@ document.querySelector('#newsletter').addEventListener('submit', async (event) =
 
 ## Body
 
-| Field       | Required | Notes                                                                      |
-| ----------- | -------- | -------------------------------------------------------------------------- |
-| `email`     | yes      | Trimmed and lowercased. Duplicates are merged, not rejected.               |
-| `firstName` | no       | At most 100 characters.                                                    |
-| `lastName`  | no       | At most 100 characters.                                                    |
-| `tags`      | no       | At most 20 tags; the key's `defaultTags` are always added.                 |
-| `metadata`  | no       | Flat string map. Keys match `^[a-z][a-z0-9_]{0,63}$`, values ≤ 1024.       |
-| `source`    | no       | Provenance label stored on the subscriber. Defaults to `public_subscribe`. |
-| `sourceUrl` | no       | Absolute URL of the page that submitted the form.                          |
-| `website`   | no       | Honeypot. Any non-empty value returns a 202 no-op.                         |
+| Field            | Required | Notes                                                                      |
+| ---------------- | -------- | -------------------------------------------------------------------------- |
+| `email`          | yes      | Trimmed and lowercased. Duplicates are merged, not rejected.               |
+| `firstName`      | no       | At most 100 characters.                                                    |
+| `lastName`       | no       | At most 100 characters.                                                    |
+| `tags`           | no       | At most 20 tags; the key's `defaultTags` are always added.                 |
+| `metadata`       | no       | Flat string map. Keys match `^[a-z][a-z0-9_]{0,63}$`, values ≤ 1024.       |
+| `source`         | no       | Provenance label stored on the subscriber. Defaults to `public_subscribe`. |
+| `sourceUrl`      | no       | Absolute URL of the page that submitted the form.                          |
+| `website`        | no       | Honeypot. Any non-empty value returns a 202 no-op.                         |
+| `turnstileToken` | no       | Required when the key has a `turnstileSiteKey`; otherwise ignored.         |
 
 Reserved metadata keys (`id`, `email`, `first_name`, `last_name`, `status`, `tags`) are rejected with a validation error.
 
 ## Errors
 
-| Status | Meaning                                                             |
-| ------ | ------------------------------------------------------------------- |
-| 401    | Missing, malformed, or revoked subscribe key.                       |
-| 403    | The request `Origin` is not in the key's allowed origins.           |
-| 422    | Body validation failed, or the address is disposable/undeliverable. |
-| 429    | More than `RATE_LIMITS.publicSubscribe` requests per window.        |
+| Status | Meaning                                                                               |
+| ------ | ------------------------------------------------------------------------------------- |
+| 401    | Missing, malformed, or revoked subscribe key.                                         |
+| 403    | The request `Origin` is not in the key's allowed origins.                             |
+| 422    | Body validation failed, the address is disposable/undeliverable, or Turnstile failed. |
+| 429    | More than `RATE_LIMITS.publicSubscribe` requests per window.                          |
+| 503    | Turnstile is required but the secret is missing or siteverify is unreachable.         |
 
 Failures use the same envelope as the rest of the API:
 
