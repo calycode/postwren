@@ -62,6 +62,7 @@ export const campaignInput = z
       utmMedium: z.string().trim().min(1).max(100).optional(),
       utmCampaign: z.string().trim().min(1).max(191).optional(),
       metadata: metadataRecord.optional(),
+      data: z.unknown().optional(),
    })
    .strict();
 

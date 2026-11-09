@@ -10,6 +10,7 @@
       "./csv": "./src/csv/index.ts",
       "./contracts": "./src/contracts/index.ts",
       "./metadata": "./src/metadata/index.ts",
+      "./payload": "./src/payload/index.ts",
       "./scopes": "./src/scopes/index.ts",
       "./webhooks": "./src/webhooks/index.ts"
    },
