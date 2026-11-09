@@ -1,4 +1,4 @@
-import { MousePointerClick, TriangleAlert } from 'lucide-react';
+import { Info, MousePointerClick, TriangleAlert } from 'lucide-react';
 import {
    Alert,
    AlertDescription,
@@ -7,8 +7,9 @@ import {
    Card,
    CardContent,
    Skeleton,
+   Tooltip,
 } from '@postwren/ui';
-import { formatDateTime, formatNumber, relativeTime } from '@/lib/format';
+import { formatDateTime, formatNumber, pluralise, relativeTime } from '@/lib/format';
 import type { CampaignStatsView } from './model';
 
 export type CampaignStatsProps = {
@@ -43,7 +44,7 @@ function MetricGroup({
    title: string;
    primary: string;
    caption: string;
-   rows: { label: string; value: string }[];
+   rows: { label: string; value: string; hint?: string }[];
    accent?: boolean;
 }) {
    return (
@@ -67,7 +68,22 @@ function MetricGroup({
                   key={row.label}
                   className="flex items-center justify-between gap-3"
                >
-                  <dt className="text-muted-foreground">{row.label}</dt>
+                  <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                     {row.label}
+                     {row.hint !== undefined && (
+                        <Tooltip
+                           className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                           content={row.hint}
+                           tabIndex={0}
+                           aria-label={row.hint}
+                        >
+                           <Info
+                              className="size-3.5 shrink-0"
+                              aria-hidden="true"
+                           />
+                        </Tooltip>
+                     )}
+                  </dt>
                   <dd className="font-medium">{row.value}</dd>
                </div>
             ))}
@@ -78,16 +94,10 @@ function MetricGroup({
 
 export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsProps) {
    return (
-      <section className="grid gap-3">
-         <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="font-display text-2xl font-medium tracking-tight">Results</h2>
-            {stats !== null && (
-               <p className="text-xs text-muted-foreground">
-                  Opens are approximate. Clicks are the reliable signal.
-               </p>
-            )}
-         </div>
-
+      <section
+         aria-label="Campaign results"
+         className="grid gap-3"
+      >
          {error !== null ? (
             <Alert variant="destructive">
                <AlertTitle>Could not load stats</AlertTitle>
@@ -129,6 +139,7 @@ export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsP
                            {
                               label: 'Open rate',
                               value: percent(stats.uniqueOpens, stats.audienceSize),
+                              hint: 'Opens are approximate. Clicks are the reliable signal.',
                            },
                            { label: 'Opens', value: formatNumber(stats.uniqueOpens) },
                            { label: 'Unique clicks', value: formatNumber(stats.uniqueClicks) },
@@ -161,13 +172,13 @@ export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsP
 
                <div className="grid gap-4 lg:grid-cols-2">
                   <Card>
-                     <CardContent className="grid gap-3 pt-6">
+                     <CardContent className="grid min-w-0 gap-3 pt-6">
                         <div className="flex items-center justify-between gap-2">
                            <h3 className="text-sm font-semibold">Top links</h3>
                            <span className="text-xs text-muted-foreground">
                               {stats.topLinks.length === 0
                                  ? 'No clicks'
-                                 : `${formatNumber(stats.topLinks.length)} links`}
+                                 : pluralise(stats.topLinks.length, 'link')}
                            </span>
                         </div>
                         {stats.topLinks.length === 0 ? (
@@ -175,24 +186,24 @@ export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsP
                               Link clicks will appear here after the first click.
                            </p>
                         ) : (
-                           <ol className="grid gap-3">
+                           <ol className="grid min-w-0 gap-3">
                               {stats.topLinks.map((link) => {
                                  const max = Math.max(...stats.topLinks.map((item) => item.clicks));
                                  const width = max > 0 ? (link.clicks / max) * 100 : 0;
                                  return (
                                     <li
                                        key={link.url}
-                                       className="grid gap-1"
+                                       className="grid min-w-0 gap-1"
                                     >
-                                       <div className="flex items-baseline justify-between gap-3">
+                                       <div className="flex min-w-0 items-baseline justify-between gap-3">
                                           <span
-                                             className="min-w-0 truncate text-sm"
+                                             className="line-clamp-2 min-w-0 text-sm break-all"
                                              title={link.url}
                                           >
                                              {shortUrl(link.url)}
                                           </span>
                                           <span className="shrink-0 text-xs text-muted-foreground">
-                                             {formatNumber(link.clicks)} clicks
+                                             {pluralise(link.clicks, 'click')}
                                           </span>
                                        </div>
                                        <div
@@ -205,7 +216,7 @@ export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsP
                                           />
                                        </div>
                                        <p className="text-[11px] text-muted-foreground">
-                                          {formatNumber(link.clickers)} unique clickers · last{' '}
+                                          {pluralise(link.clickers, 'unique clicker')} · last{' '}
                                           {relativeTime(link.lastClickedAt)}
                                        </p>
                                     </li>
@@ -217,7 +228,7 @@ export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsP
                   </Card>
 
                   <Card>
-                     <CardContent className="grid gap-3 pt-6">
+                     <CardContent className="grid min-w-0 gap-3 pt-6">
                         <div className="flex items-center justify-between gap-2">
                            <h3 className="text-sm font-semibold">Recent clicks</h3>
                            <MousePointerClick
@@ -230,18 +241,18 @@ export function CampaignStats({ stats, loading, error, onRetry }: CampaignStatsP
                               Individual clicks are listed here as they happen.
                            </p>
                         ) : (
-                           <ul className="grid gap-2">
+                           <ul className="grid min-w-0 gap-2">
                               {stats.recentClicks.map((click, index) => (
                                  <li
                                     key={`${click.email ?? 'unknown'}-${click.clickedAt}-${index}`}
-                                    className="flex items-baseline justify-between gap-3 border-b border-border pb-2 text-sm last:border-0 last:pb-0"
+                                    className="flex min-w-0 items-baseline justify-between gap-3 border-b border-border pb-2 text-sm last:border-0 last:pb-0"
                                  >
-                                    <span className="min-w-0">
+                                    <span className="min-w-0 flex-1">
                                        <span className="block truncate font-medium">
                                           {click.email ?? 'Unknown subscriber'}
                                        </span>
                                        <span
-                                          className="block truncate text-xs text-muted-foreground"
+                                          className="line-clamp-2 text-xs break-all text-muted-foreground"
                                           title={click.url}
                                        >
                                           {shortUrl(click.url)}

@@ -34,8 +34,8 @@ export function MetadataEditor({
    }
 
    return (
-      <div className="grid gap-3">
-         <div className="grid gap-3">
+      <div className="grid min-w-0 gap-3">
+         <div className="grid min-w-0 gap-3">
             {rows.length === 0 && (
                <p className="text-xs text-muted-foreground">
                   {scope === 'automation'
@@ -51,11 +51,11 @@ export function MetadataEditor({
                return (
                   <div
                      key={`${idPrefix}-metadata-${index}`}
-                     className="grid gap-1"
+                     className="grid min-w-0 gap-1"
                   >
                      <div
                         className={cn(
-                           'flex flex-col gap-2',
+                           'flex min-w-0 flex-col gap-2',
                            !compact && 'sm:flex-row sm:items-start',
                         )}
                      >
@@ -84,7 +84,7 @@ export function MetadataEditor({
                            />
                         </div>
 
-                        <div className="flex flex-1 items-start gap-2">
+                        <div className="flex min-w-0 flex-1 items-start gap-2">
                            <label
                               htmlFor={`${idPrefix}-metadata-value-${index}`}
                               className="sr-only"

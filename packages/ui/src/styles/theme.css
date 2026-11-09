@@ -125,6 +125,8 @@
    }
    html {
       font-family: var(--font-sans);
+      /* Keep the page width stable when a page grows past the viewport. */
+      scrollbar-gutter: stable;
    }
    ::selection {
       background: color-mix(in oklab, var(--ochre) 35%, transparent);
@@ -146,18 +148,16 @@
 @keyframes page-in {
    from {
       opacity: 0;
-      transform: translateY(4px);
    }
    to {
       opacity: 1;
-      /* `none`, not `translateY(0)`: a retained transform would turn this
-         element into the containing block for every fixed-position menu. */
-      transform: none;
    }
 }
 
 .page-in {
-   animation: page-in 180ms ease-out both;
+   /* Fade only: a transform here shifts the whole page on mount and becomes
+      the containing block for fixed-position panels. */
+   animation: page-in 160ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,29 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Tag as TagIcon, Trash2 } from 'lucide-react';
-import {
-   Alert,
-   AlertDescription,
-   Button,
-   Dialog,
-   DialogClose,
-   DialogContent,
-   DialogDescription,
-   DialogFooter,
-   DialogHeader,
-   DialogTitle,
-   Field,
-   Input,
-} from '@postwren/ui';
+import { Alert, AlertDescription, Button, Field, Input } from '@postwren/ui';
 import { DataTable } from '@/components/data-table';
 import type { DataTableColumn } from '@/components/data-table';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { useDetailPanelInset } from '@/components/detail-panel';
 import { PageHeader } from '@/components/page-header';
-import {
-   create as createTag,
-   list as listTags,
-   remove as removeTag,
-   update as updateTag,
-} from '@/lib/api/tags';
+import { TagPanel } from '@/components/tag-panel';
+import { create as createTag, list as listTags, remove as removeTag } from '@/lib/api/tags';
 import { ApiError } from '@/lib/api/client';
 import type { Tag } from '@/lib/api/types';
 import { errorMessage, fieldErrorsFrom } from '@/lib/form-errors';
@@ -41,11 +25,9 @@ export function Tags() {
    const [createError, setCreateError] = useState<string | null>(null);
    const [createErrors, setCreateErrors] = useState<FieldErrors>({});
 
-   const [renaming, setRenaming] = useState<Tag | null>(null);
-   const [renameName, setRenameName] = useState('');
-   const [renameBusy, setRenameBusy] = useState(false);
-   const [renameError, setRenameError] = useState<string | null>(null);
-   const [renameErrors, setRenameErrors] = useState<FieldErrors>({});
+   const [panelTag, setPanelTag] = useState<Tag | null>(null);
+   const panelOpen = panelTag !== null;
+   const panelInset = useDetailPanelInset(panelOpen);
 
    const [deleting, setDeleting] = useState<Tag | null>(null);
    const [deleteBusy, setDeleteBusy] = useState(false);
@@ -96,35 +78,16 @@ export function Tags() {
       }
    }
 
-   function openRename(tag: Tag) {
-      setRenaming(tag);
-      setRenameName(tag.name);
-      setRenameError(null);
-      setRenameErrors({});
+   function openPanel(tag: Tag) {
+      setPanelTag(tag);
    }
 
-   async function submitRename() {
-      if (!renaming) return;
-      setRenameError(null);
-      setRenameErrors({});
-
-      const name = renameName.trim();
-      if (name.length === 0) {
-         setRenameErrors({ name: 'Enter a tag name.' });
-         return;
-      }
-
-      setRenameBusy(true);
-      try {
-         await updateTag(renaming.id, name);
-         setRenaming(null);
-         setReloadKey((key) => key + 1);
-      } catch (cause) {
-         setRenameError(errorMessage(cause, 'Could not rename the tag'));
-         setRenameErrors(cause instanceof ApiError ? fieldErrorsFrom(cause.details) : {});
-      } finally {
-         setRenameBusy(false);
-      }
+   function applySavedTag(updated: Tag): void {
+      setPanelTag((current) => (current === null ? updated : { ...current, ...updated }));
+      setTags((current) =>
+         current.map((tag) => (tag.id === updated.id ? { ...tag, ...updated } : tag)),
+      );
+      setReloadKey((key) => key + 1);
    }
 
    async function confirmDelete() {
@@ -133,6 +96,7 @@ export function Tags() {
       setDeleteError(null);
       try {
          await removeTag(deleting.id);
+         if (panelTag?.id === deleting.id) setPanelTag(null);
          setDeleting(null);
          setReloadKey((key) => key + 1);
       } catch (cause) {
@@ -179,8 +143,8 @@ export function Tags() {
                <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Rename ${tag.name}`}
-                  onClick={() => openRename(tag)}
+                  aria-label={`Open ${tag.name}`}
+                  onClick={() => openPanel(tag)}
                >
                   <Pencil aria-hidden="true" />
                </Button>
@@ -202,7 +166,10 @@ export function Tags() {
    ];
 
    return (
-      <div className="grid gap-6">
+      <div
+         className="grid gap-6 transition-[padding] duration-200"
+         style={{ paddingRight: panelInset }}
+      >
          <PageHeader
             title="Tags"
             description="Group subscribers so campaigns can target them with the audience query language."
@@ -247,14 +214,16 @@ export function Tags() {
          )}
 
          <DataTable
-            caption="Tags. Double-click a row to rename it."
+            caption="Tags. Select a row to rename it or see where it is used."
             columns={columns}
             rows={tags}
             rowKey={(tag) => tag.id}
             loading={loading}
             error={loadError}
             onRetry={() => setReloadKey((key) => key + 1)}
-            onRowDoubleClick={openRename}
+            onRowClick={openPanel}
+            onRowDoubleClick={openPanel}
+            highlightedKey={panelTag?.id ?? null}
             empty={{
                title: 'No tags yet',
                description: 'Create a tag above, then assign it to subscribers.',
@@ -262,54 +231,17 @@ export function Tags() {
             }}
          />
 
-         <Dialog
-            open={renaming !== null}
-            onOpenChange={(open) => {
-               if (!open) setRenaming(null);
-            }}
-         >
-            <DialogContent>
-               <DialogHeader>
-                  <DialogTitle>Rename tag</DialogTitle>
-                  <DialogDescription>
-                     Renaming updates every subscriber that uses this tag, plus saved campaign
-                     audiences and automation tag steps that reference it.
-                  </DialogDescription>
-               </DialogHeader>
-               <Field
-                  label="Name"
-                  htmlFor="rename-tag"
-                  error={renameErrors.name}
-                  required
-               >
-                  <Input
-                     id="rename-tag"
-                     value={renameName}
-                     autoFocus
-                     aria-invalid={renameErrors.name ? 'true' : undefined}
-                     aria-describedby={renameErrors.name ? 'rename-tag-error' : undefined}
-                     onInput={(event) => setRenameName(event.currentTarget.value)}
-                  />
-               </Field>
-               {renameError !== null && (
-                  <p
-                     role="alert"
-                     className="text-sm text-destructive"
-                  >
-                     {renameError}
-                  </p>
-               )}
-               <DialogFooter>
-                  <DialogClose disabled={renameBusy}>Cancel</DialogClose>
-                  <Button
-                     disabled={renameBusy}
-                     onClick={() => void submitRename()}
-                  >
-                     {renameBusy ? 'Saving…' : 'Save'}
-                  </Button>
-               </DialogFooter>
-            </DialogContent>
-         </Dialog>
+         {panelTag !== null && (
+            <TagPanel
+               tag={panelTag}
+               onClose={() => setPanelTag(null)}
+               onSaved={applySavedTag}
+               onDeleted={(tag) => {
+                  setDeleting(tag);
+                  setDeleteError(null);
+               }}
+            />
+         )}
 
          <ConfirmDialog
             open={deleting !== null}

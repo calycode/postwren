@@ -20,8 +20,9 @@ export default defineConfig({
       proxy: {
          '/api': API_TARGET,
          '/media': API_TARGET,
-         '/t': API_TARGET,
-         '/u': API_TARGET,
+         // Regex keys: a plain `/t` would also swallow `/tags`.
+         '^/t/': API_TARGET,
+         '^/u/': API_TARGET,
       },
    },
    define: {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Activity, Mail, MousePointerClick, Save, Tag as TagIcon, X } from 'lucide-react';
+import { Activity, Mail, MousePointerClick, Save, Tag as TagIcon } from 'lucide-react';
 import { Alert, AlertDescription, Badge, Button, Field, Input, Skeleton } from '@postwren/ui';
+import { DetailPanel } from '@/components/detail-panel';
 import { MetadataEditor } from '@/components/metadata-editor';
 import { TagPicker } from '@/components/tag-picker';
 import { activity as loadActivity, addTag, removeTag, update } from '@/lib/api/subscribers';
@@ -47,8 +48,9 @@ async function saveTagsFor(
 
 /**
  * One panel for everything about a subscriber: details, tags, custom fields and
- * activity. It is a docked column on wide screens and an overlay drawer below
- * `xl`, so the row action and the row double-click lead to the same place.
+ * activity. It docks to the right edge of the viewport on wide screens and
+ * becomes an overlay drawer below `xl`, so the row action and the row
+ * double-click lead to the same place.
  */
 export function SubscriberPanel({
    subscriber,
@@ -174,18 +176,13 @@ export function SubscriberPanel({
          JSON.stringify((subscriber.tags ?? []).map((tag) => tag.id).sort());
 
    return (
-      <>
-         <button
-            type="button"
-            aria-label="Close subscriber panel"
-            className="fixed inset-0 z-30 bg-black/40 xl:hidden"
-            onClick={onClose}
-         />
-         <aside
-            aria-label={`Subscriber ${subscriber.email}`}
-            className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-border bg-background shadow-xl xl:z-20 xl:w-[24rem] xl:max-w-none xl:border-l xl:border-border xl:bg-card xl:shadow-none"
-         >
-            <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-border bg-background/95 px-5 pt-6 pb-5 backdrop-blur xl:bg-card/95">
+      <DetailPanel
+         label={`Subscriber ${subscriber.email}`}
+         closeLabel="Close subscriber panel"
+         rowKey={subscriber.id}
+         onClose={onClose}
+         header={
+            <>
                <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-accent text-sm font-semibold">
                   {initial}
                </span>
@@ -203,247 +200,231 @@ export function SubscriberPanel({
                      </span>
                   </div>
                </div>
-               <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0 text-muted-foreground"
-                  aria-label="Close subscriber panel"
-                  onClick={onClose}
+            </>
+         }
+      >
+         <section className="grid min-w-0 gap-3">
+            <h2 className="text-sm font-semibold">Details</h2>
+            <Field
+               label="Email address"
+               htmlFor="panel-subscriber-email"
+               error={fieldErrors.email}
+               required
+            >
+               <Input
+                  id="panel-subscriber-email"
+                  type="email"
+                  value={email}
+                  disabled={saving}
+                  onInput={(event) => setEmail(event.currentTarget.value)}
+               />
+            </Field>
+            <div className="grid min-w-0 grid-cols-2 gap-3">
+               <Field
+                  label="First name"
+                  htmlFor="panel-subscriber-first"
+                  error={fieldErrors.first_name}
                >
-                  <X aria-hidden="true" />
-               </Button>
-            </header>
+                  <Input
+                     id="panel-subscriber-first"
+                     value={firstName}
+                     disabled={saving}
+                     onInput={(event) => setFirstName(event.currentTarget.value)}
+                  />
+               </Field>
+               <Field
+                  label="Last name"
+                  htmlFor="panel-subscriber-last"
+                  error={fieldErrors.last_name}
+               >
+                  <Input
+                     id="panel-subscriber-last"
+                     value={lastName}
+                     disabled={saving}
+                     onInput={(event) => setLastName(event.currentTarget.value)}
+                  />
+               </Field>
+            </div>
+         </section>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-5 pb-8">
-               <div className="grid gap-5">
-                  <section className="grid gap-3">
-                     <h2 className="text-sm font-semibold">Details</h2>
-                     <Field
-                        label="Email address"
-                        htmlFor="panel-subscriber-email"
-                        error={fieldErrors.email}
-                        required
-                     >
-                        <Input
-                           id="panel-subscriber-email"
-                           type="email"
-                           value={email}
-                           disabled={saving}
-                           onInput={(event) => setEmail(event.currentTarget.value)}
-                        />
-                     </Field>
-                     <div className="grid gap-3 sm:grid-cols-2">
-                        <Field
-                           label="First name"
-                           htmlFor="panel-subscriber-first"
-                           error={fieldErrors.first_name}
-                        >
-                           <Input
-                              id="panel-subscriber-first"
-                              value={firstName}
-                              disabled={saving}
-                              onInput={(event) => setFirstName(event.currentTarget.value)}
-                           />
-                        </Field>
-                        <Field
-                           label="Last name"
-                           htmlFor="panel-subscriber-last"
-                           error={fieldErrors.last_name}
-                        >
-                           <Input
-                              id="panel-subscriber-last"
-                              value={lastName}
-                              disabled={saving}
-                              onInput={(event) => setLastName(event.currentTarget.value)}
-                           />
-                        </Field>
+         <section className="grid min-w-0 gap-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+               <TagIcon
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+               />
+               Tags
+            </h2>
+            <TagPicker
+               id="panel-subscriber-tags"
+               value={tags}
+               onChange={setTags}
+               disabled={saving}
+            />
+         </section>
+
+         <details className="group min-w-0 rounded-lg border border-border">
+            <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring">
+               Custom fields{' '}
+               <span className="text-xs font-normal text-muted-foreground">
+                  ({metadata.length})
+               </span>
+            </summary>
+            <div className="border-t border-border p-3">
+               <MetadataEditor
+                  idPrefix="panel-subscriber-metadata"
+                  scope="subscriber"
+                  rows={metadataRows}
+                  onChange={setMetadataRows}
+                  disabled={saving}
+                  compact
+               />
+            </div>
+         </details>
+
+         {saveError !== null && (
+            <Alert variant="destructive">
+               <AlertDescription>{saveError}</AlertDescription>
+            </Alert>
+         )}
+
+         <div className="flex items-center justify-between gap-2">
+            <Button
+               variant="ghost"
+               size="sm"
+               className="text-muted-foreground hover:text-destructive"
+               disabled={saving}
+               onClick={() => onDeleted(subscriber)}
+            >
+               Delete
+            </Button>
+            <Button
+               size="sm"
+               disabled={saving || !dirty}
+               onClick={() => void save()}
+            >
+               <Save aria-hidden="true" />
+               {saving ? 'Saving…' : 'Save changes'}
+            </Button>
+         </div>
+
+         <section className="grid min-w-0 gap-3 border-t border-border pt-5">
+            <h2 className="text-sm font-semibold">Activity</h2>
+            {activityError !== null ? (
+               <Alert variant="destructive">
+                  <AlertDescription>{activityError}</AlertDescription>
+               </Alert>
+            ) : activityLoading && activity === null ? (
+               <div className="grid gap-2">
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                  <Skeleton className="h-32 w-full rounded-lg" />
+               </div>
+            ) : activity !== null ? (
+               <div className="grid min-w-0 gap-4">
+                  <dl className="grid grid-cols-3 gap-2 rounded-lg border border-border p-3">
+                     <div className="grid gap-0.5">
+                        <dt className="text-[11px] text-muted-foreground">Received</dt>
+                        <dd className="text-base font-medium">
+                           {formatNumber(activity.totals.received)}
+                        </dd>
                      </div>
-                  </section>
+                     <div className="grid gap-0.5">
+                        <dt className="text-[11px] text-muted-foreground">Opened</dt>
+                        <dd className="text-base font-medium">
+                           {formatNumber(activity.totals.opened)}
+                        </dd>
+                     </div>
+                     <div className="grid gap-0.5">
+                        <dt className="text-[11px] text-muted-foreground">Clicked</dt>
+                        <dd className="text-base font-medium">
+                           {formatNumber(activity.totals.clicked)}
+                        </dd>
+                     </div>
+                  </dl>
 
-                  <section className="grid gap-2">
-                     <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-                        <TagIcon
-                           className="size-4 text-muted-foreground"
+                  <div className="grid min-w-0 gap-2">
+                     <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                        <Mail
+                           className="size-3.5 text-muted-foreground"
                            aria-hidden="true"
                         />
-                        Tags
-                     </h2>
-                     <TagPicker
-                        id="panel-subscriber-tags"
-                        value={tags}
-                        onChange={setTags}
-                        disabled={saving}
-                     />
-                  </section>
-
-                  <details className="group rounded-lg border border-border">
-                     <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring">
-                        Custom fields{' '}
-                        <span className="text-xs font-normal text-muted-foreground">
-                           ({metadata.length})
-                        </span>
-                     </summary>
-                     <div className="border-t border-border p-3">
-                        <MetadataEditor
-                           idPrefix="panel-subscriber-metadata"
-                           scope="subscriber"
-                           rows={metadataRows}
-                           onChange={setMetadataRows}
-                           disabled={saving}
-                        />
-                     </div>
-                  </details>
-
-                  {saveError !== null && (
-                     <Alert variant="destructive">
-                        <AlertDescription>{saveError}</AlertDescription>
-                     </Alert>
-                  )}
-
-                  <div className="flex items-center justify-between gap-2">
-                     <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-destructive"
-                        disabled={saving}
-                        onClick={() => onDeleted(subscriber)}
-                     >
-                        Delete
-                     </Button>
-                     <Button
-                        size="sm"
-                        disabled={saving || !dirty}
-                        onClick={() => void save()}
-                     >
-                        <Save aria-hidden="true" />
-                        {saving ? 'Saving…' : 'Save changes'}
-                     </Button>
+                        Sends
+                     </h3>
+                     {activity.timeline.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                           No campaigns have reached this address yet.
+                        </p>
+                     ) : (
+                        <ol className="grid min-w-0 gap-1.5">
+                           {activity.timeline.map((entry) => (
+                              <li
+                                 key={entry.campaignId}
+                                 className="min-w-0 rounded-lg border border-border p-2.5"
+                              >
+                                 <div className="flex min-w-0 items-start justify-between gap-2">
+                                    <a
+                                       href={`/campaigns/${entry.campaignId}`}
+                                       className="min-w-0 flex-1 truncate text-xs font-medium underline-offset-4 hover:underline"
+                                    >
+                                       {entry.campaignName}
+                                    </a>
+                                    <Badge variant="secondary">{titleCase(entry.status)}</Badge>
+                                 </div>
+                                 <p className="mt-1 text-[11px] text-muted-foreground">
+                                    Sent {formatDateTime(entry.sentAt)}
+                                    {entry.openedAt !== null ? ' · opened' : ''}
+                                    {entry.clickedAt !== null ? ' · clicked' : ''}
+                                 </p>
+                              </li>
+                           ))}
+                        </ol>
+                     )}
                   </div>
 
-                  <section className="grid gap-3 border-t border-border pt-5">
-                     <h2 className="text-sm font-semibold">Activity</h2>
-                     {activityError !== null ? (
-                        <Alert variant="destructive">
-                           <AlertDescription>{activityError}</AlertDescription>
-                        </Alert>
-                     ) : activityLoading && activity === null ? (
-                        <div className="grid gap-2">
-                           <Skeleton className="h-16 w-full rounded-lg" />
-                           <Skeleton className="h-32 w-full rounded-lg" />
-                        </div>
-                     ) : activity !== null ? (
-                        <div className="grid gap-4">
-                           <dl className="grid grid-cols-3 gap-2 rounded-lg border border-border p-3">
-                              <div className="grid gap-0.5">
-                                 <dt className="text-[11px] text-muted-foreground">Received</dt>
-                                 <dd className="text-base font-medium">
-                                    {formatNumber(activity.totals.received)}
-                                 </dd>
-                              </div>
-                              <div className="grid gap-0.5">
-                                 <dt className="text-[11px] text-muted-foreground">Opened</dt>
-                                 <dd className="text-base font-medium">
-                                    {formatNumber(activity.totals.opened)}
-                                 </dd>
-                              </div>
-                              <div className="grid gap-0.5">
-                                 <dt className="text-[11px] text-muted-foreground">Clicked</dt>
-                                 <dd className="text-base font-medium">
-                                    {formatNumber(activity.totals.clicked)}
-                                 </dd>
-                              </div>
-                           </dl>
+                  <div className="grid min-w-0 gap-2">
+                     <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                        <MousePointerClick
+                           className="size-3.5 text-muted-foreground"
+                           aria-hidden="true"
+                        />
+                        Clicks
+                     </h3>
+                     {activity.clicks.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No link clicks recorded.</p>
+                     ) : (
+                        <ul className="grid min-w-0 gap-1.5">
+                           {activity.clicks.map((click, index) => (
+                              <li
+                                 key={`${click.url}-${click.clickedAt}-${index}`}
+                                 className="flex min-w-0 items-baseline justify-between gap-2 text-xs"
+                              >
+                                 <span
+                                    className="line-clamp-2 min-w-0 break-all"
+                                    title={click.url}
+                                 >
+                                    {click.url}
+                                 </span>
+                                 <span className="shrink-0 text-[11px] text-muted-foreground">
+                                    {relativeTime(click.clickedAt)}
+                                 </span>
+                              </li>
+                           ))}
+                        </ul>
+                     )}
+                  </div>
 
-                           <div className="grid gap-2">
-                              <h3 className="flex items-center gap-1.5 text-xs font-semibold">
-                                 <Mail
-                                    className="size-3.5 text-muted-foreground"
-                                    aria-hidden="true"
-                                 />
-                                 Sends
-                              </h3>
-                              {activity.timeline.length === 0 ? (
-                                 <p className="text-xs text-muted-foreground">
-                                    No campaigns have reached this address yet.
-                                 </p>
-                              ) : (
-                                 <ol className="grid gap-1.5">
-                                    {activity.timeline.map((entry) => (
-                                       <li
-                                          key={entry.campaignId}
-                                          className="rounded-lg border border-border p-2.5"
-                                       >
-                                          <div className="flex items-start justify-between gap-2">
-                                             <a
-                                                href={`/campaigns/${entry.campaignId}`}
-                                                className="min-w-0 flex-1 truncate text-xs font-medium underline-offset-4 hover:underline"
-                                             >
-                                                {entry.campaignName}
-                                             </a>
-                                             <Badge variant="secondary">
-                                                {titleCase(entry.status)}
-                                             </Badge>
-                                          </div>
-                                          <p className="mt-1 text-[11px] text-muted-foreground">
-                                             Sent {formatDateTime(entry.sentAt)}
-                                             {entry.openedAt !== null ? ' · opened' : ''}
-                                             {entry.clickedAt !== null ? ' · clicked' : ''}
-                                          </p>
-                                       </li>
-                                    ))}
-                                 </ol>
-                              )}
-                           </div>
-
-                           <div className="grid gap-2">
-                              <h3 className="flex items-center gap-1.5 text-xs font-semibold">
-                                 <MousePointerClick
-                                    className="size-3.5 text-muted-foreground"
-                                    aria-hidden="true"
-                                 />
-                                 Clicks
-                              </h3>
-                              {activity.clicks.length === 0 ? (
-                                 <p className="text-xs text-muted-foreground">
-                                    No link clicks recorded.
-                                 </p>
-                              ) : (
-                                 <ul className="grid gap-1.5">
-                                    {activity.clicks.map((click, index) => (
-                                       <li
-                                          key={`${click.url}-${click.clickedAt}-${index}`}
-                                          className="flex items-baseline justify-between gap-2 text-xs"
-                                       >
-                                          <span
-                                             className="min-w-0 truncate"
-                                             title={click.url}
-                                          >
-                                             {click.url}
-                                          </span>
-                                          <span className="shrink-0 text-[11px] text-muted-foreground">
-                                             {relativeTime(click.clickedAt)}
-                                          </span>
-                                       </li>
-                                    ))}
-                                 </ul>
-                              )}
-                           </div>
-
-                           {activity.totals.lastSentAt !== null && (
-                              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                                 <Activity
-                                    className="size-3.5"
-                                    aria-hidden="true"
-                                 />
-                                 Last send {formatDateTime(activity.totals.lastSentAt)}
-                              </p>
-                           )}
-                        </div>
-                     ) : null}
-                  </section>
+                  {activity.totals.lastSentAt !== null && (
+                     <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Activity
+                           className="size-3.5"
+                           aria-hidden="true"
+                        />
+                        Last send {formatDateTime(activity.totals.lastSentAt)}
+                     </p>
+                  )}
                </div>
-            </div>
-         </aside>
-      </>
+            ) : null}
+         </section>
+      </DetailPanel>
    );
 }

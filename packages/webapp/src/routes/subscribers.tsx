@@ -29,11 +29,11 @@ import {
    SelectContent,
    SelectItem,
    SelectTrigger,
-   cn,
    useToast,
 } from '@postwren/ui';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DataTable } from '@/components/data-table';
+import { useDetailPanelInset } from '@/components/detail-panel';
 import type { DataTableColumn } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { SubscriberPanel } from '@/components/subscriber-panel';
@@ -54,6 +54,7 @@ import {
 import { list as listTags } from '@/lib/api/tags';
 import { ApiError } from '@/lib/api/client';
 import type { ImportResult, Subscriber, SubscriberStatus, Tag } from '@/lib/api/types';
+import { downloadCsv, downloadFile } from '@/lib/download';
 import { errorMessage, fieldErrorsFrom, isEmail } from '@/lib/form-errors';
 import type { FieldErrors } from '@/lib/form-errors';
 import {
@@ -68,6 +69,7 @@ import { useDebouncedValue } from '@/lib/hooks';
 import { rowsToMetadata, validateMetadataRows } from '@/lib/metadata';
 import type { MetadataRow } from '@/lib/metadata';
 import { appendCursorPage, cursorStateFrom, emptyCursorState } from '@/lib/pagination';
+import { SUBSCRIBER_CSV_TEMPLATE } from '@/lib/subscriber-csv';
 import type { CursorState } from '@/lib/pagination';
 import { applyTagDiff, diffTags, mergeAppliedTags } from '@/lib/tag-diff';
 import type { TagFailure } from '@/lib/tag-diff';
@@ -151,6 +153,7 @@ export function Subscribers() {
    const [saving, setSaving] = useState(false);
 
    const [panelSubscriber, setPanelSubscriber] = useState<Subscriber | null>(null);
+   const panelOpen = panelSubscriber !== null;
 
    const [deleting, setDeleting] = useState<Subscriber | null>(null);
    const [deleteBusy, setDeleteBusy] = useState(false);
@@ -166,6 +169,8 @@ export function Subscribers() {
    const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
    const [exporting, setExporting] = useState(false);
+
+   const panelInset = useDetailPanelInset(panelOpen);
 
    const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
@@ -412,20 +417,16 @@ export function Subscribers() {
       setExporting(true);
       setActionError(null);
       try {
-         const blob = await exportCsv();
-         const url = URL.createObjectURL(blob);
-         const anchor = document.createElement('a');
-         anchor.href = url;
-         anchor.download = csvFilename('subscribers');
-         document.body.appendChild(anchor);
-         anchor.click();
-         anchor.remove();
-         URL.revokeObjectURL(url);
+         downloadFile(csvFilename('subscribers'), await exportCsv());
       } catch (cause) {
          setActionError(errorMessage(cause, 'Could not export subscribers'));
       } finally {
          setExporting(false);
       }
+   }
+
+   function downloadImportTemplate() {
+      downloadCsv('subscribers-template.csv', SUBSCRIBER_CSV_TEMPLATE);
    }
 
    function clearSelection() {
@@ -647,10 +648,8 @@ export function Subscribers() {
    return (
       <>
          <div
-            className={cn(
-               'grid gap-6 transition-[padding] duration-200',
-               panelSubscriber !== null && 'xl:pr-[26rem]',
-            )}
+            className="grid gap-6 transition-[padding] duration-200"
+            style={{ paddingRight: panelInset }}
          >
             <PageHeader
                title="Subscribers"
@@ -1236,12 +1235,51 @@ export function Subscribers() {
                <DialogHeader>
                   <DialogTitle>Import subscribers</DialogTitle>
                   <DialogDescription>
-                     Upload a CSV with an email column. Rows that fail validation are reported
-                     below.
+                     Upload one subscriber per row. Only the email column is required; rows that
+                     fail validation are reported below.
                   </DialogDescription>
                </DialogHeader>
 
                <div className="grid gap-4">
+                  <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                     <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium">CSV format</p>
+                        <Button
+                           type="button"
+                           variant="outline"
+                           size="sm"
+                           onClick={downloadImportTemplate}
+                        >
+                           <Download aria-hidden="true" />
+                           Download template
+                        </Button>
+                     </div>
+                     <dl className="grid gap-1.5 text-xs">
+                        <div className="flex flex-wrap gap-1">
+                           <dt className="font-medium">Required</dt>
+                           <dd className="text-muted-foreground">
+                              <code className="rounded bg-background px-1 py-0.5">email</code>
+                           </dd>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                           <dt className="font-medium">Optional</dt>
+                           <dd className="text-muted-foreground">
+                              <code className="rounded bg-background px-1 py-0.5">first_name</code>,{' '}
+                              <code className="rounded bg-background px-1 py-0.5">last_name</code>,{' '}
+                              <code className="rounded bg-background px-1 py-0.5">tags</code> and{' '}
+                              <code className="rounded bg-background px-1 py-0.5">metadata</code>
+                           </dd>
+                        </div>
+                     </dl>
+                     <p className="text-xs text-muted-foreground">
+                        Separate tags with <code className="rounded bg-background px-1">;</code>.
+                        Write metadata as{' '}
+                        <code className="rounded bg-background px-1">key=value</code> pairs
+                        separated by <code className="rounded bg-background px-1">;</code>. Unknown
+                        columns are ignored.
+                     </p>
+                  </div>
+
                   <Field
                      label="CSV file"
                      htmlFor="import-file"

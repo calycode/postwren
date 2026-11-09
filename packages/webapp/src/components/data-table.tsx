@@ -175,6 +175,7 @@ export function DataTable<Row>({
                        return (
                           <TableRow
                              key={key}
+                             data-row-key={key}
                              data-state={isSelected ? 'selected' : undefined}
                              aria-selected={isHighlighted || undefined}
                              className={cn(
