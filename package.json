@@ -32,10 +32,19 @@
       "db:migrate:local": "wrangler d1 migrations apply DB --local --config wrangler.dev.jsonc",
       "db:migrate:remote": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
       "db:migrate:check": "wrangler d1 migrations list DB --local --config wrangler.dev.jsonc",
-      "pack:email": "node scripts/pack-email.mjs"
+      "pack:email": "node scripts/pack-email.mjs",
+      "e2e": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts",
+      "e2e:headed": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts --headed",
+      "e2e:debug": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts --debug",
+      "e2e:report": "playwright show-report playwright-report",
+      "e2e:ui": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts --ui",
+      "e2e:serve": "pnpm build && node e2e/scripts/serve.mjs",
+      "check-types:e2e": "tsc -p e2e --noEmit",
+      "lint:e2e": "eslint e2e"
    },
    "devDependencies": {
       "@eslint/js": "^9.39.5",
+      "@playwright/test": "^1.65.0",
       "@types/node": "^26.6.5",
       "eslint": "^9.39.4",
       "npm-run-all2": "^8.0.4",

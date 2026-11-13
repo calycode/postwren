@@ -8,4 +8,7 @@ dist
 !.env.example
 *.local
 artifacts
+.auth
+playwright-report
+test-results
 .DS_Store

@@ -68,6 +68,9 @@ No `send_email` binding exists locally. The adapter logs to `email_dev_sink` and
 ```sh
 pnpm dev              # Vite + Worker
 pnpm test             # all packages
+pnpm e2e              # Playwright against a fresh local Worker
+pnpm e2e:headed       # same, with a visible browser
+pnpm e2e:ui           # Playwright UI mode
 pnpm check-types
 pnpm lint
 pnpm format
@@ -76,6 +79,8 @@ pnpm db:migrate:local
 pnpm db:migrate:remote
 pnpm deploy
 ```
+
+`pnpm e2e` builds the SPA, starts its own Worker on `:8791` with a clean database, and drives Chromium. Run `pnpm exec playwright install chromium` once first. See [docs/E2E.md](docs/E2E.md).
 
 ## Shipping
 

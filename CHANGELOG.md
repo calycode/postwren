@@ -19,6 +19,14 @@
 - Campaign `data` JSON with a 128 KB limit, 10 collections and 50 flat items per
   collection, exposed through the REST API and MCP campaign tools.
 - `subscriber.bounced` and `subscriber.complained` webhook events.
+- Playwright end-to-end suite (`pnpm e2e`) that builds the SPA, starts a Worker on
+  `:8791` with a clean local database, and drives Chromium through the primary user
+  journeys: sign-in and sign-out, the dashboard, subscriber CRUD and CSV import,
+  bulk tagging, exports, template editing and preview, media upload, campaign
+  draft/test/send/schedule/cancel, a welcome automation with a real queue delivery,
+  double opt-in public signup, and workspace settings. Every spec runs under a named
+  `describe` with step-level reporting. CI runs it on every pull request as a
+  separate `e2e` job.
 
 ### Changed
 
@@ -31,5 +39,8 @@
 
 ### Fixed
 
+- Clearing a subscriber's first or last name in the detail panel no longer fails
+  the whole save with a 422. An empty name is treated as an explicit clear and is
+  stored as `null`, so tagging or editing a subscriber with a blank name works.
 - A personalized web view can no longer be produced from a token issued for a
   different campaign; it falls back to the anonymous page.

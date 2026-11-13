@@ -38,9 +38,12 @@ export const subscriberInput = z
    })
    .strict();
 
-export const subscriberPatch = subscriberInput
-   .partial()
-   .extend({ metadata: metadataPatch.optional() });
+export const subscriberPatch = subscriberInput.partial().extend({
+   // An empty name is an explicit request to clear it; the API stores null.
+   firstName: z.string().trim().max(100).optional(),
+   lastName: z.string().trim().max(100).optional(),
+   metadata: metadataPatch.optional(),
+});
 
 export const tagInput = z
    .object({
