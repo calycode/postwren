@@ -1,0 +1,66 @@
+{
+   "$schema": "../node_modules/wrangler/config-schema.json",
+   "name": "postwren-e2e",
+   "main": "../packages/api/src/index.ts",
+   "compatibility_date": "2026-09-01",
+   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+   // Paths resolve from this file, so run the suite from the repository root.
+   "assets": {
+      "directory": "../packages/webapp/dist/client",
+      "binding": "ASSETS",
+      "not_found_handling": "single-page-application",
+      "run_worker_first": true,
+   },
+   "d1_databases": [
+      {
+         "binding": "DB",
+         "database_name": "postwren-e2e",
+         "database_id": "00000000-0000-0000-0000-000000000001",
+         "migrations_dir": "../migrations",
+      },
+   ],
+   "r2_buckets": [
+      {
+         "binding": "MEDIA",
+         "bucket_name": "postwren-media-e2e",
+      },
+   ],
+   "kv_namespaces": [
+      {
+         "binding": "OAUTH_KV",
+         "id": "00000000000000000000000000000000",
+      },
+   ],
+   "queues": {
+      "producers": [{ "binding": "CAMPAIGN_QUEUE", "queue": "postwren-campaigns-e2e" }],
+      "consumers": [
+         {
+            "queue": "postwren-campaigns-e2e",
+            "max_batch_size": 100,
+            "max_batch_timeout": 1,
+            "max_retries": 3,
+            "dead_letter_queue": "postwren-campaigns-e2e-dlq",
+         },
+         {
+            "queue": "postwren-email-events-e2e",
+            "max_batch_size": 10,
+            "max_batch_timeout": 1,
+            "max_retries": 3,
+            "dead_letter_queue": "postwren-email-events-e2e-dlq",
+         },
+      ],
+   },
+   "triggers": {
+      "crons": ["* * * * *"],
+   },
+   // ENVIRONMENT stays out of production so login returns devToken/devCode and the
+   // email adapter uses its log-only sink.
+   "vars": {
+      "APP_URL": "http://localhost:8791",
+      "ENVIRONMENT": "development",
+      "EMAIL_FROM": "noreply@example.com",
+      "OWNER_EMAIL": "dev@example.com",
+      "SESSION_SECRET": "e2e-only-insecure-session-secret",
+      "TOKEN_SECRET": "e2e-only-insecure-token-secret",
+   },
+}

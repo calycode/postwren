@@ -573,11 +573,11 @@ subscriberRoutes.patch('/:id', async (c) => {
    }
    if (body.firstName !== undefined) {
       sets.push('first_name = ?');
-      params.push(body.firstName);
+      params.push(body.firstName.length > 0 ? body.firstName : null);
    }
    if (body.lastName !== undefined) {
       sets.push('last_name = ?');
-      params.push(body.lastName);
+      params.push(body.lastName.length > 0 ? body.lastName : null);
    }
 
    if (sets.length > 0) {

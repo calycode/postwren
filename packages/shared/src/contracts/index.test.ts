@@ -107,6 +107,13 @@ describe('subscriberPatch', () => {
       expect(subscriberPatch.safeParse({ email: 'bad' }).success).toBe(false);
    });
 
+   it('accepts an empty name as a request to clear it', () => {
+      expect(subscriberPatch.parse({ firstName: '', lastName: '' })).toEqual({
+         firstName: '',
+         lastName: '',
+      });
+   });
+
    it('accepts null metadata values so a key can be deleted', () => {
       expect(subscriberPatch.parse({ metadata: { plan: null, tier: 'gold' } })).toEqual({
          metadata: { plan: null, tier: 'gold' },
