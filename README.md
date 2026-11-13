@@ -75,6 +75,8 @@ pnpm check-types
 pnpm lint
 pnpm format
 pnpm build:all
+pnpm changeset        # record a change for the next release
+pnpm changeset:version # cut the release locally
 pnpm db:migrate:local
 pnpm db:migrate:remote
 pnpm deploy
