@@ -47,7 +47,7 @@ export const STARTERS: readonly Starter[] = [
             make('button', {
                text: 'Read the update',
                href: 'https://example.com',
-               backgroundColor: '#00508F',
+               backgroundColor: '#1E817C',
                textColor: '#FFFFFF',
             }),
             make('text', { text: 'Thanks for reading.\n\nThe Postwren team' }),
@@ -108,7 +108,7 @@ export const STARTERS: readonly Starter[] = [
             make('button', {
                text: 'Start here',
                href: 'https://example.com',
-               backgroundColor: '#00508F',
+               backgroundColor: '#1E817C',
                textColor: '#FFFFFF',
             }),
             make('text', { text: 'Reply to this email if you want to shape what comes next.' }),
@@ -146,7 +146,7 @@ export const STARTERS: readonly Starter[] = [
             make('button', {
                text: 'RSVP',
                href: 'https://example.com',
-               backgroundColor: '#00508F',
+               backgroundColor: '#1E817C',
                textColor: '#FFFFFF',
             }),
          ]),

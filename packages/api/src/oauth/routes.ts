@@ -21,9 +21,11 @@ export const oauthRoutes = new Hono<AppEnv>();
 // that follows the consent POST, including the 302 to the client's callback. A
 // `form-action 'self'` policy therefore issues the code and then blocks the
 // browser from delivering it, which looks like a dead callback to the client.
+// `img-src 'self'` exists only for the wordmark on the consent page, which the
+// assets binding serves from this origin.
 const SECURITY_HEADERS: Record<string, string> = {
    'cache-control': 'no-store',
-   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
+   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'",
    'x-frame-options': 'DENY',
    'referrer-policy': 'no-referrer',
 };

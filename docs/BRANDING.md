@@ -40,7 +40,7 @@ are out of charter.
 - **Wordmark:** `postwren` in lowercase, with the wren's tail forming the descender of the `p` or a
   small comma after the word.
 - **Mark:** a wren perched on a post that is also an envelope edge. One colour works at 16 px.
-- **Palette:** action blue `#00508F`, harbour ink `#14293A`, peach `#FFCD82`, sky `#ADDBFF`, burnt ochre `#8F5601`, paper `#F6F4EF`, espresso `#4F3815`. No gradients.
+- **Palette:** action teal `#1E817C`, harbour ink `#14293A`, peach `#FFCD82`, burnt ochre `#8F5601`, paper `#F6F4EF`, espresso `#4F3815`. No gradients.
 - **Type:** an editorial serif for headlines (the "post" half) and a plain grotesk for UI (the
   "worker" half).
 - **Voice:** plain, dry, confident. Short sentences. Name the tradeoff instead of hiding it. No
@@ -53,20 +53,29 @@ Example lines:
 - "A small mailer with a long reach."
 - "No chimp. No circus. Just a wren."
 
+## Logo assets
+
+Source art lives in `brand/postwren - logo`: `icon-only.png` is the wren mark (favicon and collapsed
+rail), `default-long.png` is the stacked `postwren.` lockup (expanded rail and sign-in page). Both
+arrive flattened onto white with a baked drop shadow, so `pnpm brand:assets` rebuilds them: it
+recovers an alpha channel from colour saturation, crops the empty margin, writes
+`packages/webapp/public/brand/postwren-{mark,wordmark}.png`, and composes `favicon.ico`,
+`favicon-32.png` and `apple-touch-icon.png`. Re-run it after replacing the source art.
+
 ## Colour roles
 
-| Role                 | Hex       | Use                                                      |
-| -------------------- | --------- | -------------------------------------------------------- |
-| Action, links, focus | `#00508F` | Primary buttons, links, focus rings, selected controls   |
-| Ink                  | `#14293A` | Body text, dark-mode rail and card surfaces              |
-| Paper                | `#F6F4EF` | Light background                                         |
-| Warm attention       | `#FFCD82` | Trigger cards, callouts, logo tile on the rail, warnings |
-| Informational wash   | `#ADDBFF` | Info badges, dark-mode primary action, sidebar focus     |
-| Editorial mark       | `#8F5601` | Eyebrows, rules, active-indicator details, warm links    |
-| Deep warm neutral    | `#4F3815` | Illustration and chart accents; not body copy            |
-| Dark canvas          | `#0E1B26` | Dark-mode page background, one step below `#14293A`      |
+| Role                 | Hex       | Use                                                              |
+| -------------------- | --------- | ---------------------------------------------------------------- |
+| Action, links, focus | `#1E817C` | Primary buttons, links, focus rings, selected controls, the mark |
+| Action tint (dark)   | `#8FDCD6` | Dark-mode primary button, dark-mode links and focus rings        |
+| Ink                  | `#14293A` | Body text, light-mode text on teal, dark-mode card text          |
+| Paper                | `#F6F4EF` | Light background                                                 |
+| Warm attention       | `#FFCD82` | Trigger cards, callouts, warnings                                |
+| Editorial mark       | `#8F5601` | Eyebrows, rules, active-indicator details, warm links            |
+| Deep warm neutral    | `#4F3815` | Illustration and chart accents; not body copy                    |
+| Dark canvas          | `#111A1A` | Dark-mode page background, one step below the dark card          |
 
-The rail follows the mode. Light mode uses warm paper `#F0EAE0` with navy text and a peach selected item; dark mode uses `#0A151F` with light text and a blue selected item. Peach is the warm signal; blue is the action colour. Do not use peach as large body-copy background.
+The rail follows the mode. Light mode uses warm paper `#F0EAE0` with navy text and a peach selected item; dark mode uses `#0C1413` with light text and a teal `#1E817C` selected item. Peach is the warm signal; teal is the action colour. Do not use peach as large body-copy background.
 
 ## Naming architecture
 
@@ -136,6 +145,5 @@ Do it in this order, one commit per step, tests green after each.
 
 - Is `postwren.email` the primary domain, or should the product live on a `.dev`/`.io` and use
   `.email` only for links?
-- Does the wren mark survive at favicon size, or is a simple envelope/post glyph better?
 - Is the voice too whimsical for an infrastructure tool? The tagline is playful; the docs should stay
   dry to balance it.

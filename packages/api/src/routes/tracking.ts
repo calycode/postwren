@@ -4,6 +4,7 @@ import { ok } from '@postwren/worker-kit/envelope';
 import { NotFoundError } from '@postwren/worker-kit/errors';
 import { RATE_LIMITS } from '@postwren/shared/contracts';
 import type { AppEnv } from '../env';
+import { brandWordmark } from '../lib/brand';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { nowSeconds } from '../lib/time';
 import { requestClientIp } from '../middleware/context';
@@ -241,6 +242,7 @@ trackingRoutes.get('/u/:token', async (c) => {
 <title>Unsubscribe</title>
 </head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;">
+${brandWordmark()}
 <h1 style="font-size:1.25rem;">Unsubscribe</h1>
 <p>Confirm that you no longer want to receive these emails.</p>
 <form method="post" action="${action}">

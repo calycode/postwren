@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'preact-iso';
-import { Mail, Send } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import {
    Alert,
    AlertDescription,
@@ -13,6 +13,7 @@ import {
    Field,
    Input,
 } from '@postwren/ui';
+import { BrandLogo } from '@/components/brand';
 import { requestMagicLink, verify, verifyCode } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
@@ -181,15 +182,12 @@ export function Login() {
          <section className="app-sidebar relative hidden overflow-hidden border-r border-border bg-sidebar lg:flex lg:flex-col lg:justify-between lg:p-12">
             <a
                href="/login"
-               className="inline-flex items-center gap-3 text-foreground"
+               className="inline-flex items-center text-foreground"
             >
-               <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Send
-                     className="size-4"
-                     aria-hidden="true"
-                  />
-               </span>
-               <span className="font-display text-2xl font-medium tracking-tight">postwren</span>
+               <BrandLogo
+                  className="h-12"
+                  alt="Postwren"
+               />
             </a>
 
             <div className="grid max-w-lg gap-6">
@@ -227,15 +225,12 @@ export function Login() {
             <div className="w-full max-w-md">
                <a
                   href="/login"
-                  className="mb-6 inline-flex items-center gap-2.5 text-foreground lg:hidden"
+                  className="mb-6 inline-flex items-center text-foreground lg:hidden"
                >
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                     <Send
-                        className="size-4"
-                        aria-hidden="true"
-                     />
-                  </span>
-                  <span className="font-display text-2xl font-medium tracking-tight">postwren</span>
+                  <BrandLogo
+                     className="h-10"
+                     alt="Postwren"
+                  />
                </a>
 
                <Card>

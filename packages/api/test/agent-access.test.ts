@@ -497,7 +497,11 @@ describe('OAuth authorization code with PKCE', () => {
       // A form-action policy also governs the 302 that follows the consent POST.
       // Restricting it to 'self' makes the browser drop the code instead of
       // navigating to the client's callback.
-      expect(consent.headers.get('content-security-policy') ?? '').not.toContain('form-action');
+      const policy = consent.headers.get('content-security-policy') ?? '';
+      expect(policy).not.toContain('form-action');
+      // The wordmark is the only same-origin image the page loads.
+      expect(policy).toContain("img-src 'self'");
+      expect(await consent.text()).toContain('src="/brand/postwren-wordmark.png"');
    });
 
    it('renders consent and exchanges a code for access and refresh tokens', async () => {

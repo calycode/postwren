@@ -110,7 +110,9 @@ describe('tracking', () => {
       const page = await app.request(`/u/${token}`);
       expect(page.status).toBe(200);
       expect(page.headers.get('content-type')).toContain('text/html');
-      expect(await page.text()).toContain('<form method="post"');
+      const html = await page.text();
+      expect(html).toContain('<form method="post"');
+      expect(html).toContain('src="/brand/postwren-wordmark.png"');
 
       const first = await app.request(`/u/${token}`, { method: 'POST' });
       expect(first.status).toBe(200);
