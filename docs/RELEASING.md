@@ -28,7 +28,8 @@ pnpm build:worker
   all-zero `OAUTH_KV.id`), so Appflare and the Cloudflare Deploy button provision them. Create the
   D1 database, R2 bucket, queues and the `OAUTH_KV` namespace only when you actually deploy; add the
   returned ids for a manual wrangler deploy. See `docs/APPFLARE.md`.
-- The repo is pre-release. Version `0.1.0` everywhere; do not tag a release before the npm phase.
+- The repo is pre-release. Versions start at `0.1.0` and move through Changesets
+  (`pnpm changeset version`); no release is tagged before the npm phase.
 
 ## npm: phased release
 
@@ -62,10 +63,11 @@ Prerequisite: the packed artifact passes the smoke test, and the npm scope exist
 
 ```sh
 npm login
+pnpm changeset:version
 pnpm --filter @postwren/email publish --access public
+pnpm changeset:tag
+git push --follow-tags
 ```
-
-Then tag it: `git tag email-v0.1.0 && git push --tags`.
 
 Do not publish the application packages. `@postwren/api`, `@postwren/webapp`, `@postwren/editor`,
 `@postwren/ui` and `@postwren/worker-kit` are deployables or internals, not libraries.
@@ -94,11 +96,56 @@ The package name is a distribution detail; the product name is not.
 
 ## Versioning
 
-- `0.x` until the HTTP and IR contracts are stable.
-- `@postwren/email` follows semver for the IR shape, the renderer output and the merge-tag grammar.
-  A renderer output change that alters bytes is a breaking change.
-- Changesets is the natural next step once more than one package is published. It is deliberately
-  not a dependency yet.
+Two packages move independently under Changesets (`.changeset/config.json`):
+
+- `postwren` (the repository root, private) is the application: Worker, D1 schema,
+  HTTP API, admin SPA and deploy. Every product change is recorded here, including
+  changes to packages that have no release of their own.
+- `@postwren/email` (publishable) follows semver for the IR shape, the renderer
+  output and the merge-tag grammar. A renderer output change that alters bytes is a
+  breaking change.
+
+`@postwren/api`, `editor`, `shared`, `ui`, `webapp`, `worker-kit` and `emdash` are
+listed under `ignore`: they ship inside the Worker or the site build, so they have
+no version of their own. A change there still needs a `postwren` changeset.
+
+`0.x` until the HTTP and IR contracts are stable.
+
+### Pull requests
+
+```sh
+pnpm changeset        # choose package and bump, write the summary
+pnpm changeset:status # inspect what the next release would contain
+```
+
+Commit the generated `.changeset/*.md` file with the change. CI fails a pull request
+that adds no changeset; apply the `skip-changeset` label for docs-only, CI-only or
+dependency-only work (create the label once under the repository's Issues → Labels).
+The summary is read by someone deciding whether to upgrade, so describe the
+behaviour rather than the file.
+
+The repository root is a pnpm workspace package only so Changesets can version it;
+the root scripts use `--filter=!postwren` so Turbo never treats a root task as a
+workspace task and re-enters its own run.
+
+### Cutting a release
+
+```sh
+pnpm changeset:version   # bump versions, rewrite CHANGELOG.md and packages/email/CHANGELOG.md
+pnpm check-types
+pnpm lint
+pnpm test
+pnpm build:all
+git add .
+git commit -m "chore: release"
+pnpm changeset:tag       # tags postwren@x.y.z and @postwren/email@x.y.z
+git push --follow-tags
+```
+
+`changeset version` exits non-zero when no changesets are queued, which means there
+is nothing to release. The hand-written `Unreleased` block at the top of
+`CHANGELOG.md` predates Changesets; fold its entries into the first generated
+release section instead of leaving both.
 
 ## Domains
 

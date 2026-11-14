@@ -1,0 +1,24 @@
+{
+   "changelog": "@changesets/cli/changelog",
+   "commit": false,
+   "fixed": [],
+   "linked": [],
+   "access": "public",
+   "baseBranch": "main",
+   "format": "prettier",
+   "updateInternalDependencies": "patch",
+   "bumpVersionsWithWorkspaceProtocolOnly": true,
+   "ignore": [
+      "@postwren/api",
+      "@postwren/editor",
+      "@postwren/emdash",
+      "@postwren/shared",
+      "@postwren/ui",
+      "@postwren/webapp",
+      "@postwren/worker-kit"
+   ],
+   "privatePackages": {
+      "version": true,
+      "tag": true
+   }
+}
