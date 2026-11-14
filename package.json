@@ -34,6 +34,7 @@
       "db:migrate:remote": "wrangler d1 migrations apply DB --remote --config wrangler.jsonc",
       "db:migrate:check": "wrangler d1 migrations list DB --local --config wrangler.dev.jsonc",
       "pack:email": "node scripts/pack-email.mjs",
+      "brand:assets": "node scripts/brand-assets.mjs",
       "e2e": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts",
       "e2e:headed": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts --headed",
       "e2e:debug": "node e2e/scripts/clean.mjs && playwright test --config e2e/playwright.config.ts --debug",

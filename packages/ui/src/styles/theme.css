@@ -7,7 +7,7 @@
    --card-foreground: #14293a;
    --popover: #ffffff;
    --popover-foreground: #14293a;
-   --primary: #00508f;
+   --primary: #1e817c;
    --primary-foreground: #ffffff;
    --secondary: #eae4d8;
    --secondary-foreground: #14293a;
@@ -23,26 +23,28 @@
    --warning-foreground: #6b4a12;
    --border: #dcd6ca;
    --input: #c7c0b2;
-   --ring: #00508f;
+   --ring: #1e817c;
    --radius: 0.625rem;
    --ochre: #8f5601;
    --sidebar: #f0eae0;
 }
 
+/* Dark mode keeps the same depth steps as before, with the navy shifted to a
+   teal cast so the accent hue belongs to the theme instead of sitting on it. */
 .dark {
-   --background: #0e1b26;
+   --background: #111a1a;
    --foreground: #f3f0e8;
-   --card: #172a3a;
+   --card: #1e2b2a;
    --card-foreground: #f3f0e8;
-   --popover: #1b3042;
+   --popover: #243231;
    --popover-foreground: #f3f0e8;
-   --primary: #addbff;
+   --primary: #8fdcd6;
    --primary-foreground: #14293a;
-   --secondary: #243b4d;
+   --secondary: #2e3e3d;
    --secondary-foreground: #f3f0e8;
-   --muted: #1b3042;
-   --muted-foreground: #a9b8c6;
-   --accent: #24323e;
+   --muted: #243231;
+   --muted-foreground: #abc4c3;
+   --accent: #2a3636;
    --accent-foreground: #f3f0e8;
    --destructive: #7a2a24;
    --destructive-foreground: #ffd9d4;
@@ -50,11 +52,11 @@
    --success-foreground: #a9d8af;
    --warning: #3a2e1c;
    --warning-foreground: #ffcd82;
-   --border: #294153;
-   --input: #3a5265;
-   --ring: #addbff;
+   --border: #344544;
+   --input: #445756;
+   --ring: #8fdcd6;
    --ochre: #ffcd82;
-   --sidebar: #0a151f;
+   --sidebar: #0c1413;
 }
 
 /* The rail is light with the rest of the light theme, and dark in dark mode. */
@@ -65,10 +67,10 @@
 .dark .app-sidebar {
    color: #f3f0e8;
    --foreground: #f3f0e8;
-   --muted-foreground: #a9b8c6;
+   --muted-foreground: #abc4c3;
    --border: rgba(255, 255, 255, 0.14);
-   --ring: #addbff;
-   --accent: #00508f;
+   --ring: #8fdcd6;
+   --accent: #1e817c;
    --accent-foreground: #ffffff;
    --primary: #ffcd82;
    --primary-foreground: #14293a;

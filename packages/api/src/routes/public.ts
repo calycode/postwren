@@ -30,6 +30,7 @@ import { verifyTurnstile } from '../lib/turnstile';
 import { parseMetadataJson } from '@postwren/shared/metadata';
 import { parsePayloadJson } from '@postwren/shared/payload';
 import { emitWebhookEventSafe } from '../lib/webhooks';
+import { brandWordmark } from '../lib/brand';
 
 type SubscribeKeyRow = {
    id: string;
@@ -356,6 +357,7 @@ function confirmationPage(state: 'confirm' | 'done' | 'invalid', action = ''): R
 <title>${state === 'done' ? 'Confirmed' : 'Confirm subscription'}</title>
 </head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;">
+${brandWordmark()}
 <h1 style="font-size:1.25rem;">${state === 'done' ? 'Subscription confirmed' : state === 'confirm' ? 'Confirm subscription' : 'Link not valid'}</h1>
 ${body}
 </body>

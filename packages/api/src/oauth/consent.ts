@@ -1,5 +1,6 @@
 import type { ConsentDescription } from '@cloudflare/workers-oauth-provider';
 import type { Scope } from '../auth/scopes';
+import { brandWordmark } from '../lib/brand';
 
 export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
    'subscribers:read': 'Read subscribers and their tags',
@@ -83,13 +84,13 @@ dd { margin: 0; overflow-wrap: anywhere; opacity: .85; }
 ul { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 8px; }
 li { padding: 0; border-radius: 10px; background: color-mix(in srgb, CanvasText 5%, transparent); }
 li label { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; cursor: pointer; }
-li input { margin: 3px 0 0; accent-color: #1d6f42; }
+li input { margin: 3px 0 0; accent-color: #1e817c; }
 li span { display: grid; gap: 2px; }
 li em { font-style: normal; opacity: .8; font-size: 14px; }
 code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 button { font: inherit; padding: 9px 16px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; }
-button[value="approve"] { background: #1d6f42; color: #fff; }
+button[value="approve"] { background: #1e817c; color: #fff; }
 button[value="deny"] { background: transparent; color: inherit;
   border-color: color-mix(in srgb, CanvasText 25%, transparent); }
 .username { font-weight: 600; }
@@ -97,6 +98,7 @@ button[value="deny"] { background: transparent; color: inherit;
 </head>
 <body>
 <main>
+${brandWordmark(96)}
 <h1>Authorize ${escapeHtml(details.clientName)}</h1>
 <p>Signed in as <span class="username">${escapeHtml(username)}</span>.</p>
 <p>This client is asking for API access to your Postwren workspace. Uncheck anything it does not need.
@@ -128,6 +130,7 @@ export function renderConsentError(message: string): string {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Authorization failed</title></head>
 <body style="font: 15px/1.5 system-ui, sans-serif; margin: 40px auto; max-width: 560px;">
+${brandWordmark(96)}
 <h1 style="font-size:20px;">Authorization failed</h1>
 <p>${escapeHtml(message)}</p>
 </body></html>`;

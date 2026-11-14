@@ -80,7 +80,7 @@ const STEPS: readonly GuideStep[] = [
    {
       target: '[data-guide="sidebar-footer"]',
       title: 'You are all set',
-      body: 'Theme, account and this tour live in the account menu at the bottom of the sidebar. Collapse the sidebar with the button in the header whenever you want more room.',
+      body: 'Theme, account and this tour live in the account menu at the bottom of the sidebar. Click the logo at the top to collapse the rail when you want more room.',
    },
 ];
 

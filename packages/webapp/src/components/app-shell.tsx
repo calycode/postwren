@@ -29,6 +29,7 @@ import {
    DropdownMenuTrigger,
    cn,
 } from '@postwren/ui';
+import { BrandLogo } from '@/components/brand';
 import { useAuth } from '@/lib/auth';
 import { useGuide } from '@/lib/guide';
 import { useTheme } from '@/lib/theme';
@@ -181,34 +182,28 @@ export function AppShell({ children }: { children: ComponentChildren }) {
    // The mobile drawer always shows labels, even when the desktop rail is compact.
    const compact = collapsed && !mobileOpen;
    const initial = user?.email ? user.email.slice(0, 1).toUpperCase() : 'A';
+   // The logo doubles as the collapse control: it swaps to the panel icon on hover.
    const brandContent = (
       <>
-         <span className="group/logo relative flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+         <BrandLogo
+            variant={compact ? 'mark' : 'wordmark'}
+            className={cn(
+               'transition-opacity group-hover/logo:opacity-0',
+               compact ? 'h-6' : 'h-10',
+            )}
+         />
+         <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover/logo:opacity-100">
             {compact ? (
                <PanelLeftOpen
                   className="size-4"
                   aria-hidden="true"
                />
             ) : (
-               <>
-                  <Send
-                     className="size-4 transition-opacity group-hover/logo:opacity-0"
-                     aria-hidden="true"
-                  />
-                  <PanelLeftClose
-                     className="absolute size-4 opacity-0 transition-opacity group-hover/logo:opacity-100"
-                     aria-hidden="true"
-                  />
-               </>
+               <PanelLeftClose
+                  className="size-4"
+                  aria-hidden="true"
+               />
             )}
-         </span>
-         <span
-            className={cn(
-               'truncate font-display text-[1.35rem] leading-none font-medium tracking-tight',
-               compact && 'md:hidden',
-            )}
-         >
-            postwren
          </span>
       </>
    );
@@ -253,30 +248,19 @@ export function AppShell({ children }: { children: ComponentChildren }) {
             )}
          >
             <div className="flex h-16 items-center gap-2 px-3">
-               {compact ? (
-                  <button
-                     type="button"
-                     onClick={() => setCollapsed(false)}
-                     className="inline-flex min-w-0 items-center gap-2.5 rounded-lg text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring md:mx-auto md:size-10 md:justify-center"
-                     title="Expand sidebar"
-                     aria-label="Expand sidebar"
-                  >
-                     {brandContent}
-                  </button>
-               ) : (
-                  <div className="inline-flex min-w-0 items-center gap-2.5">
-                     <button
-                        type="button"
-                        onClick={() => setCollapsed(true)}
-                        className="inline-flex min-w-0 items-center gap-2.5 rounded-lg text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        title="Collapse sidebar"
-                        aria-label="Collapse sidebar"
-                        aria-pressed={collapsed}
-                     >
-                        {brandContent}
-                     </button>
-                  </div>
-               )}
+               <button
+                  type="button"
+                  onClick={() => setCollapsed(!compact)}
+                  className={cn(
+                     'group/logo relative inline-flex items-center rounded-lg text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                     compact && 'md:mx-auto md:size-10 md:justify-center',
+                  )}
+                  title={compact ? 'Expand sidebar' : 'Collapse sidebar'}
+                  aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'}
+                  aria-pressed={collapsed}
+               >
+                  {brandContent}
+               </button>
 
                <button
                   type="button"
