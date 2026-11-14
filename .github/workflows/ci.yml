@@ -52,6 +52,7 @@ jobs:
          - run: pnpm check-types
          - run: pnpm test
          - run: pnpm build:all
+         - run: pnpm docs:build
          - run: pnpm pack:email
          - run: tar -tzf artifacts/*.tgz
 
