@@ -1,0 +1,189 @@
+<!doctype html>
+<html
+   lang="en"
+   data-theme="dark"
+   data-manifest-version="%%MANIFEST_VERSION%%"
+>
+   <head>
+      <meta charset="UTF-8" />
+      <meta
+         name="viewport"
+         content="width=device-width, initial-scale=1.0"
+      />
+      <title>%%TITLE%% · Postwren docs</title>
+      <meta
+         name="description"
+         content="%%DESCRIPTION%%"
+      />
+      <link
+         rel="canonical"
+         href="%%CANONICAL%%"
+      />
+      <link
+         rel="alternate"
+         type="text/markdown"
+         href="%%MD_HREF%%"
+      />
+      <meta
+         property="og:type"
+         content="article"
+      />
+      <meta
+         property="og:title"
+         content="%%TITLE%% · Postwren docs"
+      />
+      <meta
+         property="og:description"
+         content="%%DESCRIPTION%%"
+      />
+      <meta
+         property="og:url"
+         content="%%CANONICAL%%"
+      />
+      %%OG_IMAGE_TAGS%%
+      <meta
+         name="twitter:card"
+         content="summary_large_image"
+      />
+      <meta
+         name="generator"
+         content="Postwren docs"
+      />
+      <link
+         rel="icon"
+         href="%%BASE%%/assets/media/favicon.ico"
+         sizes="any"
+      />
+      <link
+         rel="icon"
+         type="image/png"
+         href="%%BASE%%/assets/media/favicon-32.png"
+         sizes="32x32"
+      />
+      <link
+         rel="apple-touch-icon"
+         href="%%BASE%%/assets/media/apple-touch-icon.png"
+      />
+      <meta
+         name="theme-color"
+         content="#f6f4ef"
+         media="(prefers-color-scheme: light)"
+      />
+      <meta
+         name="theme-color"
+         content="#111a1a"
+         media="(prefers-color-scheme: dark)"
+      />
+      <link
+         href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=JetBrains+Mono:wght@400;600&display=swap"
+         rel="stylesheet"
+      />
+      <link
+         href="%%BASE%%/assets/docs.css"
+         rel="stylesheet"
+      />
+      %%HEAD_ASSETS%%
+   </head>
+   <body
+      class="d-body"
+      data-current-path="%%CURRENT_PATH%%"
+      data-index-url="%%INDEX_URL%%"
+   >
+      <a
+         class="d-skip"
+         href="#d-main"
+         >Skip to content</a
+      >
+      <header class="d-header">
+         <button
+            class="d-hamburger"
+            type="button"
+            data-sidebar-toggle
+            aria-label="Toggle navigation"
+            aria-expanded="false"
+         >
+            <span></span><span></span><span></span>
+         </button>
+         <a
+            class="d-brand"
+            href="%%BASE%%/docs/"
+         >
+            <img
+               src="%%BASE%%/assets/media/postwren-wordmark.png"
+               alt="Postwren"
+               width="75"
+               height="38"
+            />
+            <span class="d-brand__tag">docs</span>
+         </a>
+         <div class="d-header__spacer"></div>
+         <a
+            class="d-header__link"
+            href="%%BASE%%/"
+            >Home</a
+         >
+         <a
+            class="d-header__link"
+            href="https://github.com/calycode/postwren"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub</a
+         >
+         <button
+            class="d-theme"
+            type="button"
+            data-theme-toggle
+            aria-label="Toggle color theme"
+         >
+            <span data-theme-icon>◐</span>
+         </button>
+      </header>
+
+      <div class="d-layout">
+         <aside
+            class="d-sidebar"
+            id="d-sidebar"
+            aria-label="Documentation navigation"
+         >
+            %%SIDEBAR%%
+         </aside>
+         <div
+            class="d-sidebar__scrim"
+            data-sidebar-close
+            hidden
+         ></div>
+
+         <main
+            class="d-main"
+            id="d-main"
+         >
+            <article class="d-article">
+               <div class="d-prose">%%CONTENT%%</div>
+            </article>
+            <nav
+               class="d-pager"
+               aria-label="Page navigation"
+            >
+               %%PREV%% %%NEXT%%
+            </nav>
+            <footer class="d-footer">
+               <span>MIT licensed. Built with Cloudflare Workers.</span>
+               <span
+                  ><a
+                     href="https://github.com/calycode/postwren"
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     >Source and issues</a
+                  ></span
+               >
+            </footer>
+         </main>
+      </div>
+
+      %%BODY_ASSETS%%
+      <script
+         src="%%BASE%%/assets/docs.js"
+         defer
+      ></script>
+   </body>
+</html>

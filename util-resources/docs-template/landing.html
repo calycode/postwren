@@ -1,0 +1,421 @@
+<!doctype html>
+<html
+   lang="en"
+   data-theme="dark"
+   data-manifest-version="%%MANIFEST_VERSION%%"
+>
+   <head>
+      <meta charset="UTF-8" />
+      <meta
+         name="viewport"
+         content="width=device-width, initial-scale=1.0"
+      />
+      <title>Postwren — self-hosted email marketing on one Worker</title>
+      <meta
+         name="description"
+         content="Postwren is self-hosted email marketing on a single Cloudflare Worker: a visual block editor, tag-based audiences, scheduled campaigns, linear automations, signed webhooks, and an API and MCP server for agents."
+      />
+      <link
+         rel="canonical"
+         href="%%CANONICAL%%"
+      />
+      <link
+         rel="alternate"
+         type="text/markdown"
+         href="%%BASE%%/docs/index.md"
+      />
+      <meta
+         property="og:type"
+         content="website"
+      />
+      <meta
+         property="og:title"
+         content="Postwren — self-hosted email marketing on one Worker"
+      />
+      <meta
+         property="og:description"
+         content="A small mailer with a long reach: a block editor, tag audiences, campaigns, automations, and agent access on one Cloudflare Worker."
+      />
+      <meta
+         property="og:url"
+         content="%%CANONICAL%%"
+      />
+      %%OG_IMAGE_TAGS%%
+      <meta
+         name="twitter:card"
+         content="summary_large_image"
+      />
+      <link
+         rel="icon"
+         href="%%BASE%%/assets/media/favicon.ico"
+         sizes="any"
+      />
+      <link
+         rel="icon"
+         type="image/png"
+         href="%%BASE%%/assets/media/favicon-32.png"
+         sizes="32x32"
+      />
+      <link
+         rel="apple-touch-icon"
+         href="%%BASE%%/assets/media/apple-touch-icon.png"
+      />
+      <meta
+         name="theme-color"
+         content="#f6f4ef"
+         media="(prefers-color-scheme: light)"
+      />
+      <meta
+         name="theme-color"
+         content="#111a1a"
+         media="(prefers-color-scheme: dark)"
+      />
+      <link
+         href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=JetBrains+Mono:wght@400;600&display=swap"
+         rel="stylesheet"
+      />
+      <link
+         href="%%BASE%%/assets/docs.css"
+         rel="stylesheet"
+      />
+   </head>
+   <body
+      class="d-body d-body--landing"
+      data-manifest-version="%%MANIFEST_VERSION%%"
+   >
+      <header class="d-header d-header--landing">
+         <a
+            class="d-brand"
+            href="%%BASE%%/"
+         >
+            <img
+               src="%%BASE%%/assets/media/postwren-wordmark.png"
+               alt="Postwren"
+               width="79"
+               height="40"
+            />
+         </a>
+         <div class="d-header__spacer"></div>
+         <a
+            class="d-header__link"
+            href="%%BASE%%/docs/user/"
+            >User guide</a
+         >
+         <a
+            class="d-header__link"
+            href="%%BASE%%/docs/developer/"
+            >Developer guide</a
+         >
+         <a
+            class="d-header__link"
+            href="https://github.com/calycode/postwren"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub</a
+         >
+         <button
+            class="d-theme"
+            type="button"
+            data-theme-toggle
+            aria-label="Toggle color theme"
+         >
+            <span data-theme-icon>◐</span>
+         </button>
+      </header>
+
+      <main class="d-landing">
+         <section class="d-hero d-hero--landing">
+            <p class="d-hero__eyebrow">Postwren · v%%VERSION%%</p>
+            <h1 class="d-hero__title">One Worker. Your whole list.</h1>
+            <p class="d-hero__lede">
+               Self-hosted email marketing on a single Cloudflare Worker. A visual editor that
+               renders the real email, audiences built from tags and custom fields, scheduled
+               campaigns, linear automations, signed webhooks, and an API and MCP server for agents.
+               Your domain, your list, your sender reputation.
+            </p>
+            <div class="d-hero__actions">
+               <a
+                  class="d-btn d-btn--primary"
+                  href="%%BASE%%/docs/user/"
+                  >Open the user guide</a
+               >
+               <a
+                  class="d-btn"
+                  href="%%BASE%%/docs/developer/self-hosting.html"
+                  >Self-host it</a
+               >
+            </div>
+            <div
+               class="d-install"
+               role="group"
+               aria-label="Quick start command"
+            >
+               <div class="d-install__dots"><span></span><span></span><span></span></div>
+               <code
+                  >git clone https://github.com/calycode/postwren.git<br />cd postwren &amp;&amp;
+                  pnpm install &amp;&amp; pnpm db:migrate:local &amp;&amp; pnpm dev</code
+               >
+               <button
+                  class="d-install__copy"
+                  type="button"
+                  data-copy-install
+                  aria-label="Copy quick start command"
+               >
+                  copy
+               </button>
+            </div>
+         </section>
+
+         <section
+            class="d-paths"
+            aria-label="Choose your path"
+         >
+            <a
+               class="d-path"
+               href="%%BASE%%/docs/user/"
+            >
+               <span class="d-path__eyebrow">For marketers</span>
+               <h2 class="d-path__title">Write, segment, send</h2>
+               <p class="d-path__body">
+                  Import a list, compose with blocks, target a tag, and schedule the campaign. The
+                  guide names the tradeoffs instead of hiding them.
+               </p>
+               <span class="d-path__cta">Open the user guide →</span>
+            </a>
+            <a
+               class="d-path"
+               href="%%BASE%%/docs/developer/"
+            >
+               <span class="d-path__eyebrow">For builders</span>
+               <h2 class="d-path__title">Self-host or contribute</h2>
+               <p class="d-path__body">
+                  Deploy one Worker, provision D1, R2, Queues and KV, onboard a sending domain,
+                  connect agents over MCP, and audit the system. Architecture and reference
+                  included.
+               </p>
+               <span class="d-path__cta">Open the developer guide →</span>
+            </a>
+         </section>
+
+         <section
+            class="d-feature-group"
+            aria-label="For marketers"
+         >
+            <div class="d-feature-group__head">
+               <span class="d-path__eyebrow">For marketers</span>
+               <h2>The list is the product</h2>
+               <p>
+                  Every screen points at one outcome: the right people receive a message they can
+                  read, and the list survives the send.
+               </p>
+            </div>
+            <div class="d-features">
+               <article class="d-feature">
+                  <h3>Blocks, not HTML</h3>
+                  <p>
+                     Eighteen block types, a live canvas, revisions, and saved blocks. Preview and
+                     send run the same renderer, so the inbox matches the editor.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>Audiences from tags and fields</h3>
+                  <p>
+                     <code>tag:news -tag:internal</code> plus <code>meta:plan=pro</code>, compiled
+                     to parameterised SQL. Pending, unsubscribed and suppressed rows never enter an
+                     audience.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>A campaign is a frozen snapshot</h3>
+                  <p>
+                     Content and metadata freeze at schedule. Editing the template afterwards cannot
+                     change an in-flight send, and replaying a queue batch sends nothing twice.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>Every send has a web version</h3>
+                  <p>
+                     <code>/p/&lt;campaign id&gt;</code> renders the frozen snapshot. A signed
+                     per-recipient token keeps merge tags and unsubscribe working for the reader.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>Automations stay linear</h3>
+                  <p>
+                     Four triggers, six step types, versioned runs. No workflow canvas, no branching
+                     graph, no hidden state.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>Honest analytics</h3>
+                  <p>
+                     Clicks are the real metric. Opens are approximate because Apple Mail and
+                     corporate proxies pre-fetch pixels, and the app says so.
+                  </p>
+               </article>
+            </div>
+         </section>
+
+         <section
+            class="d-feature-group"
+            aria-label="For builders"
+         >
+            <div class="d-feature-group__head">
+               <span class="d-path__eyebrow">For builders</span>
+               <h2>One Worker, no hidden service</h2>
+               <p>
+                  The SPA, API, media proxy, MCP endpoint, OAuth provider, queues and cron job
+                  deploy together. There is no second service to keep alive.
+               </p>
+            </div>
+            <div class="d-features">
+               <article class="d-feature">
+                  <h3>Cloudflare-native</h3>
+                  <p>
+                     Hono on Workers, D1 for data, R2 for media, Queues for dispatch and email
+                     events, Cron for the sweep. One <code>wrangler deploy</code>.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>Five integration surfaces</h3>
+                  <p>
+                     A public subscribe endpoint for marketing sites, signed outbound webhooks,
+                     scoped API keys, transactional email, and an OAuth-protected MCP server.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>The email layer is its own package</h3>
+                  <p>
+                     <code>@postwren/email</code> is an IR plus a renderer that emits only
+                     table/tr/td with inline styles. No React, no DOM, no Node APIs.
+                  </p>
+               </article>
+               <article class="d-feature">
+                  <h3>Deliberately narrow</h3>
+                  <p>
+                     No workflow canvas, no A/B testing, no multi-tenant billing. The parts that are
+                     missing were left out on purpose, not postponed quietly.
+                  </p>
+               </article>
+            </div>
+         </section>
+
+         <section
+            class="d-screens"
+            aria-label="Integration surfaces"
+         >
+            <div class="d-screens__head">
+               <span class="d-path__eyebrow">Interfaces</span>
+               <h2>Four ways in, one access model</h2>
+               <p>
+                  Every surface uses the same envelopes, scopes and suppression rules. The examples
+                  below are the shapes you will actually handle.
+               </p>
+            </div>
+            <div class="d-surfaces">
+               <article class="d-surface">
+                  <h3>Newsletter form</h3>
+                  <p>Publishable key, per-key origins, honeypot and optional double opt-in.</p>
+                  <pre><code>curl -X POST https://mail.example.com/api/public/subscribe \
+  -H 'authorization: Bearer pk_live_...' \
+  -H 'content-type: application/json' \
+  -d '{"email":"ada@example.com","tags":["news"]}'</code></pre>
+               </article>
+               <article class="d-surface">
+                  <h3>Transactional email</h3>
+                  <p>
+                     A scoped <code>pwr_</code> key, one recipient, no campaign or recipient rows.
+                  </p>
+                  <pre><code>curl -X POST https://mail.example.com/api/v1/emails \
+  -H "authorization: Bearer $POSTWREN_KEY" \
+  -H 'content-type: application/json' \
+  -d '{"to":"ada@example.com","subject":"Your receipt","html":"&lt;p&gt;Thanks.&lt;/p&gt;"}'</code></pre>
+               </article>
+               <article class="d-surface">
+                  <h3>Signed webhooks</h3>
+                  <p>Retried with backoff, logged per attempt, verified with hex HMAC-SHA256.</p>
+                  <pre><code>{
+  "id": "whd_...",
+  "event": "subscriber.created",
+  "created_at": 1767225600,
+  "data": { "id": "sub_...", "email": "ada@example.com" }
+}</code></pre>
+               </article>
+               <article class="d-surface">
+                  <h3>Agents over MCP</h3>
+                  <p>25 scoped tools at <code>/mcp</code>, for API keys or an OAuth connector.</p>
+                  <pre><code>{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "list_subscribers",
+    "arguments": { "tag": "news", "limit": 25 }
+  }
+}</code></pre>
+               </article>
+            </div>
+         </section>
+
+         <section class="d-tradeoffs">
+            <h2>What Postwren does not do</h2>
+            <ul>
+               <li>No workflow canvas or branching automation graph. Runs are linear by design.</li>
+               <li>No A/B testing, no send-time optimisation, no paid-tier feature gating.</li>
+               <li>
+                  No multi-tenant billing or account hierarchy. One install usually means one list.
+               </li>
+               <li>
+                  No deliverability guarantee. Cloudflare owns the MTA; you own the domain and the
+                  list.
+               </li>
+            </ul>
+         </section>
+
+         <section class="d-cta">
+            <h2>Start with the guide that fits</h2>
+            <p>
+               Both paths lead to the same app. Pick the one that matches what you are doing today.
+            </p>
+            <div class="d-hero__actions">
+               <a
+                  class="d-btn d-btn--primary"
+                  href="%%BASE%%/docs/user/"
+                  >I'm here to send</a
+               >
+               <a
+                  class="d-btn"
+                  href="%%BASE%%/docs/developer/"
+                  >I'm here to self-host</a
+               >
+            </div>
+         </section>
+      </main>
+
+      <footer class="d-footer d-footer--landing">
+         <span
+            >MIT licensed · built by
+            <a
+               href="https://github.com/calycode"
+               target="_blank"
+               rel="noopener noreferrer"
+               >calycode</a
+            >.</span
+         >
+         <span
+            >Generated %%GENERATED_AT%% · <a href="%%BASE%%/docs/">docs</a> ·
+            <a
+               href="https://github.com/calycode/postwren"
+               target="_blank"
+               rel="noopener noreferrer"
+               >GitHub</a
+            ></span
+         >
+      </footer>
+
+      <script
+         src="%%BASE%%/assets/docs.js"
+         defer
+      ></script>
+   </body>
+</html>

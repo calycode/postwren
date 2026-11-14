@@ -11,4 +11,6 @@ artifacts
 .auth
 playwright-report
 test-results
+docs/manifest.json
+docs/_sidebar.md
 .DS_Store
