@@ -304,8 +304,27 @@ async function main(): Promise<void> {
       version: string;
    };
 
-   cpSync(path.join(DOCS, '_media'), path.join(OUT, 'assets', 'media'), { recursive: true });
    cpSync(path.join(TEMPLATE, 'docs.css'), path.join(OUT, 'assets', 'docs.css'));
+   if (existsSync(path.join(DOCS, '_media'))) {
+      cpSync(path.join(DOCS, '_media'), path.join(OUT, 'assets', 'media'), { recursive: true });
+   }
+
+   // The app's brand assets are the source of truth. `pnpm brand:assets` rebuilds
+   // them in packages/webapp/public, so the docs pick up a logo change for free.
+   const brandAssets: Array<[string, string]> = [
+      ['packages/webapp/public/brand/postwren-wordmark.png', 'postwren-wordmark.png'],
+      ['packages/webapp/public/brand/postwren-mark.png', 'postwren-mark.png'],
+      ['packages/webapp/public/favicon.ico', 'favicon.ico'],
+      ['packages/webapp/public/favicon-32.png', 'favicon-32.png'],
+      ['packages/webapp/public/apple-touch-icon.png', 'apple-touch-icon.png'],
+   ];
+   for (const [source, target] of brandAssets) {
+      const from = path.join(ROOT, source);
+      if (!existsSync(from)) continue;
+      const to = path.join(OUT, 'assets', 'media', target);
+      mkdirSync(path.dirname(to), { recursive: true });
+      cpSync(from, to);
+   }
    for (const file of ['LICENSE', 'CHANGELOG.md']) {
       if (existsSync(path.join(ROOT, file))) cpSync(path.join(ROOT, file), path.join(OUT, file));
    }

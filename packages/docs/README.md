@@ -28,6 +28,9 @@ Output: `packages/docs/dist`, which is git-ignored.
 The HTTP API and MCP tool pages are generated from the route modules, the scope
 table and `packages/api/src/mcp/tools.ts`. Do not edit them by hand.
 
+The logo, wordmark and favicon are copied from `packages/webapp/public` at build
+time, so `pnpm brand:assets` remains the only place brand art is changed.
+
 ## Before a future deploy
 
 1. Pick a domain and set `routes` in `wrangler.jsonc` (turn `workers_dev` off if

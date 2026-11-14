@@ -13,6 +13,7 @@ const types = new Map([
    ['.json', 'application/json; charset=utf-8'],
    ['.md', 'text/markdown; charset=utf-8'],
    ['.svg', 'image/svg+xml'],
+   ['.ico', 'image/x-icon'],
    ['.png', 'image/png'],
    ['.jpg', 'image/jpeg'],
    ['.jpeg', 'image/jpeg'],
