@@ -1,0 +1,13 @@
+{
+   "name": "@postwren/docs",
+   "version": "0.1.0",
+   "private": true,
+   "license": "MIT",
+   "type": "module",
+   "scripts": {
+      "build:site": "pnpm -w docs:build",
+      "preview": "node ../../scripts/docs/serve.mjs dist 3031",
+      "dev": "pnpm -w docs:dev",
+      "deploy": "pnpm -w docs:build && wrangler deploy"
+   }
+}

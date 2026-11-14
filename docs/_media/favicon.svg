@@ -1,0 +1,27 @@
+<svg
+   xmlns="http://www.w3.org/2000/svg"
+   viewBox="0 0 64 64"
+   role="img"
+   aria-label="Postwren"
+>
+   <rect
+      width="64"
+      height="64"
+      rx="14"
+      fill="#14293A"
+   />
+   <text
+      x="30"
+      y="47"
+      text-anchor="middle"
+      font-family="Georgia, 'Times New Roman', serif"
+      font-size="42"
+      fill="#F6F4EF"
+   >p</text>
+   <circle
+      cx="47"
+      cy="43"
+      r="4.5"
+      fill="#ADDBFF"
+   />
+</svg>

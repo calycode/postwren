@@ -1,0 +1,14 @@
+{
+   // Static-assets-only Worker. There is no `main` entrypoint: every request is
+   // served from the built docs site.
+   "$schema": "../../node_modules/wrangler/config-schema.json",
+   "name": "postwren-docs",
+   "compatibility_date": "2026-09-01",
+   // A custom domain is not chosen yet. Keep workers.dev until it is.
+   "workers_dev": true,
+   "assets": {
+      "directory": "./dist",
+      "html_handling": "auto-trailing-slash",
+      "not_found_handling": "404-page",
+   },
+}

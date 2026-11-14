@@ -1,0 +1,302 @@
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { requiredScope } from '../../packages/api/src/auth/scopes.ts';
+import { TOOLS } from '../../packages/api/src/mcp/tools.ts';
+import { SCOPES } from '../../packages/shared/src/scopes/index.ts';
+import { DOC_ENTRIES, DOC_LINKS, type DocEntry } from './manifest.ts';
+
+const ROOT = process.cwd();
+const DOCS = path.join(ROOT, 'docs');
+const REFERENCE = path.join(DOCS, 'developer', 'reference');
+
+const MOUNTS: Array<{ prefix: string; file: string }> = [
+   { prefix: '/api/auth', file: 'auth.ts' },
+   { prefix: '/api/v1/settings/api-keys', file: 'api-keys.ts' },
+   { prefix: '/api/v1/dashboard', file: 'dashboard.ts' },
+   { prefix: '/api/v1/subscribers', file: 'subscribers.ts' },
+   { prefix: '/api/v1/tags', file: 'tags.ts' },
+   { prefix: '/api/v1/templates', file: 'templates.ts' },
+   { prefix: '/api/v1/templates', file: 'template-comments.ts' },
+   { prefix: '/api/v1/saved-blocks', file: 'saved-blocks.ts' },
+   { prefix: '/api/v1/campaigns', file: 'agent-campaigns.ts' },
+   { prefix: '/api/v1/campaigns', file: 'campaigns.ts' },
+   { prefix: '/api/v1/automations', file: 'automations.ts' },
+   { prefix: '/api/v1/audience', file: 'audience.ts' },
+   { prefix: '/api/v1/settings', file: 'settings.ts' },
+   { prefix: '/api/v1/subscribe-keys', file: 'subscribe-keys.ts' },
+   { prefix: '/api/v1/webhooks', file: 'webhooks.ts' },
+   { prefix: '/api/v1/media', file: 'media.ts' },
+   { prefix: '/api/v1/emails', file: 'emails.ts' },
+   { prefix: '/api/v1/events', file: 'events.ts' },
+];
+
+type Route = { method: string; path: string; access: string };
+
+const PUBLIC_ROUTES: Route[] = [
+   { method: 'GET', path: '/api/health', access: 'Public' },
+   { method: 'POST', path: '/api/public/subscribe', access: 'Publishable `pk_live_` key' },
+   { method: 'GET', path: '/confirm/:token', access: 'Public' },
+   { method: 'POST', path: '/confirm/:token', access: 'Public' },
+   { method: 'GET', path: '/p/:id', access: 'Public' },
+   { method: 'GET', path: '/t/o/:token', access: 'Public' },
+   { method: 'GET', path: '/t/c/:token', access: 'Public' },
+   { method: 'GET', path: '/u/:token', access: 'Public' },
+   { method: 'POST', path: '/u/:token', access: 'Public' },
+   { method: 'GET', path: '/media/*', access: 'Public' },
+   { method: 'POST', path: '/mcp', access: 'API key, session or OAuth' },
+   { method: 'GET', path: '/oauth/authorize', access: 'Public' },
+   { method: 'POST', path: '/oauth/authorize', access: 'Public' },
+   { method: 'POST', path: '/oauth/token', access: 'Public' },
+   { method: 'POST', path: '/oauth/register', access: 'Public' },
+   { method: 'GET', path: '/.well-known/oauth-authorization-server', access: 'Public' },
+   { method: 'GET', path: '/.well-known/oauth-protected-resource', access: 'Public' },
+];
+
+function accessFor(method: string, routePath: string): string {
+   if (routePath === '/api/auth/session') return 'Session';
+   if (routePath === '/api/auth/logout') return 'Session + CSRF';
+   if (routePath.startsWith('/api/auth')) return 'Public';
+   const scope = requiredScope(method, routePath);
+   return scope === null ? 'Session only' : `\`${scope}\` or session`;
+}
+
+function collectRoutes(): Route[] {
+   const routes: Route[] = [...PUBLIC_ROUTES];
+
+   for (const mount of MOUNTS) {
+      const filePath = path.join(ROOT, 'packages', 'api', 'src', 'routes', mount.file);
+      if (!existsSync(filePath)) continue;
+      const source = readFileSync(filePath, 'utf8');
+      const regex = /\.(get|post|put|patch|delete)\(\s*'(\/[^']*)'/g;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(source))) {
+         const suffix = match[2] === '/' ? '' : match[2];
+         const routePath = `${mount.prefix}${suffix}`;
+         routes.push({
+            method: match[1].toUpperCase(),
+            path: routePath,
+            access: accessFor(match[1].toUpperCase(), routePath),
+         });
+      }
+   }
+
+   const seen = new Set<string>();
+   return routes
+      .filter((route) => {
+         const key = `${route.method} ${route.path}`;
+         if (seen.has(key)) return false;
+         seen.add(key);
+         return true;
+      })
+      .sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+}
+
+function writeReferenceMcpTools() {
+   const rows = TOOLS.map((tool) => {
+      const kind = tool.readOnly ? 'read' : tool.destructive ? 'destructive' : 'write';
+      return `| \`${tool.name}\` | \`${tool.requiredScope}\` | ${kind} | ${tool.description} |`;
+   }).join('\n');
+
+   const scopeRows = SCOPES.map((scope) => {
+      const count = TOOLS.filter((tool) => tool.requiredScope === scope).length;
+      return `| \`${scope}\` | ${count} |`;
+   }).join('\n');
+
+   const markdown = `# MCP tools
+
+<!-- Generated by scripts/docs/generate.ts. Do not edit by hand. -->
+
+The MCP endpoint at \`/mcp\` exposes ${TOOLS.length} curated tools. Every tool is
+scoped, and \`tools/list\` returns only the tools the presented API key or OAuth
+grant can invoke. The same definitions drive the server and the Settings screen,
+so this page cannot drift from the implementation.
+
+| Tool | Scope | Kind | What it does |
+| --- | --- | --- | --- |
+${rows}
+
+## Scopes and tool counts
+
+| Scope | Tools |
+| --- | --- |
+${scopeRows}
+
+Tool definitions live in \`packages/api/src/mcp/tools.ts\`; scopes live in
+\`packages/shared/src/scopes/index.ts\`.
+
+## Schemas
+
+Call \`tools/list\` against a running instance to receive the live JSON Schema for
+each tool. The schemas are built from the same Zod contracts the REST API uses;
+this page intentionally does not duplicate them.
+
+## Transport
+
+\`/mcp\` is a Streamable HTTP endpoint, not a JSON REST route. It accepts scoped
+\`pwr_\` API keys directly, session cookies, or an OAuth 2.1 access token issued
+through \`/oauth/authorize\`. See [Agent access](../agent-access.md) for setup.
+`;
+
+   writeFileSync(path.join(REFERENCE, 'mcp-tools.md'), markdown);
+}
+
+function writeReferenceApi() {
+   const rows = collectRoutes()
+      .map((route) => `| \`${route.method}\` | \`${route.path}\` | ${route.access} |`)
+      .join('\n');
+
+   const markdown = `# HTTP API
+
+<!-- Generated by scripts/docs/generate.ts. Do not edit by hand. -->
+
+Browser routes live under \`/api/v1\`; auth routes live under \`/api/auth\`. Public,
+tracking, unsubscribe and web-version routes are listed with the access they
+require. Browser mutations that use the session cookie also require the
+\`x-csrf-token\` header.
+
+| Method | Path | Access |
+| --- | --- | --- |
+${rows}
+
+## Envelopes
+
+Success:
+
+\`\`\`json
+{ "data": {}, "error": null, "meta": {} }
+\`\`\`
+
+Paginated lists use \`{ "data": [], "error": null, "meta": { "nextCursor": "…", "hasMore": true } }\`.
+
+Failure:
+
+\`\`\`json
+{ "data": null, "error": { "code": "not_found", "message": "…" } }
+\`\`\`
+
+Request bodies are camelCase. Resource representations are snake_case and mirror
+the D1 columns. Cursor pagination is opaque; clients never build a cursor.
+
+## Notes
+
+- A \`pwr_\` bearer key is scoped; the scope in the table is the scope that gates
+  the route. Session users are unrestricted.
+- \`POST /api/v1/auth/magic-link\` returns the raw token and six-digit code only
+  when \`ENVIRONMENT=development\`.
+- \`/mcp\` is handled by \`@cloudflare/workers-oauth-provider\`, not Hono.
+- \`/media/*\` is the R2 read proxy used by rendered email; \`/api/v1/media\` is the
+  authenticated upload and listing surface.
+- This table is generated from the route modules. It lists mounted paths, not
+  every middleware branch.
+`;
+
+   writeFileSync(path.join(REFERENCE, 'api.md'), markdown);
+}
+
+function firstHeading(file: string, fallback: string): string {
+   const markdown = readFileSync(path.join(DOCS, file), 'utf8');
+   const line = markdown.split(/\r?\n/).find((candidate) => /^#\s+/.test(candidate));
+   return line ? line.replace(/^#\s+/, '').trim() : fallback;
+}
+
+function entryTitle(entry: DocEntry): string {
+   return firstHeading(entry.file, entry.title);
+}
+
+function writeSidebar(entries: DocEntry[]) {
+   const lines: string[] = [];
+   const sections = new Map<string, DocEntry[]>();
+   for (const entry of entries) {
+      if (!sections.has(entry.section)) sections.set(entry.section, []);
+      sections.get(entry.section)!.push(entry);
+   }
+
+   for (const [section, items] of sections) {
+      const sorted = items.sort((a, b) => a.order - b.order);
+      if (section === 'Overview') {
+         for (const item of sorted) lines.push(`- [${entryTitle(item)}](README.md)`);
+         continue;
+      }
+      lines.push(`- **${section}**`);
+      for (const item of sorted) lines.push(`  - [${entryTitle(item)}](${item.file})`);
+   }
+
+   lines.push('');
+   const linkSections = new Map<string, typeof DOC_LINKS>();
+   for (const link of DOC_LINKS) {
+      if (!linkSections.has(link.section)) linkSections.set(link.section, []);
+      linkSections.get(link.section)!.push(link);
+   }
+   for (const [section, links] of linkSections) {
+      lines.push(`- **${section}**`);
+      for (const link of links) lines.push(`  - [${link.title}](${link.href})`);
+   }
+   lines.push('');
+   lines.push('<small>MIT licensed. Built with Cloudflare Workers.</small>');
+   lines.push('');
+
+   writeFileSync(path.join(DOCS, '_sidebar.md'), lines.join('\n'));
+}
+
+function writeManifest(entries: DocEntry[]) {
+   const manifestEntries = entries.map((entry, index) => ({
+      section: entry.section,
+      path: entry.path,
+      title: entryTitle(entry),
+      group: null,
+      parent: null,
+      order: entry.order + index * 0.001,
+      source: entry.path.startsWith('developer/reference/') ? 'generated' : 'guide',
+      segments: entry.segments,
+      file: entry.file,
+   }));
+
+   const hash = createHash('sha256');
+   for (const entry of [...manifestEntries].sort((a, b) => a.path.localeCompare(b.path))) {
+      hash.update(entry.path);
+      hash.update(readFileSync(path.join(DOCS, entry.file)));
+   }
+   hash.update(JSON.stringify(DOC_LINKS));
+   const contentHash = hash.digest('hex').slice(0, 16);
+
+   const manifestPath = path.join(DOCS, 'manifest.json');
+   let generatedAt = new Date().toISOString();
+   if (existsSync(manifestPath)) {
+      try {
+         const existing = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+            hash?: string;
+            generatedAt?: string;
+         };
+         if (existing.hash === contentHash && existing.generatedAt) {
+            generatedAt = existing.generatedAt;
+         }
+      } catch {
+         // A malformed manifest is replaced below.
+      }
+   }
+
+   const manifest = {
+      version: 1,
+      generatedAt,
+      hash: contentHash,
+      entries: manifestEntries,
+      links: DOC_LINKS,
+   };
+   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+}
+
+function main() {
+   mkdirSync(REFERENCE, { recursive: true });
+   writeReferenceMcpTools();
+   writeReferenceApi();
+   writeManifest(DOC_ENTRIES);
+   writeSidebar(DOC_ENTRIES);
+
+   const pages = readdirSync(DOCS, { recursive: true, withFileTypes: true }).filter(
+      (entry) => entry.isFile() && entry.name.endsWith('.md'),
+   ).length;
+   console.log(`Generated ${DOC_ENTRIES.length} manifest entries; ${pages} markdown pages.`);
+}
+
+main();

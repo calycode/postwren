@@ -4,7 +4,7 @@
 
 [![Install with Appflare](https://appflare.dev/badge.svg)](https://appflare.dev/install/?repo=calycode/postwren)
 
-Appflare builds this repository in your own Cloudflare account, provisions D1, KV, R2 and the queues, and keeps the app updatable and removable. The install is not catalog-checked, and it needs Workers Paid and **Build in your account** turned on; see [docs/APPFLARE.md](docs/APPFLARE.md).
+Appflare builds this repository in your own Cloudflare account, provisions D1, KV, R2 and the queues, and keeps the app updatable and removable. The install is not catalog-checked, and it needs Workers Paid and **Build in your account** turned on; see [docs/developer/appflare.md](docs/developer/appflare.md).
 
 Self-hosted email marketing on a single Cloudflare Worker: visual block editor with repeating collections, tag-based audiences, scheduled campaigns, linear automations, per-recipient rendering, open/click tracking, one-click unsubscribe, a public web version of every sent campaign, optional double opt-in, and signed outbound webhooks.
 
@@ -39,15 +39,27 @@ migrations/    numbered SQL
 
 ## Integrations
 
-- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert, optional double opt-in and address hygiene. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
-- **Webhooks** — signed, retried POSTs for subscriber and campaign events, with a delivery log. See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
-- **Bounces and complaints** — Cloudflare Email Sending events are consumed from a queue, so hard bounces and spam complaints suppress the subscriber everywhere. See [docs/EMAIL-EVENTS.md](docs/EMAIL-EVENTS.md).
-- **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
-- **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/IFRAME-EMBEDDING.md](docs/IFRAME-EMBEDDING.md).
+- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert, optional double opt-in and address hygiene. See [docs/developer/public-subscribe.md](docs/developer/public-subscribe.md).
+- **Webhooks** — signed, retried POSTs for subscriber and campaign events, with a delivery log. See [docs/developer/webhooks.md](docs/developer/webhooks.md).
+- **Bounces and complaints** — Cloudflare Email Sending events are consumed from a queue, so hard bounces and spam complaints suppress the subscriber everywhere. See [docs/developer/email-events.md](docs/developer/email-events.md).
+- **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/developer/agent-access.md](docs/developer/agent-access.md).
+- **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/developer/iframe-embedding.md](docs/developer/iframe-embedding.md).
 - **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
 - **EmDash sites** — a native plugin that proxies signups to the Worker and renders its settings in the EmDash admin. See [packages/emdash-plugin](packages/emdash-plugin) once installed.
 
 Subscribers and campaigns both carry custom key/value metadata, rendered as `{{ subscriber.meta.key }}` and `{{ campaign.meta.key }}`, and subscriber metadata is filterable with `meta:key=value` in audience queries.
+
+## Documentation
+
+The docs site lives in `docs/` and builds to `packages/docs/dist`:
+
+```sh
+pnpm docs:build     # regenerate the references, then render the site
+pnpm docs:dev       # build, then serve on :3030
+```
+
+It has a user guide for the operator and a developer guide for deployers. The
+HTTP API and MCP tool pages are generated from source. Nothing is deployed yet.
 
 ## Local development
 
@@ -82,12 +94,12 @@ pnpm db:migrate:remote
 pnpm deploy
 ```
 
-`pnpm e2e` builds the SPA, starts its own Worker on `:8791` with a clean database, and drives Chromium. Run `pnpm exec playwright install chromium` once first. See [docs/E2E.md](docs/E2E.md).
+`pnpm e2e` builds the SPA, starts its own Worker on `:8791` with a clean database, and drives Chromium. Run `pnpm exec playwright install chromium` once first. See [docs/developer/e2e.md](docs/developer/e2e.md).
 
 ## Shipping
 
 1. **Workers Paid** is required: Queues and sending to arbitrary recipients are not on the free plan.
-2. Deploy it with [Appflare](docs/APPFLARE.md), or create the resources yourself and deploy with wrangler. Manual setup:
+2. Deploy it with [Appflare](docs/developer/appflare.md), or create the resources yourself and deploy with wrangler. Manual setup:
 
 ```sh
 pnpm exec wrangler d1 create postwren
@@ -146,18 +158,18 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 
 ## Project
 
-- [Positioning](docs/POSITIONING.md)
-- [Comparison with beehiiv's backlog](docs/COMPARISON.md)
-- [Repeating collections in templates](docs/REPEAT-BLOCKS.md)
-- [UI and UX review](docs/UI-REVIEW.md)
-- [Automation module proposal](docs/AUTOMATIONS.md)
-- [Brand and naming](docs/BRANDING.md)
-- [Appflare deployment](docs/APPFLARE.md)
-- [Turborepo remote cache](docs/REMOTE-CACHE.md)
-- [Release and remote checklist](docs/RELEASING.md)
-- [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
-- [Webhooks](docs/WEBHOOKS.md)
-- [Bounces and complaints](docs/EMAIL-EVENTS.md)
-- [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
-- [EmDash plugin packaging](docs/EMDASH-PLUGIN.md)
-- [Iframe embedding](docs/IFRAME-EMBEDDING.md)
+- [Positioning](docs/project/positioning.md)
+- [Comparison with beehiiv's backlog](docs/project/comparison.md)
+- [Repeating collections in templates](docs/developer/repeat-blocks.md)
+- [UI and UX review](docs/project/ui-review.md)
+- [Automation module proposal](docs/developer/automation-spec.md)
+- [Brand and naming](docs/project/branding.md)
+- [Appflare deployment](docs/developer/appflare.md)
+- [Turborepo remote cache](docs/developer/remote-cache.md)
+- [Release and remote checklist](docs/developer/releasing.md)
+- [Public subscribe contract](docs/developer/public-subscribe.md)
+- [Webhooks](docs/developer/webhooks.md)
+- [Bounces and complaints](docs/developer/email-events.md)
+- [Agent access, API keys and MCP](docs/developer/agent-access.md)
+- [EmDash plugin packaging](docs/developer/emdash-plugin.md)
+- [Iframe embedding](docs/developer/iframe-embedding.md)
