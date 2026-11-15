@@ -24,6 +24,9 @@ export function baseEnv(overrides: Partial<Env> = {}): Env {
       APP_URL: real.APP_URL,
       ENVIRONMENT: real.ENVIRONMENT,
       EMAIL_FROM: real.EMAIL_FROM,
+      ...(real.SETTINGS_ENCRYPTION_KEY === undefined
+         ? {}
+         : { SETTINGS_ENCRYPTION_KEY: real.SETTINGS_ENCRYPTION_KEY }),
       ...(real.OWNER_EMAIL === undefined
          ? { OWNER_EMAIL: 'dev@example.com' }
          : { OWNER_EMAIL: real.OWNER_EMAIL }),
@@ -56,6 +59,7 @@ export async function resetDb(db: D1Database = env.DB): Promise<void> {
       db.prepare('DELETE FROM webhook_endpoints'),
       db.prepare('DELETE FROM link_clicks'),
       db.prepare('DELETE FROM email_events'),
+      db.prepare('DELETE FROM email_providers'),
       db.prepare('DELETE FROM automation_link_clicks'),
       db.prepare('DELETE FROM automation_deliveries'),
       db.prepare('DELETE FROM automation_runs'),

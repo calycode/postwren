@@ -3,7 +3,7 @@ import { compileAudience } from '@postwren/shared/audience';
 import { parseDocument } from '@postwren/email/ir';
 import { parseMetadataJson } from '@postwren/shared/metadata';
 import type { Env } from '../env';
-import { createCloudflareAdapter } from '../adapters/email';
+import { createEmailSender } from '../adapters/email';
 import { configuredAppOrigin } from '../lib/app-url';
 import type { AutomationRow, AutomationRunRow } from '../lib/automation-rows';
 import {
@@ -268,7 +268,7 @@ async function sendStep(env: Env, run: RunWithAutomation, step: AutomationStep):
 
    const outcome = await deliverEmail({
       env,
-      adapter: createCloudflareAdapter(env),
+      adapter: await createEmailSender(env),
       origin,
       messageId: deliveryId,
       document,

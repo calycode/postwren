@@ -1,21 +1,6 @@
-import type { Env } from '../env';
-import type { EmailBinding } from '../env';
-
-export type SendFailureClass =
-   'retry' | 'rate' | 'daily_quota' | 'account' | 'permanent' | 'content';
-
-export interface EmailSendAdapter {
-   send(input: {
-      from: { name: string; email: string };
-      replyTo?: string;
-      to: string;
-      subject: string;
-      html: string;
-      text: string;
-      headers?: Record<string, string>;
-   }): Promise<{ providerMessageId: string | null }>;
-   classifyError(err: unknown): SendFailureClass;
-}
+import type { EmailBinding } from '../../env';
+import type { Env } from '../../env';
+import type { EmailMessage, EmailSendAdapter, SendFailureClass } from './types';
 
 const CLASS_BY_CODE: Record<string, SendFailureClass> = {
    E_DELIVERY_FAILED: 'retry',
@@ -60,25 +45,22 @@ export function classifySendError(error: unknown): SendFailureClass {
 }
 
 class CloudflareEmailAdapter implements EmailSendAdapter {
+   readonly provider = 'cloudflare';
+   readonly batchSize = 1;
+   readonly ratePerSecond = null;
+
    constructor(
       private readonly binding: EmailBinding | undefined,
       private readonly devMode: boolean,
    ) {}
 
-   async send(input: {
-      from: { name: string; email: string };
-      replyTo?: string;
-      to: string;
-      subject: string;
-      html: string;
-      text: string;
-      headers?: Record<string, string>;
-   }): Promise<{ providerMessageId: string | null }> {
+   async send(input: EmailMessage): Promise<{ providerMessageId: string | null }> {
       if (this.binding === undefined) {
          if (!this.devMode) throw new Error('EMAIL binding is not configured');
          console.log(
             JSON.stringify({
                event: 'email_dev_sink',
+               provider: this.provider,
                to: input.to,
                subject: input.subject,
                htmlBytes: input.html.length,
@@ -102,6 +84,10 @@ class CloudflareEmailAdapter implements EmailSendAdapter {
 
    classifyError(error: unknown): SendFailureClass {
       return classifySendError(error);
+   }
+
+   retryAfterSeconds(): number | null {
+      return null;
    }
 }
 

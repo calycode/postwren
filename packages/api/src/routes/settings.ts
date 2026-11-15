@@ -1,14 +1,23 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { PROVIDER_IDS } from '@postwren/shared/providers';
 import { createId } from '@postwren/worker-kit/ids';
 import { ok } from '@postwren/worker-kit/envelope';
-import { AppError, ConflictError, NotFoundError } from '@postwren/worker-kit/errors';
+import {
+   AppError,
+   ConflictError,
+   NotFoundError,
+   ValidationError,
+} from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
 import { isUniqueViolation, readJson } from '../lib/validation';
 import { discoverSendingDomains, verifySendingDomain } from '../lib/cloudflare';
 import { nowSeconds } from '../lib/time';
 import { domainOf, seedSenderAddress, senderEmailFrom } from '../lib/senders';
 import type { SenderAddressRow } from '../lib/senders';
+import { appOrigin } from '../lib/app-url';
+import { createEmailSender } from '../adapters/email';
+import { saveSendingProvider, sendingProviderState } from '../lib/sending-provider';
 import {
    MAX_EMBED_ORIGINS,
    MAX_EMBED_ORIGIN_LENGTH,
@@ -41,6 +50,22 @@ const senderPatchInput = z
 const embedOriginsInput = z
    .object({
       origins: z.array(z.string().max(MAX_EMBED_ORIGIN_LENGTH)).max(MAX_EMBED_ORIGINS),
+   })
+   .strict();
+
+const sendingProviderInput = z
+   .object({
+      provider: z.enum(PROVIDER_IDS),
+      label: z.string().trim().max(100).optional(),
+      apiKey: z.string().trim().min(8).max(500).optional(),
+      webhookSecret: z.string().trim().min(8).max(500).optional(),
+      fromDomain: z.string().trim().max(253).optional(),
+   })
+   .strict();
+
+const sendingTestInput = z
+   .object({
+      to: emailField.optional(),
    })
    .strict();
 
@@ -86,6 +111,88 @@ settingsRoutes.get('/cloudflare/status', async (c) => {
       { configured: (c.env.CLOUDFLARE_API_TOKEN ?? '').trim().length > 0 },
       { requestId: c.get('requestId') },
    );
+});
+
+settingsRoutes.get('/sending-provider', async (c) => {
+   return ok(await sendingProviderState(c.env, appOrigin(c)));
+});
+
+settingsRoutes.put('/sending-provider', async (c) => {
+   const body = sendingProviderInput.parse(await readJson(c));
+   await saveSendingProvider(c.env, body);
+
+   const state = await sendingProviderState(c.env, appOrigin(c));
+   console.info(
+      JSON.stringify({
+         level: 'info',
+         event: 'sending_provider_updated',
+         requestId: c.get('requestId'),
+         userId: c.get('userId'),
+         provider: state.provider,
+         configured: state.configured,
+      }),
+   );
+
+   return ok(state);
+});
+
+settingsRoutes.get('/sending-provider/usage', async (c) => {
+   const adapter = await createEmailSender(c.env);
+
+   if (adapter.fetchUsage === undefined) {
+      return ok({ supported: false, provider: adapter.provider });
+   }
+
+   try {
+      const usage = await adapter.fetchUsage();
+      return ok({ supported: true, provider: adapter.provider, ...usage });
+   } catch (error) {
+      throw new AppError(502, 'provider_usage_failed', 'Could not read provider usage', {
+         reason: error instanceof Error ? error.message : String(error),
+      });
+   }
+});
+
+settingsRoutes.post('/sending-provider/test', async (c) => {
+   const body = sendingTestInput.parse(await readJson(c).catch(() => ({})));
+   const to = body.to ?? c.env.OWNER_EMAIL?.trim().toLowerCase();
+
+   if (to === undefined || to.length === 0) {
+      throw new ValidationError('No test recipient available. Pass an address or set OWNER_EMAIL.');
+   }
+
+   const now = nowSeconds();
+   await seedSenderAddress(c.env.DB, c.env.EMAIL_FROM, now);
+   const sender = await c.env.DB.prepare(
+      `SELECT email, name FROM sender_addresses
+       ORDER BY is_default DESC, created_at ASC LIMIT 1`,
+   ).first<{ email: string; name: string }>();
+
+   const adapter = await createEmailSender(c.env);
+
+   try {
+      const result = await adapter.send({
+         from: {
+            name: sender?.name.trim() || 'Postwren',
+            email: sender?.email ?? senderEmailFrom(c.env.EMAIL_FROM),
+         },
+         to,
+         subject: 'Postwren delivery check',
+         html: '<p>Postwren can send through this provider.</p>',
+         text: 'Postwren can send through this provider.',
+      });
+
+      return ok({
+         sent: true,
+         to,
+         provider: adapter.provider,
+         providerMessageId: result.providerMessageId,
+      });
+   } catch (error) {
+      throw new AppError(502, 'email_send_failed', 'The provider rejected the test email', {
+         reason: error instanceof Error ? error.message : String(error),
+      });
+   }
 });
 
 settingsRoutes.get('/senders/discover', async (c) => {

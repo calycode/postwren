@@ -3,7 +3,7 @@
 [Appflare](https://appflare.dev) is a self-hosted app manager for Cloudflare. It runs as
 one Worker in your own account and installs, updates and removes Cloudflare-native apps
 there. This page is the deployment path for Postwren; the manual wrangler path stays in
-the [README](../README.md#shipping).
+the [README](https://github.com/calycode/postwren#shipping).
 
 Postwren is **not in the Appflare catalog** yet (the catalog needs 50 GitHub stars, and
 this repository is new). Until then Appflare installs it **from the repository**: the
@@ -31,7 +31,7 @@ the catalog, not checked_ and Appflare never updates it on its own.
    `wrangler.jsonc` carries `build.command: "pnpm build"`. Either way the admin SPA is
    built before the Worker is bundled. The container holds no credentials, so this build
    cannot use the Turborepo remote cache and logs `Remote caching unavailable`; see
-   [REMOTE-CACHE.md](REMOTE-CACHE.md).
+   [REMOTE-CACHE.md](remote-cache.md).
 4. Confirm the cost and choose **Build for review**. Nothing is deployed yet.
 
 The review list should show:
@@ -48,7 +48,9 @@ The review list should show:
 | Static assets `ASSETS`                                      | The built admin SPA                                                           |
 
 Secrets come from `.dev.vars.example`: `SESSION_SECRET` and `TOKEN_SECRET` are required;
-`TURNSTILE_SECRET` is optional and only needed when a subscribe key enables Turnstile.
+`TURNSTILE_SECRET` is optional and only needed when a subscribe key enables Turnstile;
+`SETTINGS_ENCRYPTION_KEY` is optional and encrypts provider credentials. Set it before
+saving a provider key, because changing it later makes stored credentials undecryptable.
 The four vars from `wrangler.jsonc` become settings you can change: `APP_URL`,
 `ENVIRONMENT`, `EMAIL_FROM`, `OWNER_EMAIL`.
 

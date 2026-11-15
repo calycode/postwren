@@ -23,6 +23,7 @@ import { savedBlockRoutes } from './routes/saved-blocks';
 import { trackingRoutes } from './routes/tracking';
 import { mediaUploadRoutes, mediaServeRoutes } from './routes/media';
 import { emailRoutes } from './routes/emails';
+import { emailEventRoutes } from './routes/email-events';
 import { eventRoutes } from './routes/events';
 import { publicRoutes } from './routes/public';
 import { subscribeKeyRoutes } from './routes/subscribe-keys';
@@ -37,6 +38,7 @@ export function createApp(env: Env): Hono<AppEnv> {
    app.use('*', requestContext);
    app.use('*', framePolicy);
    app.route('/', publicRoutes);
+   app.route('/', emailEventRoutes);
    app.use(
       '*',
       cors({

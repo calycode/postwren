@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CloudDownload, Info, Mail, Plus, Trash2 } from 'lucide-react';
+import { CloudDownload, Copy, Info, Mail, Plus, Send, Trash2 } from 'lucide-react';
 import {
    Alert,
    AlertDescription,
@@ -32,9 +32,13 @@ import {
    cloudflareStatus,
    createSender,
    discoverSenders,
+   getSendingProvider,
+   getSendingProviderUsage,
    listSenders,
    removeSender,
+   testSendingProvider,
    updateSender,
+   updateSendingProvider,
    verifySender,
 } from '@/lib/api/settings';
 import {
@@ -43,8 +47,15 @@ import {
    remove as removeSubscribeKey,
    revoke as revokeSubscribeKey,
 } from '@/lib/api/subscribe-keys';
+import type { ProviderField, ProviderFieldKey } from '@postwren/shared/providers';
 import type { SenderAddress, SenderSettings, SubscribeKey } from '@/lib/api/types';
-import type { DiscoveredDomain } from '@/lib/api/types';
+import type {
+   DiscoveredDomain,
+   ProviderUsageResult,
+   SendingProvider,
+   SendingProviderInput,
+   SendingProviderSettings,
+} from '@/lib/api/types';
 import { errorMessage, fieldErrorsFrom, isEmail } from '@/lib/form-errors';
 import type { FieldErrors } from '@/lib/form-errors';
 import { formatDate } from '@/lib/format';
@@ -83,6 +94,23 @@ export function Settings() {
    const [verification, setVerification] = useState<
       Record<string, { verified: boolean; detail: string }>
    >({});
+
+   const [sendingProvider, setSendingProvider] = useState<SendingProviderSettings | null>(null);
+   const [providerLoading, setProviderLoading] = useState(true);
+   const [providerLoadError, setProviderLoadError] = useState<string | null>(null);
+   const [providerReloadKey, setProviderReloadKey] = useState(0);
+   const [providerChoice, setProviderChoice] = useState<SendingProvider>('cloudflare');
+   const [providerFields, setProviderFields] = useState<Partial<Record<ProviderFieldKey, string>>>(
+      {},
+   );
+   const [providerBusy, setProviderBusy] = useState(false);
+   const [providerTestBusy, setProviderTestBusy] = useState(false);
+   const [providerError, setProviderError] = useState<string | null>(null);
+   const [providerNotice, setProviderNotice] = useState<string | null>(null);
+   const [copiedWebhook, setCopiedWebhook] = useState(false);
+   const [providerUsage, setProviderUsage] = useState<ProviderUsageResult | null>(null);
+   const [usageBusy, setUsageBusy] = useState(false);
+   const [usageError, setUsageError] = useState<string | null>(null);
 
    const [keys, setKeys] = useState<SubscribeKey[]>([]);
    const [keysLoading, setKeysLoading] = useState(true);
@@ -141,6 +169,32 @@ export function Settings() {
          cancelled = true;
       };
    }, []);
+
+   useEffect(() => {
+      let cancelled = false;
+      setProviderLoading(true);
+      setProviderLoadError(null);
+
+      getSendingProvider()
+         .then((result) => {
+            if (cancelled) return;
+            setSendingProvider(result);
+            setProviderChoice(result.provider);
+            setProviderFields({ fromDomain: result.fromDomain ?? '' });
+         })
+         .catch((cause: unknown) => {
+            if (!cancelled) {
+               setProviderLoadError(errorMessage(cause, 'Could not load the sending provider'));
+            }
+         })
+         .finally(() => {
+            if (!cancelled) setProviderLoading(false);
+         });
+
+      return () => {
+         cancelled = true;
+      };
+   }, [providerReloadKey]);
 
    useEffect(() => {
       let cancelled = false;
@@ -360,6 +414,112 @@ export function Settings() {
       }
    }
 
+   async function copyWebhook() {
+      if (sendingProvider?.webhookUrl === null || sendingProvider?.webhookUrl === undefined) return;
+
+      try {
+         await navigator.clipboard.writeText(sendingProvider.webhookUrl);
+         setCopiedWebhook(true);
+      } catch {
+         setCopiedWebhook(false);
+      }
+   }
+
+   function chooseProvider(id: SendingProvider) {
+      setProviderChoice(id);
+      setProviderNotice(null);
+      setProviderError(null);
+      setUsageError(null);
+      setProviderUsage(null);
+      setCopiedWebhook(false);
+
+      const saved = sendingProvider?.provider === id;
+      setProviderFields({ fromDomain: saved ? (sendingProvider?.fromDomain ?? '') : '' });
+   }
+
+   async function saveProvider() {
+      const descriptor = sendingProvider?.providers.find((entry) => entry.id === providerChoice);
+      if (descriptor === undefined) {
+         setProviderError('Choose a sending provider.');
+         return;
+      }
+
+      setProviderBusy(true);
+      setProviderError(null);
+      setProviderNotice(null);
+
+      try {
+         const input: SendingProviderInput = { provider: providerChoice };
+         for (const field of descriptor.fields) {
+            const value = providerFields[field.key]?.trim() ?? '';
+            if (value.length > 0) input[field.key] = value;
+         }
+
+         const result = await updateSendingProvider(input);
+         setSendingProvider(result);
+         setProviderChoice(result.provider);
+         setProviderFields({ fromDomain: result.fromDomain ?? '' });
+         setProviderUsage(null);
+         setCopiedWebhook(false);
+         setProviderNotice(`${result.label} is now the active sending provider.`);
+      } catch (cause) {
+         setProviderError(errorMessage(cause, 'Could not save the sending provider'));
+      } finally {
+         setProviderBusy(false);
+      }
+   }
+
+   async function checkUsage() {
+      setUsageBusy(true);
+      setUsageError(null);
+
+      try {
+         setProviderUsage(await getSendingProviderUsage());
+      } catch (cause) {
+         setUsageError(errorMessage(cause, 'Could not read provider limits'));
+      } finally {
+         setUsageBusy(false);
+      }
+   }
+
+   async function sendProviderTest() {
+      setProviderTestBusy(true);
+      setProviderError(null);
+      setProviderNotice(null);
+
+      try {
+         const result = await testSendingProvider();
+         setProviderNotice(`Test email sent to ${result.to} through ${result.provider}.`);
+      } catch (cause) {
+         setProviderError(errorMessage(cause, 'Could not send the test email'));
+      } finally {
+         setProviderTestBusy(false);
+      }
+   }
+
+   const providerDescriptor =
+      sendingProvider?.providers.find((entry) => entry.id === providerChoice) ?? null;
+   const savedSelection = sendingProvider?.provider === providerChoice;
+   const selectedStored = savedSelection ? sendingProvider?.stored : undefined;
+   const activeProviderLabel = sendingProvider?.label ?? 'your provider';
+
+   function fieldHint(field: ProviderField): string {
+      if (field.key === 'fromDomain' || selectedStored === undefined) return field.hint;
+
+      const stored = field.key === 'apiKey' ? selectedStored.apiKey : selectedStored.webhookSecret;
+      if (!stored) return field.hint;
+
+      const suffix =
+         field.key === 'apiKey' && sendingProvider?.apiKeyLast4 !== null
+            ? ` (ending ${sendingProvider?.apiKeyLast4})`
+            : '';
+      return `A value is stored${suffix}. Leave blank to keep it.`;
+   }
+
+   function usageValue(entry: { used: number; limit: number | null }): string {
+      return entry.limit === null ? `${entry.used} used` : `${entry.used} of ${entry.limit}`;
+   }
+
    const addresses = settings?.addresses ?? [];
    const groups = groupByDomain(addresses, settings?.domains ?? []);
    const activeKeys = keys.filter((key) => key.revoked_at === null);
@@ -448,19 +608,332 @@ export function Settings() {
                value="sending"
                className="grid gap-6"
             >
-               <Alert>
-                  <Info aria-hidden="true" />
-                  <AlertTitle>Domains are onboarded in Cloudflare</AlertTitle>
-                  <AlertDescription>
-                     <p>
-                        Add your domain and set up DKIM and SPF in the Cloudflare dashboard under
-                        Email Service. Onboarding a domain there is what Cloudflare verifies — not
-                        individual addresses. Discover and Check verification read your zones and
-                        sending domains when a Cloudflare API token is configured, but Cloudflare
-                        stays the source of truth.
-                     </p>
-                  </AlertDescription>
-               </Alert>
+               <Card data-guide="settings-provider">
+                  <CardHeader>
+                     <CardTitle>Sending provider</CardTitle>
+                     <CardDescription>
+                        Pick who delivers campaign, automation and transactional email. Cloudflare
+                        Email Service is the default and needs no key. Campaigns pin the active
+                        provider when they are scheduled, so a switch never changes a send already
+                        in flight.
+                     </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-5">
+                     {providerLoading ? (
+                        <p className="text-sm text-muted-foreground">Loading sending provider…</p>
+                     ) : providerLoadError !== null ? (
+                        <Alert variant="destructive">
+                           <AlertTitle>Could not load the sending provider</AlertTitle>
+                           <AlertDescription>
+                              <p>{providerLoadError}</p>
+                              <Button
+                                 variant="outline"
+                                 size="sm"
+                                 className="mt-3"
+                                 onClick={() => setProviderReloadKey((key) => key + 1)}
+                              >
+                                 Try again
+                              </Button>
+                           </AlertDescription>
+                        </Alert>
+                     ) : (
+                        <>
+                           <div
+                              role="radiogroup"
+                              aria-label="Sending provider"
+                              className="grid gap-3 sm:grid-cols-2"
+                           >
+                              {sendingProvider?.providers.map((option) => (
+                                 <label
+                                    key={option.id}
+                                    className={cn(
+                                       'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-ring',
+                                       providerChoice === option.id
+                                          ? 'border-primary bg-primary/5'
+                                          : 'border-border hover:bg-muted/40',
+                                    )}
+                                 >
+                                    <input
+                                       type="radio"
+                                       name="sending-provider"
+                                       className="mt-1 size-4 accent-primary"
+                                       value={option.id}
+                                       checked={providerChoice === option.id}
+                                       disabled={providerBusy}
+                                       onChange={() => chooseProvider(option.id)}
+                                    />
+                                    <span className="grid gap-0.5">
+                                       <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                                          {option.label}
+                                          {option.id === sendingProvider?.provider && (
+                                             <Badge variant="secondary">Active</Badge>
+                                          )}
+                                       </span>
+                                       <span className="text-xs text-muted-foreground">
+                                          {option.description}
+                                       </span>
+                                    </span>
+                                 </label>
+                              ))}
+                           </div>
+
+                           {providerDescriptor !== null && (
+                              <>
+                                 {providerDescriptor.fields.length > 0 && (
+                                    <div className="grid gap-4">
+                                       {providerDescriptor.fields.map((field) => (
+                                          <Field
+                                             key={field.key}
+                                             label={field.label}
+                                             htmlFor={`provider-${field.key}`}
+                                             required={field.required}
+                                             hint={fieldHint(field)}
+                                          >
+                                             <Input
+                                                id={`provider-${field.key}`}
+                                                type={field.type}
+                                                autoComplete="off"
+                                                value={providerFields[field.key] ?? ''}
+                                                placeholder={field.placeholder}
+                                                onInput={(event) =>
+                                                   setProviderFields((current) => ({
+                                                      ...current,
+                                                      [field.key]: event.currentTarget.value,
+                                                   }))
+                                                }
+                                             />
+                                          </Field>
+                                       ))}
+                                    </div>
+                                 )}
+
+                                 <p className="text-xs text-muted-foreground">
+                                    {providerDescriptor.batchSize > 1
+                                       ? `Batches up to ${providerDescriptor.batchSize} messages per request.`
+                                       : 'Sends one message per request.'}
+                                    {providerDescriptor.ratePerSecond === null
+                                       ? ''
+                                       : ` Paced at ${providerDescriptor.ratePerSecond} requests per second by default.`}
+                                 </p>
+
+                                 <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <Badge
+                                       variant={
+                                          savedSelection
+                                             ? sendingProvider?.configured
+                                                ? 'success'
+                                                : 'outline'
+                                             : providerDescriptor.fields.some(
+                                                    (field) => field.required,
+                                                 )
+                                               ? 'outline'
+                                               : 'secondary'
+                                       }
+                                    >
+                                       {savedSelection
+                                          ? sendingProvider?.configured
+                                             ? 'Ready to send'
+                                             : 'Needs credentials'
+                                          : providerDescriptor.fields.some(
+                                                 (field) => field.required,
+                                              )
+                                            ? 'Not saved'
+                                            : 'Ready to switch'}
+                                    </Badge>
+                                    {savedSelection && providerDescriptor.webhook !== null && (
+                                       <Badge
+                                          variant={
+                                             sendingProvider?.eventsConfigured
+                                                ? 'success'
+                                                : 'warning'
+                                          }
+                                       >
+                                          {sendingProvider?.eventsConfigured
+                                             ? 'Events configured'
+                                             : 'Events not configured'}
+                                       </Badge>
+                                    )}
+                                 </div>
+
+                                 {providerDescriptor.webhook !== null && (
+                                    <div className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3">
+                                       <div className="flex flex-wrap items-start justify-between gap-2">
+                                          <div className="grid gap-0.5">
+                                             <span className="text-sm font-medium">
+                                                Delivery events
+                                             </span>
+                                             <span className="text-xs text-muted-foreground">
+                                                {providerDescriptor.webhook.hint}
+                                             </span>
+                                          </div>
+                                          <Badge variant="outline">
+                                             {providerDescriptor.webhook.auth === 'signature'
+                                                ? 'Signed webhook'
+                                                : 'Token URL'}
+                                          </Badge>
+                                       </div>
+
+                                       {savedSelection &&
+                                       sendingProvider?.webhookUrl !== null &&
+                                       sendingProvider?.webhookUrl !== undefined ? (
+                                          <div className="flex flex-wrap gap-2">
+                                             <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 text-xs">
+                                                {sendingProvider.webhookUrl}
+                                             </code>
+                                             <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => void copyWebhook()}
+                                             >
+                                                <Copy aria-hidden="true" />
+                                                {copiedWebhook ? 'Copied' : 'Copy'}
+                                             </Button>
+                                          </div>
+                                       ) : (
+                                          <p className="text-xs text-muted-foreground">
+                                             {savedSelection
+                                                ? 'Set APP_URL to a public origin to generate the webhook URL.'
+                                                : 'Save this provider to generate its webhook URL.'}
+                                          </p>
+                                       )}
+
+                                       {providerDescriptor.webhook.auth === 'signature' &&
+                                          selectedStored !== undefined &&
+                                          !selectedStored.webhookSecret &&
+                                          (providerFields.webhookSecret ?? '').trim().length ===
+                                             0 && (
+                                             <p className="text-xs text-destructive">
+                                                Add the signing secret to accept delivery events.
+                                             </p>
+                                          )}
+                                    </div>
+                                 )}
+
+                                 {providerDescriptor.usage && savedSelection && (
+                                    <div className="grid gap-2 rounded-lg border border-border p-3">
+                                       <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <span className="text-sm font-medium">Plan usage</span>
+                                          <Button
+                                             type="button"
+                                             variant="outline"
+                                             size="sm"
+                                             disabled={usageBusy}
+                                             onClick={() => void checkUsage()}
+                                          >
+                                             {usageBusy ? 'Checking…' : 'Check limits'}
+                                          </Button>
+                                       </div>
+                                       {usageError !== null && (
+                                          <p
+                                             role="alert"
+                                             className="text-xs text-destructive"
+                                          >
+                                             {usageError}
+                                          </p>
+                                       )}
+                                       {providerUsage?.supported === true && (
+                                          <div className="grid gap-1 text-xs text-muted-foreground">
+                                             {providerUsage.daily !== null &&
+                                                providerUsage.daily !== undefined && (
+                                                   <span>
+                                                      Daily: {usageValue(providerUsage.daily)}
+                                                   </span>
+                                                )}
+                                             {providerUsage.monthly !== null &&
+                                                providerUsage.monthly !== undefined && (
+                                                   <span>
+                                                      Monthly: {usageValue(providerUsage.monthly)}
+                                                   </span>
+                                                )}
+                                             {providerUsage.rateLimit !== null &&
+                                                providerUsage.rateLimit !== undefined && (
+                                                   <span>
+                                                      API rate: {providerUsage.rateLimit.limit} per{' '}
+                                                      {providerUsage.rateLimit.duration}
+                                                   </span>
+                                                )}
+                                          </div>
+                                       )}
+                                    </div>
+                                 )}
+                              </>
+                           )}
+
+                           {providerError !== null && (
+                              <Alert variant="destructive">
+                                 <AlertDescription>{providerError}</AlertDescription>
+                              </Alert>
+                           )}
+
+                           {providerNotice !== null && (
+                              <Alert variant="success">
+                                 <AlertDescription>{providerNotice}</AlertDescription>
+                              </Alert>
+                           )}
+
+                           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
+                              <Button
+                                 type="button"
+                                 variant="outline"
+                                 disabled={
+                                    providerTestBusy ||
+                                    providerBusy ||
+                                    !savedSelection ||
+                                    sendingProvider?.configured !== true
+                                 }
+                                 onClick={() => void sendProviderTest()}
+                              >
+                                 <Send aria-hidden="true" />
+                                 {providerTestBusy ? 'Sending…' : 'Send test email'}
+                              </Button>
+                              <Button
+                                 type="button"
+                                 disabled={providerBusy}
+                                 onClick={() => void saveProvider()}
+                              >
+                                 {providerBusy ? 'Saving…' : 'Save provider'}
+                              </Button>
+                           </div>
+
+                           <p className="text-xs text-muted-foreground">
+                              {sendingProvider?.encryption === 'derived'
+                                 ? 'Stored keys are encrypted with a key derived from TOKEN_SECRET. Set SETTINGS_ENCRYPTION_KEY to separate provider credentials from token signing.'
+                                 : 'Stored keys are encrypted with SETTINGS_ENCRYPTION_KEY.'}
+                           </p>
+                        </>
+                     )}
+                  </CardContent>
+               </Card>
+
+               {sendingProvider?.provider === 'cloudflare' ? (
+                  <Alert>
+                     <Info aria-hidden="true" />
+                     <AlertTitle>Domains are onboarded in Cloudflare</AlertTitle>
+                     <AlertDescription>
+                        <p>
+                           Add your domain and set up DKIM and SPF in the Cloudflare dashboard under
+                           Email Service. Onboarding a domain there is what Cloudflare verifies, not
+                           individual addresses. Discover and Check verification read your zones and
+                           sending domains when a Cloudflare API token is configured, but Cloudflare
+                           stays the source of truth.
+                        </p>
+                     </AlertDescription>
+                  </Alert>
+               ) : (
+                  <Alert>
+                     <Info aria-hidden="true" />
+                     <AlertTitle>Domains are verified by {activeProviderLabel}</AlertTitle>
+                     <AlertDescription>
+                        <p>
+                           Add your domain in {activeProviderLabel}, publish the DNS records it
+                           shows, then mark the sender as verified below. Postwren still requires a
+                           verified address before a campaign can use it, and the provider enforces
+                           its own domain checks at send time.
+                        </p>
+                     </AlertDescription>
+                  </Alert>
+               )}
 
                <Card data-guide="settings-senders">
                   <CardHeader>
@@ -477,139 +950,141 @@ export function Settings() {
                         </Alert>
                      )}
 
-                     <div
-                        className={cn(
-                           'grid gap-3 rounded-lg border border-dashed p-3 transition-colors',
-                           cloudflareConfigured === false
-                              ? 'border-border bg-muted/20'
-                              : 'border-border',
-                        )}
-                     >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                           <div className="grid gap-0.5">
-                              <p className="flex items-center gap-2 text-sm font-medium">
-                                 Discover from Cloudflare
-                                 {cloudflareConfigured === false && (
-                                    <Badge variant="outline">Not configured</Badge>
-                                 )}
-                                 {cloudflareConfigured === true && (
-                                    <Badge variant="success">Token detected</Badge>
-                                 )}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                 {cloudflareConfigured === false
-                                    ? 'Add a read-only Cloudflare API token to list your zones, check DNS, and confirm Email Sending onboarding.'
-                                    : 'List zones, check DNS, and confirm which domains are onboarded for Email Sending.'}
-                              </p>
-                              {cloudflareConfigured === false && (
-                                 <p className="text-xs text-muted-foreground">
-                                    Set the{' '}
-                                    <code className="rounded bg-muted px-1 py-0.5">
-                                       CLOUDFLARE_API_TOKEN
-                                    </code>{' '}
-                                    secret (Zone Read, DNS Read, Email Sending Read), then reload
-                                    this page.
+                     {sendingProvider?.provider === 'cloudflare' && (
+                        <div
+                           className={cn(
+                              'grid gap-3 rounded-lg border border-dashed p-3 transition-colors',
+                              cloudflareConfigured === false
+                                 ? 'border-border bg-muted/20'
+                                 : 'border-border',
+                           )}
+                        >
+                           <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="grid gap-0.5">
+                                 <p className="flex items-center gap-2 text-sm font-medium">
+                                    Discover from Cloudflare
+                                    {cloudflareConfigured === false && (
+                                       <Badge variant="outline">Not configured</Badge>
+                                    )}
+                                    {cloudflareConfigured === true && (
+                                       <Badge variant="success">Token detected</Badge>
+                                    )}
                                  </p>
-                              )}
+                                 <p className="text-xs text-muted-foreground">
+                                    {cloudflareConfigured === false
+                                       ? 'Add a read-only Cloudflare API token to list your zones, check DNS, and confirm Email Sending onboarding.'
+                                       : 'List zones, check DNS, and confirm which domains are onboarded for Email Sending.'}
+                                 </p>
+                                 {cloudflareConfigured === false && (
+                                    <p className="text-xs text-muted-foreground">
+                                       Set the{' '}
+                                       <code className="rounded bg-muted px-1 py-0.5">
+                                          CLOUDFLARE_API_TOKEN
+                                       </code>{' '}
+                                       secret (Zone Read, DNS Read, Email Sending Read), then reload
+                                       this page.
+                                    </p>
+                                 )}
+                              </div>
+                              <Button
+                                 variant="outline"
+                                 size="sm"
+                                 disabled={discoverBusy || cloudflareConfigured === false}
+                                 title={
+                                    cloudflareConfigured === false
+                                       ? 'CLOUDFLARE_API_TOKEN is not set'
+                                       : undefined
+                                 }
+                                 onClick={() => void discoverFromCloudflare()}
+                              >
+                                 <CloudDownload aria-hidden="true" />
+                                 {discoverBusy ? 'Checking…' : 'Discover'}
+                              </Button>
                            </div>
-                           <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={discoverBusy || cloudflareConfigured === false}
-                              title={
-                                 cloudflareConfigured === false
-                                    ? 'CLOUDFLARE_API_TOKEN is not set'
-                                    : undefined
-                              }
-                              onClick={() => void discoverFromCloudflare()}
-                           >
-                              <CloudDownload aria-hidden="true" />
-                              {discoverBusy ? 'Checking…' : 'Discover'}
-                           </Button>
-                        </div>
 
-                        {discoverError !== null && (
-                           <p
-                              role="alert"
-                              className="text-xs text-destructive"
-                           >
-                              {discoverError}
-                           </p>
-                        )}
-
-                        {discovery !== null && !discovery.configured && (
-                           <p className="text-xs text-muted-foreground">
-                              Set{' '}
-                              <code className="rounded bg-muted px-1 py-0.5">
-                                 CLOUDFLARE_API_TOKEN
-                              </code>{' '}
-                              to let Postwren list your zones.
-                           </p>
-                        )}
-
-                        {discovery !== null &&
-                           discovery.configured &&
-                           discovery.domains.length === 0 && (
-                              <p className="text-xs text-muted-foreground">
-                                 No zones were returned by Cloudflare.
+                           {discoverError !== null && (
+                              <p
+                                 role="alert"
+                                 className="text-xs text-destructive"
+                              >
+                                 {discoverError}
                               </p>
                            )}
 
-                        {discovery?.configured === true && discovery.domains.length > 0 && (
-                           <ul className="grid gap-2">
-                              {discovery.domains.map((domain) => {
-                                 const already = addresses.some(
-                                    (address) => address.email === domain.suggestedAddress,
-                                 );
-                                 const checks: [string, boolean][] = [
-                                    ['MX', domain.mx],
-                                    ['SPF', domain.spf],
-                                    ['DKIM', domain.dkim],
-                                    ['DMARC', domain.dmarc],
-                                 ];
-                                 return (
-                                    <li
-                                       key={domain.id}
-                                       className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-background px-3 py-2"
-                                    >
-                                       <span className="min-w-0 flex-1">
-                                          <span className="block truncate text-sm font-medium">
-                                             {domain.name}
-                                          </span>
-                                          <span className="mt-1 flex flex-wrap gap-1">
-                                             {checks.map(([label, present]) => (
-                                                <Badge
-                                                   key={String(label)}
-                                                   variant={present ? 'success' : 'outline'}
-                                                   title={
-                                                      present
-                                                         ? `${label} found`
-                                                         : `${label} missing`
-                                                   }
-                                                >
-                                                   {label}
-                                                </Badge>
-                                             ))}
-                                          </span>
-                                       </span>
-                                       <Button
-                                          variant="outline"
-                                          size="sm"
-                                          disabled={already || discoveredBusyId === domain.id}
-                                          onClick={() => void addDiscoveredAddress(domain)}
+                           {discovery !== null && !discovery.configured && (
+                              <p className="text-xs text-muted-foreground">
+                                 Set{' '}
+                                 <code className="rounded bg-muted px-1 py-0.5">
+                                    CLOUDFLARE_API_TOKEN
+                                 </code>{' '}
+                                 to let Postwren list your zones.
+                              </p>
+                           )}
+
+                           {discovery !== null &&
+                              discovery.configured &&
+                              discovery.domains.length === 0 && (
+                                 <p className="text-xs text-muted-foreground">
+                                    No zones were returned by Cloudflare.
+                                 </p>
+                              )}
+
+                           {discovery?.configured === true && discovery.domains.length > 0 && (
+                              <ul className="grid gap-2">
+                                 {discovery.domains.map((domain) => {
+                                    const already = addresses.some(
+                                       (address) => address.email === domain.suggestedAddress,
+                                    );
+                                    const checks: [string, boolean][] = [
+                                       ['MX', domain.mx],
+                                       ['SPF', domain.spf],
+                                       ['DKIM', domain.dkim],
+                                       ['DMARC', domain.dmarc],
+                                    ];
+                                    return (
+                                       <li
+                                          key={domain.id}
+                                          className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-background px-3 py-2"
                                        >
-                                          {already
-                                             ? 'Added'
-                                             : discoveredBusyId === domain.id
-                                               ? 'Adding…'
-                                               : `Add ${domain.suggestedAddress}`}
-                                       </Button>
-                                    </li>
-                                 );
-                              })}
-                           </ul>
-                        )}
-                     </div>
+                                          <span className="min-w-0 flex-1">
+                                             <span className="block truncate text-sm font-medium">
+                                                {domain.name}
+                                             </span>
+                                             <span className="mt-1 flex flex-wrap gap-1">
+                                                {checks.map(([label, present]) => (
+                                                   <Badge
+                                                      key={String(label)}
+                                                      variant={present ? 'success' : 'outline'}
+                                                      title={
+                                                         present
+                                                            ? `${label} found`
+                                                            : `${label} missing`
+                                                      }
+                                                   >
+                                                      {label}
+                                                   </Badge>
+                                                ))}
+                                             </span>
+                                          </span>
+                                          <Button
+                                             variant="outline"
+                                             size="sm"
+                                             disabled={already || discoveredBusyId === domain.id}
+                                             onClick={() => void addDiscoveredAddress(domain)}
+                                          >
+                                             {already
+                                                ? 'Added'
+                                                : discoveredBusyId === domain.id
+                                                  ? 'Adding…'
+                                                  : `Add ${domain.suggestedAddress}`}
+                                          </Button>
+                                       </li>
+                                    );
+                                 })}
+                              </ul>
+                           )}
+                        </div>
+                     )}
 
                      {loading ? (
                         <p className="text-sm text-muted-foreground">Loading sender addresses…</p>
@@ -714,7 +1189,21 @@ export function Settings() {
                                                    Default
                                                 </label>
 
-                                                {cloudflareConfigured === true ? (
+                                                {sendingProvider?.provider !== 'cloudflare' ? (
+                                                   <label className="inline-flex items-center gap-1.5 text-xs font-medium">
+                                                      <input
+                                                         type="checkbox"
+                                                         className="size-4 accent-primary"
+                                                         checked={verified}
+                                                         disabled={busy}
+                                                         title="Verify the domain with your provider, then mark the address here so Postwren allows it as a sender."
+                                                         onChange={() =>
+                                                            void toggleVerified(address)
+                                                         }
+                                                      />
+                                                      Verified with {activeProviderLabel}
+                                                   </label>
+                                                ) : cloudflareConfigured === true ? (
                                                    <Button
                                                       variant="outline"
                                                       size="sm"
@@ -782,8 +1271,9 @@ export function Settings() {
                         <div className="grid gap-1">
                            <h3 className="text-sm font-medium">Add a sending address</h3>
                            <p className="text-xs text-muted-foreground">
-                              The domain has to be active in Cloudflare Email Service first. New
-                              addresses start unverified.
+                              For Cloudflare, activate the domain under Email Service. For Resend,
+                              add it in Resend and publish the DNS records it shows. New addresses
+                              start unverified.
                            </p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">

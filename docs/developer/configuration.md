@@ -27,18 +27,25 @@ assumed. Do not include a path.
 
 ## Secrets
 
-| Secret                  | Required | Purpose                                                        |
-| ----------------------- | -------- | -------------------------------------------------------------- |
-| `SESSION_SECRET`        | yes      | Signs session cookies and magic-link tokens                    |
-| `TOKEN_SECRET`          | yes      | Signs tracking, unsubscribe and service tokens                 |
-| `TURNSTILE_SECRET`      | no       | Verifies Turnstile tokens for subscribe keys that require them |
-| `CLOUDFLARE_API_TOKEN`  | no       | Read-only zone, DNS and Email Sending checks                   |
-| `CLOUDFLARE_ACCOUNT_ID` | no       | Needed when the token can see more than one account            |
+| Secret                    | Required | Purpose                                                         |
+| ------------------------- | -------- | --------------------------------------------------------------- |
+| `SESSION_SECRET`          | yes      | Signs session cookies and magic-link tokens                     |
+| `TOKEN_SECRET`            | yes      | Signs tracking, unsubscribe and service tokens                  |
+| `TURNSTILE_SECRET`        | no       | Verifies Turnstile tokens for subscribe keys that require them  |
+| `CLOUDFLARE_API_TOKEN`    | no       | Read-only zone, DNS and Email Sending checks                    |
+| `CLOUDFLARE_ACCOUNT_ID`   | no       | Needed when the token can see more than one account             |
+| `SETTINGS_ENCRYPTION_KEY` | no       | Base64 32 bytes; encrypts provider API keys and webhook secrets |
 
 Use at least 32 random bytes for both signing secrets. Rotating `TOKEN_SECRET`
 invalidates links and credentials already in the wild; rotating
 `SESSION_SECRET` signs everyone out. A subscribe key with a Turnstile site key
 fails closed when `TURNSTILE_SECRET` is missing.
+
+`SETTINGS_ENCRYPTION_KEY` is optional. When it is unset, the AES key for
+provider credentials is derived from `TOKEN_SECRET` with HKDF. Set it before
+storing a provider key: changing the source afterwards makes every stored
+provider credential undecryptable, and they must be entered again. Generate one
+with `openssl rand -base64 32`.
 
 ## Bindings
 

@@ -60,6 +60,11 @@ export interface Env {
    CLOUDFLARE_API_TOKEN?: string;
    CLOUDFLARE_ACCOUNT_ID?: string;
    TURNSTILE_SECRET?: string;
+   /**
+    * Base64 for 32 bytes. Encrypts provider credentials stored in D1. When
+    * absent the key is derived from TOKEN_SECRET with HKDF.
+    */
+   SETTINGS_ENCRYPTION_KEY?: string;
 }
 
 export type AuthKind = 'session' | 'api_key' | 'service';

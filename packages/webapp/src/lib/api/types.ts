@@ -1,4 +1,5 @@
 import type { Block } from '@postwren/email/ir';
+import type { ProviderDescriptor, ProviderId } from '@postwren/shared/providers';
 import type {
    AutomationStatus,
    AutomationStep,
@@ -203,6 +204,51 @@ export type SenderSettings = {
    addresses: SenderAddress[];
    domains: string[];
    defaultFrom: string;
+};
+
+export type SendingProvider = ProviderId;
+
+export type StoredProviderFields = {
+   apiKey: boolean;
+   webhookSecret: boolean;
+   fromDomain: string | null;
+};
+
+export type SendingProviderSettings = {
+   provider: SendingProvider;
+   label: string;
+   configured: boolean;
+   eventsConfigured: boolean;
+   apiKeyLast4: string | null;
+   webhookUrl: string | null;
+   fromDomain: string | null;
+   status: string;
+   encryption: 'dedicated' | 'derived';
+   stored: StoredProviderFields;
+   providers: readonly ProviderDescriptor[];
+};
+
+export type SendingProviderInput = {
+   provider: SendingProvider;
+   label?: string;
+   apiKey?: string;
+   webhookSecret?: string;
+   fromDomain?: string;
+};
+
+export type ProviderUsageResult = {
+   supported: boolean;
+   provider: SendingProvider;
+   daily?: { used: number; limit: number | null } | null;
+   monthly?: { used: number; limit: number | null } | null;
+   rateLimit?: { limit: number; duration: string } | null;
+};
+
+export type SendingTestResult = {
+   sent: boolean;
+   to: string;
+   provider: SendingProvider;
+   providerMessageId: string | null;
 };
 
 export type DiscoveredDomain = {

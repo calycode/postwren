@@ -7,7 +7,7 @@ import type { MetadataRecord } from '@postwren/shared/metadata';
 import type { PayloadData } from '@postwren/shared/payload';
 import type { Env } from '../env';
 import { errorCodeOf } from '../adapters/email';
-import type { EmailSendAdapter, SendFailureClass } from '../adapters/email';
+import type { EmailMessage, EmailSendAdapter, SendFailureClass } from '../adapters/email';
 import { linkKey, signClickLinks } from './email-links';
 import type { MailSubscriberRow } from './rows';
 
@@ -44,6 +44,22 @@ export type DeliveryRequest = {
    beforeSend?: () => Promise<void>;
 };
 
+export type PrepareRequest = Omit<DeliveryRequest, 'adapter' | 'beforeSend'>;
+
+export type PreparedEmail = {
+   message: EmailMessage;
+   unsubscribeUrl: string;
+};
+
+export type PrepareOutcome =
+   | { ok: true; prepared: PreparedEmail }
+   | {
+        ok: false;
+        stage: 'render';
+        code: string | null;
+        message: string;
+     };
+
 export type DeliveryOutcome =
    | { ok: true; providerMessageId: string | null; unsubscribeUrl: string }
    | {
@@ -57,6 +73,7 @@ export type DeliveryOutcome =
         stage: 'send';
         code: string | null;
         failure: SendFailureClass;
+        retryAfterSeconds: number | null;
         message: string;
      };
 
@@ -70,7 +87,7 @@ function messageOf(error: unknown, fallback: string): string {
 }
 
 function mergeContextOf(
-   request: DeliveryRequest,
+   request: PrepareRequest,
    unsubscribeUrl: string,
    webUrl: string,
 ): MergeContext {
@@ -103,8 +120,13 @@ function mergeContextOf(
    };
 }
 
-export async function deliverEmail(request: DeliveryRequest): Promise<DeliveryOutcome> {
-   const { env, adapter, origin, messageId, subscriber, campaign } = request;
+/**
+ * Render, merge and sign one message without calling a provider. Campaigns use
+ * this to batch many recipients into one provider request; transactional and
+ * automation sends use `deliverEmail`, which wraps it.
+ */
+export async function prepareEmail(request: PrepareRequest): Promise<PrepareOutcome> {
+   const { env, origin, messageId, subscriber, campaign } = request;
 
    const unsubscribeToken = await signToken(
       { s: subscriber.id, c: campaign.id },
@@ -166,31 +188,48 @@ export async function deliverEmail(request: DeliveryRequest): Promise<DeliveryOu
       };
    }
 
-   if (request.beforeSend !== undefined) await request.beforeSend();
-
    const headers: Record<string, string> = {
       'List-Unsubscribe': `<${unsubscribeUrl}>, <mailto:unsubscribe@${mailDomain(env)}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
    };
 
-   try {
-      const result = await adapter.send({
-         from: request.from,
-         ...(request.replyTo === null ? {} : { replyTo: request.replyTo }),
-         to: subscriber.email,
-         subject: request.subject,
-         html,
-         text,
-         headers,
-      });
+   return {
+      ok: true,
+      prepared: {
+         unsubscribeUrl,
+         message: {
+            from: request.from,
+            ...(request.replyTo === null ? {} : { replyTo: request.replyTo }),
+            to: subscriber.email,
+            subject: request.subject,
+            html,
+            text,
+            headers,
+         },
+      },
+   };
+}
 
-      return { ok: true, providerMessageId: result.providerMessageId, unsubscribeUrl };
+export async function deliverEmail(request: DeliveryRequest): Promise<DeliveryOutcome> {
+   const prepared = await prepareEmail(request);
+   if (!prepared.ok) return prepared;
+
+   if (request.beforeSend !== undefined) await request.beforeSend();
+
+   try {
+      const result = await request.adapter.send(prepared.prepared.message);
+      return {
+         ok: true,
+         providerMessageId: result.providerMessageId,
+         unsubscribeUrl: prepared.prepared.unsubscribeUrl,
+      };
    } catch (error) {
       return {
          ok: false,
          stage: 'send',
          code: errorCodeOf(error),
-         failure: adapter.classifyError(error),
+         failure: request.adapter.classifyError(error),
+         retryAfterSeconds: request.adapter.retryAfterSeconds(error),
          message: messageOf(error, 'Send failed'),
       };
    }

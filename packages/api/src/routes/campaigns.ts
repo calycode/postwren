@@ -31,8 +31,9 @@ import { decodeCursor, encodeCursor } from '../lib/cursor';
 import { nowSeconds } from '../lib/time';
 import { assertAudienceQuery, countAudience } from '../lib/audience';
 import { assertSenderAllowed } from '../lib/senders';
-import { createCloudflareAdapter } from '../adapters/email';
+import { createEmailSender } from '../adapters/email';
 import { dispatchCampaign, loadCampaign } from '../jobs/dispatch';
+import { activeProviderId } from '../lib/sending-provider';
 import { SAMPLE_UNSUBSCRIBE_URL, sampleMergeContext } from '../lib/sample';
 import { emitWebhookEventSafe } from '../lib/webhooks';
 
@@ -162,13 +163,14 @@ async function pinAudience(
    template: TemplateRow,
 ): Promise<number> {
    const count = await countAudience(env.DB, query);
+   const provider = await activeProviderId(env.DB);
    await env.DB.prepare(
       `UPDATE campaigns
        SET template_revision = ?, ir_snapshot = ?, metadata_snapshot = metadata_json,
-           data_snapshot = data_json, audience_count = ?, updated_at = ?
+           data_snapshot = data_json, provider = ?, audience_count = ?, updated_at = ?
        WHERE id = ?`,
    )
-      .bind(template.revision, template.ir_json, count, nowSeconds(), campaignId)
+      .bind(template.revision, template.ir_json, provider, count, nowSeconds(), campaignId)
       .run();
    return count;
 }
@@ -393,7 +395,7 @@ campaignRoutes.post('/:id/test', async (c) => {
    );
    const rendered = renderEmail(merged, { unsubscribeUrl: SAMPLE_UNSUBSCRIBE_URL });
 
-   const adapter = createCloudflareAdapter(c.env);
+   const adapter = await createEmailSender(c.env);
    try {
       await adapter.send({
          from: { name: campaign.from_name, email: campaign.from_email },

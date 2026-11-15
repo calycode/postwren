@@ -1,10 +1,8 @@
 import type { EmailSendingEvent, Env } from '../env';
+import { normalizeCloudflareEvent } from '../lib/email-events';
+import type { NormalizedEmailEvent } from '../lib/email-events';
 import { emitWebhookEventSafe } from '../lib/webhooks';
 import { nowSeconds } from '../lib/time';
-
-const COMPLAINED = 'cf.email.sending.message.complained';
-const BOUNCED = 'cf.email.sending.message.bounced';
-const DELIVERED = 'cf.email.sending.message.delivered';
 
 type Subscriber = { id: string; email: string };
 
@@ -25,29 +23,28 @@ async function stopRuns(env: Env, subscriberId: string, now: number): Promise<vo
 }
 
 /**
- * Consumes Cloudflare Email Sending events. A complaint and a hard bounce are
- * terminal; a soft bounce is only recorded because Cloudflare already retries
- * it. Every event is logged first, and the unique event id makes a redelivery a
- * no-op for the subscriber and webhook side effects.
+ * Applies one normalised delivery event. A complaint and a hard bounce are
+ * terminal; a soft bounce is only recorded because the provider already retries
+ * it. The event is logged first, and the unique event id makes a redelivery a
+ * no-op for every side effect, whichever provider sent it.
  */
-export async function processEmailEvent(env: Env, event: EmailSendingEvent): Promise<void> {
-   const payload = event.payload;
-   if (typeof payload.recipient !== 'string' || typeof payload.messageId !== 'string') return;
-
-   const email = payload.recipient.trim().toLowerCase();
+export async function processEmailEvent(env: Env, event: NormalizedEmailEvent): Promise<void> {
+   const email = event.recipient.trim().toLowerCase();
    const now = nowSeconds();
 
    const inserted = await env.DB.prepare(
       `INSERT OR IGNORE INTO email_events
-       (event_id, type, message_id, email, payload, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (event_id, provider, type, kind, message_id, email, payload, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
    )
       .bind(
-         payload.eventId ?? null,
-         event.type,
-         payload.messageId,
+         event.eventId,
+         event.provider,
+         event.rawType,
+         event.kind,
+         event.messageId,
          email,
-         JSON.stringify(event),
+         JSON.stringify(event.payload),
          now,
       )
       .run();
@@ -56,7 +53,7 @@ export async function processEmailEvent(env: Env, event: EmailSendingEvent): Pro
 
    const subscriber = await findSubscriber(env, email);
 
-   if (event.type === COMPLAINED) {
+   if (event.kind === 'complained') {
       if (subscriber !== null) {
          await env.DB.prepare(
             `UPDATE subscribers
@@ -72,26 +69,26 @@ export async function processEmailEvent(env: Env, event: EmailSendingEvent): Pro
          env.DB.prepare(
             `UPDATE campaign_recipients SET status = 'complained'
              WHERE provider_message_id = ?`,
-         ).bind(payload.messageId),
+         ).bind(event.messageId),
          env.DB.prepare(
             `UPDATE automation_deliveries SET status = 'complained'
              WHERE provider_message_id = ?`,
-         ).bind(payload.messageId),
+         ).bind(event.messageId),
       ]);
 
       if (subscriber !== null) {
          await emitWebhookEventSafe(env, 'subscriber.complained', {
             id: subscriber.id,
             email: subscriber.email,
-            message_id: payload.messageId,
-            reason: payload.complaint?.type ?? null,
+            message_id: event.messageId,
+            reason: event.reason,
          });
       }
       return;
    }
 
-   if (event.type === BOUNCED) {
-      if (payload.bounce?.type !== 'hard') return;
+   if (event.kind === 'bounced') {
+      if (event.bounceType !== 'hard') return;
 
       if (subscriber !== null) {
          await env.DB.prepare(
@@ -107,35 +104,35 @@ export async function processEmailEvent(env: Env, event: EmailSendingEvent): Pro
          env.DB.prepare(
             `UPDATE campaign_recipients SET status = 'bounced'
              WHERE provider_message_id = ?`,
-         ).bind(payload.messageId),
+         ).bind(event.messageId),
          env.DB.prepare(
             `UPDATE automation_deliveries SET status = 'bounced'
              WHERE provider_message_id = ?`,
-         ).bind(payload.messageId),
+         ).bind(event.messageId),
       ]);
 
       if (subscriber !== null) {
          await emitWebhookEventSafe(env, 'subscriber.bounced', {
             id: subscriber.id,
             email: subscriber.email,
-            message_id: payload.messageId,
-            bounce_type: payload.bounce.type,
-            reason: payload.bounce.reason ?? null,
+            message_id: event.messageId,
+            bounce_type: event.bounceType,
+            reason: event.reason,
          });
       }
       return;
    }
 
-   if (event.type === DELIVERED) {
+   if (event.kind === 'delivered') {
       await env.DB.batch([
          env.DB.prepare(
             `UPDATE campaign_recipients SET status = 'delivered'
              WHERE provider_message_id = ? AND status = 'sent'`,
-         ).bind(payload.messageId),
+         ).bind(event.messageId),
          env.DB.prepare(
             `UPDATE automation_deliveries SET status = 'delivered'
              WHERE provider_message_id = ? AND status = 'sent'`,
-         ).bind(payload.messageId),
+         ).bind(event.messageId),
       ]);
    }
 }
@@ -146,7 +143,8 @@ export async function handleEmailEventQueue(
 ): Promise<void> {
    for (const message of batch.messages) {
       try {
-         await processEmailEvent(env, message.body);
+         const event = normalizeCloudflareEvent(message.body);
+         if (event !== null) await processEmailEvent(env, event);
          message.ack();
       } catch (error) {
          console.error('email_event_failed', {
