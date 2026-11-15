@@ -1,5 +1,5 @@
 ---
-"postwren": minor
+'postwren': minor
 ---
 
 Add pluggable sending providers. Cloudflare Email Service remains the default,
