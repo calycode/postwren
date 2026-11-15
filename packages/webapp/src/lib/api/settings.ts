@@ -1,5 +1,14 @@
 import { apiFetch } from './client';
-import type { DiscoveredDomain, EmbedSettings, SenderAddress, SenderSettings } from './types';
+import type {
+   DiscoveredDomain,
+   EmbedSettings,
+   ProviderUsageResult,
+   SenderAddress,
+   SenderSettings,
+   SendingProviderInput,
+   SendingProviderSettings,
+   SendingTestResult,
+} from './types';
 
 export type SenderInput = {
    email: string;
@@ -24,6 +33,30 @@ export function discoverSenders(): Promise<{ configured: boolean; domains: Disco
 
 export function cloudflareStatus(): Promise<{ configured: boolean }> {
    return apiFetch<{ configured: boolean }>('/api/v1/settings/cloudflare/status');
+}
+
+export function getSendingProvider(): Promise<SendingProviderSettings> {
+   return apiFetch<SendingProviderSettings>('/api/v1/settings/sending-provider');
+}
+
+export function updateSendingProvider(
+   input: SendingProviderInput,
+): Promise<SendingProviderSettings> {
+   return apiFetch<SendingProviderSettings>('/api/v1/settings/sending-provider', {
+      method: 'PUT',
+      body: input,
+   });
+}
+
+export function testSendingProvider(to?: string): Promise<SendingTestResult> {
+   return apiFetch<SendingTestResult>('/api/v1/settings/sending-provider/test', {
+      method: 'POST',
+      body: to === undefined ? {} : { to },
+   });
+}
+
+export function getSendingProviderUsage(): Promise<ProviderUsageResult> {
+   return apiFetch<ProviderUsageResult>('/api/v1/settings/sending-provider/usage');
 }
 
 export type SenderVerification = {

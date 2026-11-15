@@ -5,6 +5,11 @@ SESSION_SECRET=replace-with-32-plus-random-bytes
 # random bytes. Rotating it invalidates links and keys already in the wild.
 TOKEN_SECRET=replace-with-32-plus-random-bytes
 
+# Optional. Base64 for exactly 32 bytes. Encrypts provider API keys and webhook
+# signing secrets stored in D1. When unset, the key is derived from TOKEN_SECRET
+# with HKDF, so rotating TOKEN_SECRET makes stored provider keys unreadable.
+SETTINGS_ENCRYPTION_KEY=
+
 # Optional. Read-only Cloudflare API token (Zone Read, DNS Read, Email Sending
 # Read) that powers Settings -> Sending domains: zone discovery and the
 # "Check verification" action for sending domains. Leave blank to fall back to

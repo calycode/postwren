@@ -20,6 +20,7 @@ export type CampaignRow = {
    audience_count: number | null;
    dispatch_cursor: string | null;
    ir_snapshot: string | null;
+   provider: string;
    created_at: number;
    updated_at: number;
    started_at: number | null;

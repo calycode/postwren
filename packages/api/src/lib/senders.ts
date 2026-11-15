@@ -69,13 +69,13 @@ export async function assertSenderAllowed(
    const match = rows.results.find((row) => row.email === normalised);
    if (match === undefined) {
       throw senderRejected(
-         `Sender ${normalised} is not a configured sending address. Add it in Settings and verify its domain in Cloudflare.`,
+         `Sender ${normalised} is not a configured sending address. Add it in Settings first.`,
       );
    }
 
    if (match.verified_at === null) {
       throw senderRejected(
-         `Sender ${normalised} is not verified yet. Verify its domain in the Cloudflare dashboard.`,
+         `Sender ${normalised} is not verified yet. Verify its domain with your sending provider, then mark it in Settings.`,
       );
    }
 }

@@ -51,11 +51,18 @@ pnpm exec wrangler secret put SESSION_SECRET
 pnpm exec wrangler secret put TOKEN_SECRET
 # Optional: only needed when a subscribe key requires Turnstile.
 pnpm exec wrangler secret put TURNSTILE_SECRET
+# Optional: base64 32 bytes. Encrypts provider credentials in D1.
+pnpm exec wrangler secret put SETTINGS_ENCRYPTION_KEY
 ```
 
 `SESSION_SECRET` signs session cookies and magic-link tokens. `TOKEN_SECRET`
 signs tracking pixels, unsubscribe links and service tokens. Rotating
 `TOKEN_SECRET` invalidates links and credentials already in the wild.
+
+`SETTINGS_ENCRYPTION_KEY` is optional. Without it, provider credentials are
+encrypted with a key derived from `TOKEN_SECRET`. Set it before saving a
+provider key; changing the source later makes stored provider credentials
+undecryptable.
 
 ### 3. Apply migrations, then deploy
 

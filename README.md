@@ -39,27 +39,16 @@ migrations/    numbered SQL
 
 ## Integrations
 
-- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert, optional double opt-in and address hygiene. See [docs/developer/public-subscribe.md](docs/developer/public-subscribe.md).
-- **Webhooks** — signed, retried POSTs for subscriber and campaign events, with a delivery log. See [docs/developer/webhooks.md](docs/developer/webhooks.md).
-- **Bounces and complaints** — Cloudflare Email Sending events are consumed from a queue, so hard bounces and spam complaints suppress the subscriber everywhere. See [docs/developer/email-events.md](docs/developer/email-events.md).
-- **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/developer/agent-access.md](docs/developer/agent-access.md).
-- **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/developer/iframe-embedding.md](docs/developer/iframe-embedding.md).
+- **Newsletter forms** — `POST /api/public/subscribe` with a publishable `pk_live_` key. Per-key origin allowlist, honeypot, rate limit, idempotent upsert, optional double opt-in and address hygiene. See [docs/PUBLIC-SUBSCRIBE.md](docs/PUBLIC-SUBSCRIBE.md).
+- **Webhooks** — signed, retried POSTs for subscriber and campaign events, with a delivery log. See [docs/WEBHOOKS.md](docs/WEBHOOKS.md).
+- **Bounces and complaints** - Cloudflare Email Sending events and Resend webhooks both feed one suppression policy, so hard bounces and spam complaints suppress the subscriber everywhere. See [docs/developer/email-events.md](docs/developer/email-events.md).
+- **Sending providers** - Cloudflare Email Service by default, or Resend, Postmark, SendGrid and Mailgun when you need more volume. Chosen in **Settings → Sending provider**, with encrypted credentials, a per-campaign pin, batched sends and provider-aware webhooks. See [docs/developer/email-events.md](docs/developer/email-events.md).
+- **Scripts and external apps** — scoped `pwr_` bearer keys on `/api/v1/*`. Create them under Settings or through `/api/v1/settings/api-keys`. See [docs/AGENT-ACCESS.md](docs/AGENT-ACCESS.md).
+- **Admin embedding** — exact-origin allowlist for framing the admin SPA in an EmDash page or another host. Same-origin only by default. See [docs/IFRAME-EMBEDDING.md](docs/IFRAME-EMBEDDING.md).
 - **AI agents** — MCP over Streamable HTTP at `/mcp`, with OAuth 2.1 + PKCE and dynamic client registration for connectors that cannot send a static key.
 - **EmDash sites** — a native plugin that proxies signups to the Worker and renders its settings in the EmDash admin. See [packages/emdash-plugin](packages/emdash-plugin) once installed.
 
 Subscribers and campaigns both carry custom key/value metadata, rendered as `{{ subscriber.meta.key }}` and `{{ campaign.meta.key }}`, and subscriber metadata is filterable with `meta:key=value` in audience queries.
-
-## Documentation
-
-The docs site lives in `docs/` and builds to `packages/docs/dist`:
-
-```sh
-pnpm docs:build     # regenerate the references, then render the site
-pnpm docs:dev       # build, then serve on :3030
-```
-
-It has a user guide for the operator and a developer guide for deployers. The
-HTTP API and MCP tool pages are generated from source. Nothing is deployed yet.
 
 ## Local development
 
@@ -118,6 +107,9 @@ pnpm exec wrangler secret put SESSION_SECRET
 pnpm exec wrangler secret put TOKEN_SECRET
 # Optional: only needed when a subscribe key requires Turnstile.
 pnpm exec wrangler secret put TURNSTILE_SECRET
+# Optional: base64 for 32 random bytes. Separates provider credential
+# encryption from TOKEN_SECRET. Without it the key is derived from TOKEN_SECRET.
+pnpm exec wrangler secret put SETTINGS_ENCRYPTION_KEY
 pnpm db:migrate:remote
 pnpm deploy
 ```
@@ -126,8 +118,11 @@ pnpm deploy
 
 4. **Subscribe the event queue.** In the Cloudflare dashboard, open Queues → `postwren-email-events` → Subscriptions and subscribe it to Email Sending for the sending domain, selecting `message.bounced`, `message.complained` and `message.delivered`. Repeat per sending domain. Without this the app still sends, but bounces and complaints are only visible in Cloudflare, not in Postwren.
 
-5. **Onboard the sending domain** in the Cloudflare dashboard under Email Service, and set `EMAIL_FROM` to an address on it. Use a dedicated subdomain (`marketing.example.com`) so marketing complaints cannot damage transactional reputation. New domains start with conservative daily quotas that scale with reputation — do not open with a large blast.
-6. Add the same address in **Settings → Sending domains**. Campaigns can only send from a verified address in that list, which is what stops a typo from burning the domain.
+5. **Optional: switch provider.** Open **Settings → Sending provider**, choose Resend, Postmark, SendGrid or Mailgun, fill the fields the card asks for, then save and send a test. Copy the webhook URL shown there into the provider and subscribe to its delivery events. Campaigns pin the active provider when they are scheduled, so a later switch does not change a send already in flight. Sends are batched at the provider's request limit and paced at a conservative default rate.
+
+6. **Onboard the sending domain.** For Cloudflare, add it in the dashboard under Email Service. For an HTTP provider, add it in that provider and publish the DNS records it shows. Set `EMAIL_FROM` to an address on the domain. Use a dedicated subdomain (`marketing.example.com`) so marketing complaints cannot damage transactional reputation. New domains start with conservative daily quotas that scale with reputation. Do not open with a large blast.
+
+7. Add the same address in **Settings → Sending domains**. Campaigns can only send from a verified address in that list, which is what stops a typo from burning the domain.
 
 Optional: set a scoped `CLOUDFLARE_API_TOKEN` (Zone Read, DNS Read and Email Sending Read, plus `CLOUDFLARE_ACCOUNT_ID` if the token can see more than one account) to let **Settings → Sending domains** list your zones, flag missing MX, SPF, DKIM and DMARC records, and check whether a domain is onboarded for Email Sending. Postwren only reads Cloudflare; it never edits DNS. Cloudflare verifies sending **domains**, not individual addresses — once a domain is onboarded under Email Service → Email Sending, every address on it may send.
 
@@ -158,18 +153,18 @@ Test at the seams: `renderEmail` output and invariants, IR parse/migrate round-t
 
 ## Project
 
-- [Positioning](docs/project/positioning.md)
-- [Comparison with beehiiv's backlog](docs/project/comparison.md)
-- [Repeating collections in templates](docs/developer/repeat-blocks.md)
-- [UI and UX review](docs/project/ui-review.md)
-- [Automation module proposal](docs/developer/automation-spec.md)
-- [Brand and naming](docs/project/branding.md)
-- [Appflare deployment](docs/developer/appflare.md)
-- [Turborepo remote cache](docs/developer/remote-cache.md)
-- [Release and remote checklist](docs/developer/releasing.md)
-- [Public subscribe contract](docs/developer/public-subscribe.md)
-- [Webhooks](docs/developer/webhooks.md)
+- [Positioning](docs/POSITIONING.md)
+- [Comparison with beehiiv's backlog](docs/COMPARISON.md)
+- [Repeating collections in templates](docs/REPEAT-BLOCKS.md)
+- [UI and UX review](docs/UI-REVIEW.md)
+- [Automation module proposal](docs/AUTOMATIONS.md)
+- [Brand and naming](docs/BRANDING.md)
+- [Appflare deployment](docs/APPFLARE.md)
+- [Turborepo remote cache](docs/REMOTE-CACHE.md)
+- [Release and remote checklist](docs/RELEASING.md)
+- [Public subscribe contract](docs/PUBLIC-SUBSCRIBE.md)
+- [Webhooks](docs/WEBHOOKS.md)
 - [Bounces and complaints](docs/developer/email-events.md)
-- [Agent access, API keys and MCP](docs/developer/agent-access.md)
-- [EmDash plugin packaging](docs/developer/emdash-plugin.md)
-- [Iframe embedding](docs/developer/iframe-embedding.md)
+- [Agent access, API keys and MCP](docs/AGENT-ACCESS.md)
+- [EmDash plugin packaging](docs/EMDASH-PLUGIN.md)
+- [Iframe embedding](docs/IFRAME-EMBEDDING.md)

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { EmailSendingEvent } from '../src/env';
+import { normalizeCloudflareEvent } from '../src/lib/email-events';
 import { processEmailEvent } from '../src/jobs/email-events';
 import {
    baseEnv,
@@ -52,6 +53,12 @@ function event(
    };
 }
 
+function normalized(event: EmailSendingEvent) {
+   const value = normalizeCloudflareEvent(event);
+   if (value === null) throw new Error('Expected a normalised event');
+   return value;
+}
+
 describe('Email Sending event ingestion', () => {
    it('suppresses a complaint everywhere and records it once', async () => {
       const { target, campaignId } = await fixture('reader@example.com', 'provider-1');
@@ -63,8 +70,8 @@ describe('Email Sending event ingestion', () => {
          { complaint: { type: 'abuse' } },
       );
 
-      await processEmailEvent(target, complaint);
-      await processEmailEvent(target, complaint);
+      await processEmailEvent(target, normalized(complaint));
+      await processEmailEvent(target, normalized(complaint));
 
       const subscriber = await target.DB.prepare(
          'SELECT status, unsubscribed_at FROM subscribers WHERE email = ?',
@@ -91,28 +98,32 @@ describe('Email Sending event ingestion', () => {
       const hard = await fixture('hard@example.com', 'provider-hard');
       await processEmailEvent(
          hard.target,
-         event(
-            'cf.email.sending.message.bounced',
-            'hard@example.com',
-            'provider-hard',
-            'evt_hard',
-            {
-               bounce: { type: 'hard', reason: '550 5.1.1 User unknown' },
-            },
+         normalized(
+            event(
+               'cf.email.sending.message.bounced',
+               'hard@example.com',
+               'provider-hard',
+               'evt_hard',
+               {
+                  bounce: { type: 'hard', reason: '550 5.1.1 User unknown' },
+               },
+            ),
          ),
       );
 
       const soft = await fixture('soft@example.com', 'provider-soft');
       await processEmailEvent(
          soft.target,
-         event(
-            'cf.email.sending.message.bounced',
-            'soft@example.com',
-            'provider-soft',
-            'evt_soft',
-            {
-               bounce: { type: 'soft', reason: 'mailbox full' },
-            },
+         normalized(
+            event(
+               'cf.email.sending.message.bounced',
+               'soft@example.com',
+               'provider-soft',
+               'evt_soft',
+               {
+                  bounce: { type: 'soft', reason: 'mailbox full' },
+               },
+            ),
          ),
       );
 
@@ -136,11 +147,13 @@ describe('Email Sending event ingestion', () => {
 
       await processEmailEvent(
          target,
-         event(
-            'cf.email.sending.message.delivered',
-            'delivered@example.com',
-            'provider-delivered',
-            'evt_delivered',
+         normalized(
+            event(
+               'cf.email.sending.message.delivered',
+               'delivered@example.com',
+               'provider-delivered',
+               'evt_delivered',
+            ),
          ),
       );
 
@@ -161,12 +174,14 @@ describe('Email Sending event ingestion', () => {
       const target = baseEnv();
       await processEmailEvent(
          target,
-         event(
-            'cf.email.sending.message.complained',
-            'nobody@example.com',
-            'provider-unknown',
-            'evt_unknown',
-            { complaint: { type: 'abuse' } },
+         normalized(
+            event(
+               'cf.email.sending.message.complained',
+               'nobody@example.com',
+               'provider-unknown',
+               'evt_unknown',
+               { complaint: { type: 'abuse' } },
+            ),
          ),
       );
 

@@ -14,9 +14,9 @@ Legend:
 | **Thin** | Present, but narrower than the beehiiv line item.                             |
 | **Skip** | Not this product. A separate company or a different roadmap.                  |
 
-The canonical positioning narrative is [POSITIONING.md](POSITIONING.md). The raw
-decision log is [research/beehiiv-backlog.md](research/beehiiv-backlog.md), and
-the repeat design is [REPEAT-BLOCKS.md](REPEAT-BLOCKS.md).
+The canonical positioning narrative is [POSITIONING.md](positioning.md). The raw
+decision log is [research/beehiiv-backlog.md](../research/beehiiv-backlog.md), and
+the repeat design is [REPEAT-BLOCKS.md](../developer/repeat-blocks.md).
 
 ## 1. Deliverability and sending
 
@@ -176,19 +176,19 @@ the thing it is trying to avoid.
 
 ## 10. The stack economy
 
-| beehiiv's line item                           | Postwren                                      |
-| --------------------------------------------- | --------------------------------------------- |
-| Email sending (SendGrid, SES, Postmark)       | Cloudflare Email Service through `send_email` |
-| Web hosting (Vercel, AWS, Render)             | Workers plus static assets                    |
-| Database and queue (Supabase, Neon, RDS)      | D1 plus Queues                                |
-| Auth (Clerk, Auth0, Supabase Auth)            | Built-in magic link and six-digit code        |
-| Workflow engine (Inngest, Temporal, QStash)   | Cron sweep plus D1 rows                       |
-| Media storage and CDN (S3, R2, Vercel Blob)   | R2, served from `/media/*`                    |
-| Bot protection (Cloudflare)                   | Same account, optional Turnstile              |
-| Monitoring (Sentry, Datadog, PagerDuty)       | Workers logs and analytics; Sentry optional   |
-| Email validation (ZeroBounce, Kickbox)        | Static list plus DoH MX/A check               |
-| Email rendering tests (Litmus, Email on Acid) | Golden renderer tests; not every client       |
-| Payments, product analytics                   | Not part of the product                       |
+| beehiiv's line item                           | Postwren                                                                                                 |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Email sending (SendGrid, SES, Postmark)       | Cloudflare Email Service through `send_email`, or an HTTP provider (Resend, Postmark, SendGrid, Mailgun) |
+| Web hosting (Vercel, AWS, Render)             | Workers plus static assets                                                                               |
+| Database and queue (Supabase, Neon, RDS)      | D1 plus Queues                                                                                           |
+| Auth (Clerk, Auth0, Supabase Auth)            | Built-in magic link and six-digit code                                                                   |
+| Workflow engine (Inngest, Temporal, QStash)   | Cron sweep plus D1 rows                                                                                  |
+| Media storage and CDN (S3, R2, Vercel Blob)   | R2, served from `/media/*`                                                                               |
+| Bot protection (Cloudflare)                   | Same account, optional Turnstile                                                                         |
+| Monitoring (Sentry, Datadog, PagerDuty)       | Workers logs and analytics; Sentry optional                                                              |
+| Email validation (ZeroBounce, Kickbox)        | Static list plus DoH MX/A check                                                                          |
+| Email rendering tests (Litmus, Email on Acid) | Golden renderer tests; not every client                                                                  |
+| Payments, product analytics                   | Not part of the product                                                                                  |
 
 ## 11. Gaps worth closing, in order
 

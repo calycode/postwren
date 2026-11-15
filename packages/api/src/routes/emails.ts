@@ -4,7 +4,7 @@ import { createId } from '@postwren/worker-kit/ids';
 import { ok } from '@postwren/worker-kit/envelope';
 import { AppError, ValidationError } from '@postwren/worker-kit/errors';
 import type { AppEnv } from '../env';
-import { createCloudflareAdapter, errorCodeOf } from '../adapters/email';
+import { createEmailSender, errorCodeOf } from '../adapters/email';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { assertSenderAllowed, senderEmailFrom } from '../lib/senders';
 import { readJson } from '../lib/validation';
@@ -105,7 +105,7 @@ emailRoutes.post('/', async (c) => {
    const html = body.html ?? textToHtml(body.text ?? '');
    const text = body.text ?? htmlToText(html);
 
-   const adapter = createCloudflareAdapter(c.env);
+   const adapter = await createEmailSender(c.env);
    try {
       const result = await adapter.send({
          from: { name: senderName, email: fromEmail },

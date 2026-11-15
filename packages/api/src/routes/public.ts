@@ -24,7 +24,7 @@ import { nowSeconds } from '../lib/time';
 import { enrollAddedTags, enrollSubscriberCreated } from '../jobs/automation';
 import { loadSubscriberMetadata, loadSubscriberTags, upsertSubscriber } from '../lib/subscribers';
 import { requestClientIp } from '../middleware/context';
-import { createCloudflareAdapter } from '../adapters/email';
+import { createEmailSender } from '../adapters/email';
 import { checkEmailHygiene, domainAcceptsMail, domainOfEmail } from '../lib/email-hygiene';
 import { verifyTurnstile } from '../lib/turnstile';
 import { parseMetadataJson } from '@postwren/shared/metadata';
@@ -128,7 +128,8 @@ async function sendConfirmationEmail(
    const rendered = renderEmail(confirmationDocument(firstName, confirmUrl));
 
    try {
-      await createCloudflareAdapter(c.env).send({
+      const adapter = await createEmailSender(c.env);
+      await adapter.send({
          from: { name: 'Postwren', email: c.env.EMAIL_FROM },
          to: email,
          subject: 'Confirm your subscription',

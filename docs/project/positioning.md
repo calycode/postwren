@@ -164,7 +164,7 @@ reader decide.
 > block editor that renders Outlook-safe email with tag- and metadata-based
 > audiences, scheduled campaigns, linear automations, signed webhooks and an
 > MCP/API surface. It runs on a single Cloudflare Worker with D1, R2 and Queues;
-> sending is delegated to Cloudflare Email Service. MIT licensed.
+> sending defaults to Cloudflare Email Service and can switch to Resend, Postmark, SendGrid or Mailgun. MIT licensed.
 
 ### Objection handling
 

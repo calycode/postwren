@@ -11,6 +11,7 @@
       "./contracts": "./src/contracts/index.ts",
       "./metadata": "./src/metadata/index.ts",
       "./payload": "./src/payload/index.ts",
+      "./providers": "./src/providers/index.ts",
       "./scopes": "./src/scopes/index.ts",
       "./webhooks": "./src/webhooks/index.ts"
    },

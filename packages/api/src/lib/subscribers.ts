@@ -2,6 +2,7 @@ import { createId } from '@postwren/worker-kit/ids';
 import { ConflictError, ValidationError } from '@postwren/worker-kit/errors';
 import { MAX_METADATA_KEYS, mergeMetadata, metadataErrors } from '@postwren/shared/metadata';
 import type { MetadataRecord } from '@postwren/shared/metadata';
+import type { MailSubscriberRow } from './rows';
 import { isUniqueViolation } from './validation';
 
 export type SubscriberUpsertInput = {
@@ -124,6 +125,68 @@ export async function loadSubscriberTags(db: D1Database, subscriberId: string): 
    return rows.results.map((row) => row.name);
 }
 
+const QUERY_CHUNK = 50;
+
+function chunks<T>(items: T[], size: number): T[][] {
+   const result: T[][] = [];
+   for (let index = 0; index < items.length; index += size) {
+      result.push(items.slice(index, index + size));
+   }
+   return result;
+}
+
+export async function loadSubscriberTagsFor(
+   db: D1Database,
+   subscriberIds: string[],
+): Promise<Map<string, string[]>> {
+   const result = new Map<string, string[]>();
+   if (subscriberIds.length === 0) return result;
+
+   for (const batch of chunks(subscriberIds, QUERY_CHUNK)) {
+      const placeholders = batch.map(() => '?').join(', ');
+      const rows = await db
+         .prepare(
+            `SELECT st.subscriber_id, t.name
+             FROM tags t JOIN subscriber_tags st ON st.tag_id = t.id
+             WHERE st.subscriber_id IN (${placeholders})
+             ORDER BY st.subscriber_id, t.name`,
+         )
+         .bind(...batch)
+         .all<{ subscriber_id: string; name: string }>();
+
+      for (const row of rows.results) {
+         const tags = result.get(row.subscriber_id) ?? [];
+         tags.push(row.name);
+         result.set(row.subscriber_id, tags);
+      }
+   }
+
+   return result;
+}
+
+export async function loadSubscribersFor(
+   db: D1Database,
+   subscriberIds: string[],
+): Promise<Map<string, MailSubscriberRow>> {
+   const result = new Map<string, MailSubscriberRow>();
+   if (subscriberIds.length === 0) return result;
+
+   for (const batch of chunks(subscriberIds, QUERY_CHUNK)) {
+      const placeholders = batch.map(() => '?').join(', ');
+      const rows = await db
+         .prepare(
+            `SELECT id, email, first_name, last_name, status, deleted_at
+             FROM subscribers WHERE id IN (${placeholders})`,
+         )
+         .bind(...batch)
+         .all<MailSubscriberRow>();
+
+      for (const row of rows.results) result.set(row.id, row);
+   }
+
+   return result;
+}
+
 export async function loadSubscriberMetadata(
    db: D1Database,
    subscriberId: string,
@@ -145,20 +208,22 @@ export async function loadSubscriberMetadataFor(
    const result = new Map<string, MetadataRecord>();
    if (subscriberIds.length === 0) return result;
 
-   const placeholders = subscriberIds.map(() => '?').join(', ');
-   const rows = await db
-      .prepare(
-         `SELECT subscriber_id, key, value FROM subscriber_metadata
-          WHERE subscriber_id IN (${placeholders})
-          ORDER BY subscriber_id, key`,
-      )
-      .bind(...subscriberIds)
-      .all<{ subscriber_id: string; key: string; value: string }>();
+   for (const batch of chunks(subscriberIds, QUERY_CHUNK)) {
+      const placeholders = batch.map(() => '?').join(', ');
+      const rows = await db
+         .prepare(
+            `SELECT subscriber_id, key, value FROM subscriber_metadata
+             WHERE subscriber_id IN (${placeholders})
+             ORDER BY subscriber_id, key`,
+         )
+         .bind(...batch)
+         .all<{ subscriber_id: string; key: string; value: string }>();
 
-   for (const row of rows.results) {
-      const metadata = result.get(row.subscriber_id) ?? {};
-      metadata[row.key] = row.value;
-      result.set(row.subscriber_id, metadata);
+      for (const row of rows.results) {
+         const metadata = result.get(row.subscriber_id) ?? {};
+         metadata[row.key] = row.value;
+         result.set(row.subscriber_id, metadata);
+      }
    }
 
    return result;
