@@ -3,7 +3,7 @@ import { buttonVariants, EmptyState } from '@postwren/ui';
 
 export function NotFound() {
    return (
-      <main className="flex min-h-dvh items-center justify-center bg-background p-4 text-foreground">
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
          <div className="w-full max-w-lg">
             <EmptyState
                icon={<Compass aria-hidden="true" />}
@@ -19,6 +19,6 @@ export function NotFound() {
                }
             />
          </div>
-      </main>
+      </div>
    );
 }

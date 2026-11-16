@@ -42,6 +42,23 @@ test.describe('Audience: managing subscribers', () => {
       });
    });
 
+   test('closes the detail panel on a phone viewport', async ({ api, page }) => {
+      const email = uniqueEmail('panel-mobile');
+      await createSubscriber(api, { email, firstName: 'Ada' });
+
+      await test.step('open the panel below the phone breakpoint', async () => {
+         await page.setViewportSize({ width: 390, height: 844 });
+         await page.goto('/subscribers');
+         await openSubscriberPanel(page, email);
+      });
+
+      await test.step('reach the close button under the sticky header', async () => {
+         const panel = page.getByRole('complementary', { name: `Subscriber ${email}` });
+         await panel.getByRole('button', { name: 'Close subscriber panel' }).click();
+         await expect(panel).toBeHidden();
+      });
+   });
+
    test('imports a CSV file and reports the rows it skipped', async ({ page }) => {
       const valid = uniqueEmail('csv');
       const csv = [

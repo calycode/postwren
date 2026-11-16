@@ -216,6 +216,12 @@ export function AppShell({ children }: { children: ComponentChildren }) {
       }
    }, [collapsed]);
 
+   // The drawer is mounted for the life of the app now, so a route change from
+   // anywhere (tour, back button, a link in a dialog) must dismiss it.
+   useEffect(() => {
+      setMobileOpen(false);
+   }, [path]);
+
    async function handleSignOut() {
       await signOut();
       route('/login');
@@ -450,7 +456,6 @@ export function AppShell({ children }: { children: ComponentChildren }) {
 
             <main
                id="main-content"
-               key={path}
                tabIndex={-1}
                className="page-in mx-auto w-full max-w-[1440px] flex-1 px-4 py-5 outline-none sm:px-6 sm:py-6 lg:px-8 lg:py-8"
             >
