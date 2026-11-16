@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from '@postwren/ui';
 
@@ -230,7 +231,10 @@ export function DetailPanel({
    const panelRef = useRef<HTMLDivElement>(null);
    const flow = useRowFlow(rowKey, panelRef);
 
-   return (
+   // Render beside the app shell, not inside <main>. A fixed overlay left in the
+   // page tree picks up its ancestors' stacking and containing blocks, which
+   // kept this panel and its close button below the sticky mobile header.
+   return createPortal(
       <>
          <button
             type="button"
@@ -272,6 +276,7 @@ export function DetailPanel({
                />
             )}
          </aside>
-      </>
+      </>,
+      document.body,
    );
 }

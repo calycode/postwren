@@ -157,9 +157,11 @@
 }
 
 .page-in {
-   /* Fade only: a transform here shifts the whole page on mount and becomes
-      the containing block for fixed-position panels. */
-   animation: page-in 160ms ease-out both;
+   /* Fade only. A transform here would shift the page on mount and become the
+      containing block for fixed-position panels. Fill backwards, not both: a
+      filled opacity animation keeps a stacking context on <main> for the life
+      of the page, which hides fixed children below the sticky header. */
+   animation: page-in 160ms ease-out backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
